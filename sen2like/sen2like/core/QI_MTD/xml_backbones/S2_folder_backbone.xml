@@ -1,0 +1,56 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<PRODUCT_NAME>
+	<!--Product name convention : https://sentinel.esa.int/web/sentinel/user-guides/sentinel-2-msi/naming-convention-->
+	<AUX_DATA type="folder"/>
+	<DATASTRIP type="folder"/>
+	<rep_info type="folder"/>
+	<HTML type="folder">
+		<!--Folder containing a product presentation html file-->
+	</HTML>
+	<GRANULE type="folder">
+		<!--Folder containing the Tiles composing the product-->
+		<TILE_NAME type="folder">
+			<IMG_DATA type="folder">
+				<All_11_S2_CHANNELS type="file"/>
+				<Aerosol_Optical_Thickness_map type="file"/>
+				<Water_Vapor_Map type="file"/>
+				<TCI_channel optional="True" type="file"/>
+				<NATIVE type="folder"/>
+			</IMG_DATA>
+			<QI_DATA type="folder">
+				<OLQC_reports_XML_formatted type="file"/>
+				<GML_Quality_Mask_files type="file"/>
+				<Cloud_Confidence type="file">
+					<!--Raster mask values range from 0 for high confidence clear sky to 100 for high confidence cloudy. Unsigned Integer. JPEG2000. 8bit. available at 20m and 60m resolution.-->
+				</Cloud_Confidence>
+				<Snow_Ice_Confidence type="file">
+					<!--Raster mask values range from 0 for high confidence NO snow/ice to 100 for high confidence snow/ice. Unsigned Integer. JPEG2000. 8bit. available at 20m and 60m resolution.-->
+				</Snow_Ice_Confidence>
+				<Preview_Image optional="True" type="file">
+					<!--L2A PVI Preview Image file 343 x 343 pixels-->
+				</Preview_Image>
+				<DDV_pixels type="file">
+					<!--Raster mask of Dark Dense Vegetation pixels used during AOT retrieval processing (optional)-->
+				</DDV_pixels>
+			</QI_DATA>
+			<AUX_DATA optional="True" type="folder">
+				<!--Folder containing ECMWF data resampled in UTM projection-->
+				<ECMWF_Meteorological_file type="file">
+					<!--Metetorological data in GRIB format resampled in UTM projection-->
+				</ECMWF_Meteorological_file>
+				<DEM optional="True" type="file">
+					<!--MOptional Digital Elevation Map resampled to image data resolution-->
+				</DEM>
+			</AUX_DATA>
+		</TILE_NAME>
+	</GRANULE>
+	<INSPIRE.xml type="file">
+		<!--XML INSPIRE metadata file-->
+	</INSPIRE.xml>
+	<manifest.safe type="file">
+		<!--XML manifest file (SAFE)-->
+	</manifest.safe>
+	<Product_Metadata_File type="file">
+		<!--XML Main Metadata File-->
+	</Product_Metadata_File>
+</PRODUCT_NAME>

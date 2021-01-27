@@ -1,0 +1,97 @@
+
+MaJ ) Le 22 juin 2018 -
+*****
+* Retrieve automatic des parametres ECMWF
+* Mettre a jour python pour utiliser le module "netcdf4"
+*               https://anaconda.org/anaconda/netcdf4
+*               http://unidata.github.io/netcdf4-python/
+
+
+MaJ ) Le 28 avril 2018 -
+
+*****
+* POur recupérer a partir des données ECMWF les quantites atmospheriques
+  Utilise le code m lab  "processNetCDF"
+  processNetCDF est stocke dans  C:\DEV\_L2_processing\m-file
+  Modifier en entree les codes OLI_atms pour mettre les bons parametres
+*****
+
+
+****
+*  Defintion des sous images pour les differentes activités :
+******
+
+****** SITE = La Crau
+        product_name =  'LC08_L1TP_196030_20171130_20171130_01_RT_MTI'
+
+
+        Conditions de l atmosphere :
+            # 196 - 30 Scene
+            taup550 = 0.03484  # unit: cm.atm
+            uO3 = 0.3  # unit: cm.atm
+            uH2O = 0.651  # unit: cm.atm
+            pressure = 1009.5835  # unit: hpa
+
+ROI utiliser pour la presentation a l'esa
+        label = 'roi_2'
+        ul_x = 2000
+        ul_y = 3000
+        height = 2000 #Pixels
+        width = 2000 #Pixels
+
+ROI utiliser pour les cartes de nouvelles annéen
+        label = 'roi_2'  #ROI2 For presentation
+        ul_x = 2000  #Line
+        ul_y = 3250  #Column
+        height = 2000 #Pixels
+        width = 3000 #Pixels
+
+
+****** SITE = Almeria
+        product_name =  'LC08_L1TP_200034_20171126_20171126_01_RT'
+        Conditions de l atmosphere :
+            # 200 - 34 Scene
+
+ROI utiliser pour les cartes de nouvelles annéen - mais images trop nuageuse
+        ul_x = 2500    #Line
+        ul_y = 100    #Column
+        height = 4000 #Pixels
+        width = 6000 #Pixels
+
+
+
+****** SITE = Libya 4
+        product_name =  'LC81810402017309MTI00'
+        Conditions de l atmosphere :
+            # 200 - 34 Scene
+            taup550 = 0.1459  # unit: cm.atm
+            uO3 = 0.268  # unit: cm.atm
+            uH2O = 1.0831  # unit: cm.atm
+            pressure = 1017.333  # unit: hpa
+
+            Vertex Longitude - Latitude
+              UL : 23.6  -  26.4
+              UR : 24  -  26.4
+              LR : 24  -  26
+              LL : 23.6  -  26
+
+
+            Day of month : 15 -  Estimate Water Vapor Column (unit g.cm-2)  : 1.0831
+            Day of month : 15 -  Estimate Ozone Value        (unit du)      : 267.6542
+            Day of month : 15 -  Estimate Ozone Value       (SI unit kg.m-2): 0.0057319
+            Day of month : 15 -  Total Aerosol Optical Depth (unit ...)     : 0.1459
+            Day of month : 15 -  Estimate Mean sea level pressure (Pa)      : 1017.333
+
+            %%%%% Estimate Atmospheric Coefficients :
+            %%%%%   latitude  longitude    WV    OZ    AOT  MSL
+            %%%%%    26.2    23.8     1.0598  268.6275  0.15659  1018.2306
+
+ROI utiliser pour les cartes de nouvelles annéen - mais images trop nuageuse
+        label = 'roi_1'
+        ul_x = 1500    #Line
+        ul_y = 1000    #Column
+        height = 3386 #Pixels
+        width = 5080 #Pixels
+
+
+

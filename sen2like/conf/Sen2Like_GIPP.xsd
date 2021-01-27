@@ -1,0 +1,136 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<xs:schema attributeFormDefault="unqualified" elementFormDefault="qualified"
+           xmlns:xs="http://www.w3.org/2001/XMLSchema">
+    <xs:element name="Level-2A_Ground_Image_Processing_Parameter"
+                type="Level-2A_Ground_Image_Processing_ParameterType"/>
+    <xs:complexType name="ProcessingType">
+        <xs:sequence>
+            <xs:element type="StringBoolType" name="doStitching"/>
+            <xs:element type="StringBoolType" name="doGeometryKLT"/>
+            <xs:element type="StringBoolType" name="doToa"/>
+            <xs:element type="StringBoolType" name="doAtmcor"/>
+            <xs:element type="StringBoolType" name="doNbar"/>
+            <xs:element type="StringBoolType" name="doSbaf"/>
+            <xs:element type="StringBoolType" name="doFusion"/>
+            <xs:element type="StringBoolType" name="doPackager"/>
+            <xs:element type="StringBoolType" name="doPackagerL2H"/>
+            <xs:element type="StringBoolType" name="doPackagerL2F"/>
+        </xs:sequence>
+    </xs:complexType>
+    <xs:complexType name="DirectoriesType">
+        <xs:sequence>
+            <xs:element type="xs:string" name="archive_dir"/>
+            <xs:element type="xs:string" name="cams_dir"/>
+            <xs:element type="xs:string" name="cams_hourly_dir"/>
+            <xs:element type="xs:string" name="cams_climatology_dir"/>
+        </xs:sequence>
+    </xs:complexType>
+
+    <xs:complexType name="DownloaderType">
+        <xs:sequence>
+            <xs:element type="xs:float" name="coverage"/>
+            <xs:element type="xs:string" name="base_url"/>
+            <xs:choice>
+                <xs:sequence>
+                    <xs:element type="xs:string" name="url_parameters_pattern_Sentinel2"/>
+                    <xs:element type="xs:string" name="url_parameters_pattern_Landsat8"/>
+                </xs:sequence>
+                <xs:sequence>
+                    <xs:element type="xs:integer" name="cloud_cover"/>
+                    <xs:element type="xs:string" name="location_Landsat8"/>
+                    <xs:element type="xs:string" name="location_Sentinel2"/>
+                    <xs:element type="xs:string" name="url_parameters_pattern"/>
+                    <xs:element type="xs:string" name="thumbnail_property"/>
+                    <xs:element type="xs:string" name="cloud_cover_property"/>
+                </xs:sequence>
+            </xs:choice>
+        </xs:sequence>
+    </xs:complexType>
+    <xs:complexType name="GeometryType">
+        <xs:sequence>
+            <xs:element type="xs:string" name="reference_band"/>
+            <xs:element type="StringBoolType" name="doMatchingCorrection"/>
+            <xs:element type="xs:string" name="doAssessGeometry"/>
+            <xs:element type="xs:string" name="references_map"/>
+        </xs:sequence>
+    </xs:complexType>
+    <xs:complexType name="AtmcorType">
+        <xs:sequence>
+            <xs:element type="StringBoolType" name="use_sen2cor"/>
+            <xs:element type="xs:string" name="sen2cor_path"/>
+        </xs:sequence>
+    </xs:complexType>
+    <xs:complexType name="StitchingType">
+        <xs:sequence>
+            <xs:element type="xs:integer" name="reframe_margin"/>
+        </xs:sequence>
+    </xs:complexType>
+    <xs:complexType name="FusionType">
+        <xs:sequence>
+            <xs:element type="xs:string" name="predict_method"/>
+            <xs:element type="xs:integer" name="predict_nb_products"/>
+        </xs:sequence>
+    </xs:complexType>
+    <xs:complexType name="OutputFormatType">
+        <xs:sequence>
+            <xs:element type="xs:integer" name="gain"/>
+            <xs:element type="xs:integer" name="offset"/>
+            <xs:element type="StringBoolType" name="COG"/>
+        </xs:sequence>
+    </xs:complexType>
+    <xs:complexType name="COGoptionsType">
+        <xs:sequence>
+            <xs:element type="xs:string" name="interleave"/>
+            <xs:element type="xs:integer" name="internal_tiling"/>
+            <xs:element type="xs:integer" name="internal_overviews"/>
+            <xs:element type="xs:string" name="downsampling_levels_10"/>
+            <xs:element type="xs:string" name="downsampling_levels_15"/>
+            <xs:element type="xs:string" name="downsampling_levels_20"/>
+            <xs:element type="xs:string" name="downsampling_levels_30"/>
+            <xs:element type="xs:string" name="downsampling_levels_60"/>
+            <xs:element type="xs:string" name="resampling_algo_MASK"/>
+            <xs:element type="xs:string" name="resampling_algo"/>
+            <xs:element type="xs:string" name="compression"/>
+            <xs:element type="xs:integer" name="predictor"/>
+        </xs:sequence>
+    </xs:complexType>
+    <xs:complexType name="MultiprocessingType">
+        <xs:sequence>
+            <xs:element type="xs:integer" name="number_of_process"/>
+        </xs:sequence>
+    </xs:complexType>
+    <xs:complexType name="PackagerType">
+        <xs:sequence>
+            <xs:element type="xs:integer" name="quicklook_jpeg_quality"/>
+        </xs:sequence>
+    </xs:complexType>
+    <xs:complexType name="RunTimeType">
+        <xs:sequence>
+            <xs:element type="xs:integer" name="dx"/>
+            <xs:element type="xs:integer" name="dy"/>
+            <xs:element type="xs:string" name="freeze_dx_dy"/>
+        </xs:sequence>
+    </xs:complexType>
+    <xs:complexType name="Level-2A_Ground_Image_Processing_ParameterType">
+        <xs:sequence>
+            <xs:element type="ProcessingType" name="Processing"/>
+            <xs:element type="DirectoriesType" name="Directories"/>
+            <xs:element type="DownloaderType" name="InputProductArchive"/>
+            <xs:element type="GeometryType" name="Geometry"/>
+            <xs:element type="AtmcorType" name="Atmcor"/>
+            <xs:element type="FusionType" name="Fusion"/>
+            <xs:element type="StitchingType" name="Stitching"/>
+            <xs:element type="OutputFormatType" name="OutputFormat"/>
+            <xs:element type="COGoptionsType" name="COGoptions"/>
+            <xs:element type="MultiprocessingType" name="Multiprocessing"/>
+            <xs:element type="PackagerType" name="Packager"/>
+            <xs:element type="RunTimeType" name="RunTime"/>
+        </xs:sequence>
+    </xs:complexType>
+    <xs:simpleType name="StringBoolType">
+        <xs:restriction base="xs:string">
+            <xs:enumeration value="True"/>
+            <xs:enumeration value="False"/>
+        </xs:restriction>
+    </xs:simpleType>
+</xs:schema>

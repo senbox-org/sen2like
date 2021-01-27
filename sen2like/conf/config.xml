@@ -1,0 +1,85 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<Level-2A_Ground_Image_Processing_Parameter xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+                                            xsi:noNamespaceSchemaLocation="Sen2Like_GIPP.xsd">
+    <Processing>
+        <doStitching>True</doStitching>
+        <doGeometryKLT>True</doGeometryKLT>
+        <doToa>True</doToa>
+        <doAtmcor>True</doAtmcor>
+        <doNbar>True</doNbar>
+        <doSbaf>True</doSbaf>
+        <doFusion>True</doFusion>
+        <doPackager>False</doPackager>
+        <doPackagerL2H>False</doPackagerL2H>
+        <doPackagerL2F>True</doPackagerL2F>
+    </Processing>
+    <Directories>
+        <archive_dir>/data/HLS</archive_dir>
+        <cams_dir>/data/CAMS/monthly</cams_dir>
+        <cams_hourly_dir>/data/CAMS/hourly</cams_hourly_dir>
+        <cams_climatology_dir>/data/CAMS/climatology/v1</cams_climatology_dir>
+    </Directories>
+    <InputProductArchive>
+        <coverage>0.5</coverage>
+        <!-- Local -->
+        <base_url>/data/PRODUCTS</base_url>
+        <url_parameters_pattern_Sentinel2>{base_url}/{mission}/{tile}</url_parameters_pattern_Sentinel2>
+        <url_parameters_pattern_Landsat8>{base_url}/{mission}/{path}/{row}</url_parameters_pattern_Landsat8>
+
+        <!--  Creodias -->
+<!--        <base_url>https://finder.creodias.eu/resto/api/collections</base_url>-->
+<!--        <cloud_cover>11</cloud_cover>-->
+<!--        <location_Landsat8>path={path}&amp;row={row}</location_Landsat8>-->
+<!--        <location_Sentinel2>processingLevel={s2_processing_level}&amp;productIdentifier=%25{tile}%25</location_Sentinel2>-->
+<!--        <url_parameters_pattern>{base_url}/{mission}/search.json?maxRecords=100&amp;_pretty=true&amp;cloudCover=%5B0%2C{cloud_cover}%5D&amp;startDate={start_date}&amp;completionDate={end_date}&amp;sortParam=startDate&amp;sortOrder=ascending&amp;status=all&amp;{location}&amp;dataset=ESA-DATASET</url_parameters_pattern>-->
+<!--        <thumbnail_property>properties/productIdentifier</thumbnail_property>-->
+<!--        <cloud_cover_property>properties/cloudCover</cloud_cover_property>-->
+    </InputProductArchive>
+    <Geometry>
+        <reference_band>B04</reference_band>
+        <doMatchingCorrection>True</doMatchingCorrection>
+        <doAssessGeometry>B04</doAssessGeometry>
+        <references_map>/data/References/references_map.json</references_map>
+    </Geometry>
+    <Atmcor>
+        <use_sen2cor>True</use_sen2cor>
+        <sen2cor_path>../sen2cor/process.py</sen2cor_path>
+    </Atmcor>
+    <Fusion>
+        <predict_method>predict</predict_method>
+        <predict_nb_products>2</predict_nb_products>
+    </Fusion>
+    <Stitching>
+        <reframe_margin>50</reframe_margin>
+    </Stitching>
+    <OutputFormat>
+        <gain>10000</gain>
+        <offset>0</offset>
+        <COG>True</COG>
+    </OutputFormat>
+    <COGoptions>
+        <interleave>PIXEL</interleave>
+        <internal_tiling>1024</internal_tiling>
+        <internal_overviews>1024</internal_overviews>
+        <downsampling_levels_10>2 6 12 36</downsampling_levels_10>
+        <downsampling_levels_15>2 4 8 24</downsampling_levels_15>
+        <downsampling_levels_20>2 6 18</downsampling_levels_20>
+        <downsampling_levels_30>2 4 12</downsampling_levels_30>
+        <downsampling_levels_60>2 6</downsampling_levels_60>
+        <resampling_algo_MASK>MODE</resampling_algo_MASK>
+        <resampling_algo>AVERAGE</resampling_algo>
+        <compression>LZW</compression>
+        <predictor>1</predictor>
+    </COGoptions>
+    <Multiprocessing>
+        <number_of_process>5</number_of_process>
+    </Multiprocessing>
+    <Packager>
+        <quicklook_jpeg_quality>75</quicklook_jpeg_quality>
+    </Packager>
+    <RunTime>
+        <dx>0</dx>
+        <dy>0</dy>
+        <freeze_dx_dy>True</freeze_dx_dy>
+    </RunTime>
+</Level-2A_Ground_Image_Processing_Parameter>

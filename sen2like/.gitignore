@@ -1,0 +1,9 @@
+**/.pytest_cache
+**/.idea
+**/__pycache__
+/reports/
+/docs/output
+docs/source/api
+docs/source/modules
+/docs/coverage/
+/doc-generated.txt

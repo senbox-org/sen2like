@@ -1,0 +1,3 @@
+https://scihub.copernicus.eu/dhus
+username
+password
