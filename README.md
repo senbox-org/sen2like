@@ -10,14 +10,14 @@ both through time and with other datasets.
 http://ceos.org/ard/
 
 The __Sen2Like__, [1], project is an ESA/EU funded project. 
-It is part of on going worldwide initiatives and efforts (*NSASA-HLS, Force, CESBIO [2],[3])
+It is part of on going worldwide initiatives and efforts (*NASA-HLS, Force, CESBIO [2],[3])
  aimed at facilitating higher level processing starting from harmonized data. 
  
 The __Sen2Like__ framework is a scientific and open source software. In its current implementation (*November 2020*) ,
 input Level 1 and Level 2 Landsat 8 (LS8) products are processed to be harmonized with Sentinel-2 data (S2).
 The two following ARD product types are generated : 
 * Harmonized Surface Reflectance Products (Level 2H),
-* Fuzzed Surface Reflectance Products (Level 2F). 
+* Fused Surface Reflectance Products (Level 2F). 
 
 This __harmonisation__ process increases the theoretical number of acquisitions of this virtual constellation (95 
  products/year) by 30 % with respect to Sentinel-2 (S2A & S2B) only acquisitions (73 products/year) and promotes 
@@ -39,8 +39,7 @@ It is therefore possible, to cover large geographic extent with a __seamless ima
 
 
 For further details on the format specification of the harmonized products or the functionalities of the Sen2Like software, please 
-refer to the  [User Manual](mettre l'adresse internet qui renvoie au User manuel 
-(dans un des dossiers github ?)).
+refer to the  [User Manual].
 
 
 ## Publications and Contacts
@@ -57,8 +56,7 @@ refer to the  [User Manual](mettre l'adresse internet qui renvoie au User manuel
  + [8] Sen2Like User Manual 
  
 
-**Learn how to use Sen2Like**, have a look at the [User Manual](mettre l'adresse internet qui renvoie au User manuel 
-(dans un des dossiers github ?)).
+**Learn how to use Sen2Like**, have a look at the [User Manual].
 
 **Get help**, contact us at sen2like@telespazio.com.
 
