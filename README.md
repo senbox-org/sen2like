@@ -39,7 +39,7 @@ It is therefore possible, to cover large geographic extent with a __seamless ima
 
 
 For further details on the format specification of the harmonized products or the functionalities of the Sen2Like software, please 
-refer to the  [User Manual].
+refer to the  [User Manual](https://github.com/senbox-org/sen2like/blob/master/sen2like/docs/source/S2-SEN2LIKE-UM-V1.2_OUT.pdf).
 
 
 ## Publications and Contacts
@@ -56,7 +56,7 @@ refer to the  [User Manual].
  + [8] Sen2Like User Manual 
  
 
-**Learn how to use Sen2Like**, have a look at the [User Manual].
+**Learn how to use Sen2Like**, have a look at the [User Manual](https://github.com/senbox-org/sen2like/blob/master/sen2like/docs/source/S2-SEN2LIKE-UM-V1.2_OUT.pdf).
 
 **Get help**, contact us at sen2like@telespazio.com.
 
