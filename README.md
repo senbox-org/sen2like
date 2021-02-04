@@ -3,16 +3,18 @@ Generation of Analysis Ready Dataset - Sentinel-2 Mission category.
    
 ## About
 
+The __Sen2Like__, [1] project is funded by the EU Copernicus programme (https://www.copernicus.eu/fr). 
+
+It is a contribution to on going worldwide initiatives (*NASA-HLS, Force, CESBIO [2],[3])
+ undertook to facilitate higher level processing starting from harmonized data. 
+
 The CEOS Analysis Ready Data for Land (CARD4L) are satellite data that have been processed 
 to a minimum set of requirements and organized into a form that allows immediate
 analysis with a minimum of additional user effort and interoperability 
 both through time and with other datasets.
 http://ceos.org/ard/
 
-The __Sen2Like__, [1] project is funded by the EU Copernicus programme (https://www.copernicus.eu/fr). 
-It is part of on going worldwide initiatives and efforts (*NASA-HLS, Force, CESBIO [2],[3])
- aimed at facilitating higher level processing starting from harmonized data. 
- 
+
 The __Sen2Like__ framework is a scientific and open source software. In its current implementation (*November 2020*) ,
 input Level 1 and Level 2 Landsat 8 (LS8) products are processed to be harmonized with Sentinel-2 data (S2).
 The two following ARD product types are generated : 
@@ -37,10 +39,8 @@ The __processing workflow__ is based on following algorithms :
 Beside these features, the user specifies the geographic footprint of multi temporal data stack.
 It is therefore possible, to cover large geographic extent with a __seamless image mosaic__.  
 
-
 For further details on the format specification of the harmonized products or the functionalities of the Sen2Like software, please 
 refer to the  [User Manual](https://github.com/senbox-org/sen2like/blob/master/sen2like/docs/source/S2-SEN2LIKE-UM-V1.2_OUT.pdf).
-
 
 ## Publications and Contacts
 **Yearning to know more ? Check out
