@@ -9,7 +9,7 @@ analysis with a minimum of additional user effort and interoperability
 both through time and with other datasets.
 http://ceos.org/ard/
 
-The __Sen2Like__, [1], project is an ESA/EU funded project. 
+The __Sen2Like__, [1] project is funded by the EU Copernicus programme (https://www.copernicus.eu/fr). 
 It is part of on going worldwide initiatives and efforts (*NASA-HLS, Force, CESBIO [2],[3])
  aimed at facilitating higher level processing starting from harmonized data. 
  
