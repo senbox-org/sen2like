@@ -38,7 +38,7 @@ For further details on the format specification of the harmonized products or th
 refer to the [Product Format Specification](https://github.com/senbox-org/sen2like/blob/master/sen2like/docs/source/S2-PDGS-MPC-L2HF-PFS-v1.0.pdf), and the [User Manual](https://github.com/senbox-org/sen2like/blob/master/sen2like/docs/source/S2-SEN2LIKE-UM-V1.2_OUT.pdf).
 
 ## Publications and Contacts
-**Yearning to know more ? Check out
+** Yearning to know more ? Check out
 ** poster [Sen2Like, a tool to generate Sentinel-2 Harmonised Surface Reflectance Products, First Results With Landsat-8, 3rd S2 Validation Team Meeting](https://www.researchgate.net/publication/332428332_Sen2like_a_Tool_to_Generate_Sentinel-2_Harmonised_Surface_Reflectance_Products_-_First_Results_With_Landsat-8)
  and the following research papers :
  + [1] S. Saunier, J. Louis, V. Debaecker et al., "Sen2like, A Tool To Generate Sentinel-2 Harmonised Surface Reflectance Products - First Results with Landsat-8," IGARSS 2019 - 2019 IEEE International Geoscience and Remote Sensing Symposium, Yokohama, Japan, 2019, pp. 5650-5653, doi: 10.1109/IGARSS.2019.8899213.
