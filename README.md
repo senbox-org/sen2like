@@ -25,7 +25,7 @@ the Military Grid Reference System (MGRS).
 
 The __processing workflow__ is based on following algorithms:
 *	Geometric Corrections including registration to common reference & the stitching [4],
-*	Atmospheric Corrections by using SMAC [5],
+*	Atmospheric Corrections by using SMAC [5] relying on auxiliary meteorological data,
 *	Application of Spectral Band Adjustment Factor (SBAF) [2],
 *	Transformation to Nadir BRDF-normalized Reflectance (NBAR) [6],[7],
 *	Production of LS8 High Resolution 10 m pixel spacing data (Fusion) [8].
