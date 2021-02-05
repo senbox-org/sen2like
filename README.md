@@ -35,7 +35,7 @@ It is therefore possible, to cover large geographic extent with a __seamless ima
 
 
 For further details on the format specification of the harmonized products or the functionalities of the Sen2Like software, please 
-refer to the [product definition](https://github.com/senbox-org/sen2like/blob/master/sen2like/docs/source/S2-PDGS-MPS-L2HF-PDD-v1.0.pdf), the [product format specification](https://github.com/senbox-org/sen2like/blob/master/sen2like/docs/source/S2-PDGS-MPS-L2HF-PFS-v1.0.pdf), and the [User Manual](https://github.com/senbox-org/sen2like/blob/master/sen2like/docs/source/S2-SEN2LIKE-UM-V1.2_OUT.pdf).
+refer to the [Product Format Specification](https://github.com/senbox-org/sen2like/blob/master/sen2like/docs/source/S2-PDGS-MPS-L2HF-PFS-v1.0.pdf), and the [User Manual](https://github.com/senbox-org/sen2like/blob/master/sen2like/docs/source/S2-SEN2LIKE-UM-V1.2_OUT.pdf).
 
 ## Publications and Contacts
 **Yearning to know more ? Check out
