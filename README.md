@@ -3,23 +3,17 @@ Generation of Analysis Ready Dataset - Sentinel-2 Mission category.
    
 ## About
 
-The __Sen2Like__, [1] project is funded by the EU Copernicus programme (https://www.copernicus.eu/fr). 
+The __Sen2Like__, [1] demonstration processor has been developed by ESA in the framework of the EU Copernicus programme (https://www.copernicus.eu/).
 
-It is a contribution to on going worldwide initiatives (*NASA-HLS, Force, CESBIO [2],[3])
- undertook to facilitate higher level processing starting from harmonized data. 
+The main goal of __Sen2Like__ is to generate Sentinel-2 like harmonised surface reflectances with higher periodicity by integrating additional compatible optical mission sensors.
 
-The CEOS Analysis Ready Data for Land (CARD4L) are satellite data that have been processed 
-to a minimum set of requirements and organized into a form that allows immediate
-analysis with a minimum of additional user effort and interoperability 
-both through time and with other datasets.
-http://ceos.org/ard/
+It is a contribution to on going worldwide initiatives (*NASA-HLS, Force, CESBIO [2],[3]) undertook to facilitate higher level processing starting from harmonized data. 
 
-
-The __Sen2Like__ framework is a scientific and open source software. In its current implementation (*November 2020*) ,
-input Level 1 and Level 2 Landsat 8 (LS8) products are processed to be harmonized with Sentinel-2 data (S2).
-The two following ARD product types are generated : 
-* Harmonized Surface Reflectance Products (Level 2H),
-* Fused Surface Reflectance Products (Level 2F). 
+The __Sen2Like__ framework is a scientific and open source software. In its current implementation version (*November 2020*), it combines Landsat-8 and Sentinel-2 data products. 
+Level 1 and Level 2 input Landsat 8 (LS8) products are processed to be harmonized with Sentinel-2 data (S2).
+The two following ARD product types are generated: 
+* Harmonized Surface Reflectance Products (Level 2H) - at 30m of resolution,
+* Fused Surface Reflectance Products (Level 2F) - at 10-20m of resolution. 
 
 This __harmonisation__ process increases the theoretical number of acquisitions of this virtual constellation (95 
  products/year) by 30 % with respect to Sentinel-2 (S2A & S2B) only acquisitions (73 products/year) and promotes 
@@ -29,7 +23,7 @@ This __harmonisation__ process increases the theoretical number of acquisitions 
 Regardless Missions, Product Type, __Gridded__ data are delivered, the S2 tiling system is based on
 the Military Grid Reference System (MGRS).
 
-The __processing workflow__ is based on following algorithms :
+The __processing workflow__ is based on following algorithms:
 *	Geometric Corrections including registration to common reference & the stitching [4],
 *	Atmospheric Corrections by using SMAC [5],
 *	Application of Spectral Band Adjustment Factor (SBAF) [2],
