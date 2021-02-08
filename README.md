@@ -33,6 +33,7 @@ The __processing workflow__ is based on following algorithms:
 Beside these features, the user specifies the geographic footprint of multi temporal data stack.
 It is therefore possible, to cover large geographic extent with a __seamless image mosaic__.  
 
+It is worth noting that the accuracy of the final ARD product strongly depends on the accuracy of the auxiliary data, in particular the geometric raster reference and the meteorological data. Therefore, in order to improve atmospheric correction processing, one possibility is to use data from the Copernicus Atmosphere Monitoring Service [9]. The Sen2Like team prepared a dedicated CAMS monthly dataset for the Year 2020, available from [here](http://185.178.85.241/CAMS/), please refer to this short [description](http://185.178.85.241/CAMS/Readme_CAMS2020.txt) for additionnal information.
 
 For further details on the format specification of the harmonized products or the functionalities of the Sen2Like software, please 
 refer to the [Product Format Specification](https://github.com/senbox-org/sen2like/blob/master/sen2like/docs/source/S2-PDGS-MPC-L2HF-PFS-v1.0.pdf), and the [User Manual](https://github.com/senbox-org/sen2like/blob/master/sen2like/docs/source/S2-SEN2LIKE-UM-V1.2_OUT.pdf).
@@ -50,7 +51,9 @@ And the following research papers :
  + [5] Rahman, H., & Dedieu, G. "SMAC: a simplified method for the atmospheric correction of satellite measurements in the solar spectrum." REMOTE SENSING, 15(1), 123-143, 1994.
  + [6] Claverie, Martin, Eric Vermote, Belen Franch, Tao He, Olivier Hagolle, Mohamed Kadiri, et Jeff Masek. "Evaluation of Medium Spatial Resolution BRDF-Adjustment Techniques Using Multi-Angular SPOT4 (Take5) Acquisitions". Remote Sensing 7, nᵒ 9 (18 septembre 2015): 12057‑75. (https://doi.org/10.3390/rs70912057) 
  + [7] Roy, David P., Jian Li, Hankui K. Zhang, Lin Yan, Haiyan Huang, et Zhongbin Li. Examination of Sentinel-2A Multi-Spectral Instrument (MSI) Reflectance Anisotropy and the Suitability of a General Method to Normalize MSI Reflectance to Nadir BRDF Adjusted Reflectance". Remote Sensing of Environment 199 (septembre 2017): 25‑38. (https://doi.org/10.1016/j.rse.2017.06.019)
- + [8] Sen2Like User Manual 
+ + [8] Sen2Like User Manual
+ + [9] [Copernicus Atmosphere Monitoring Service](https://atmosphere.copernicus.eu/)
+ 
  
 
 **Learn how to use Sen2Like**, have a look at the [User Manual](https://github.com/senbox-org/sen2like/blob/master/sen2like/docs/source/S2-SEN2LIKE-UM-V1.2_OUT.pdf).
