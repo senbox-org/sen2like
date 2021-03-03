@@ -143,16 +143,6 @@ class S2L_PackagerL2H(S2L_Process):
         config.set('imageout_dir', image.dirpath)
         config.set('imageout_' + band, image.filename)
 
-        if config.getboolean('hlsplus'):
-            outfile = "_".join([band_rootName, band, '{}m'.format(int(res))]) + '.TIF'
-            newpath = self.band_path(tsdir, product_name, granule_compact_name, outfile, native=native)
-            metadata.mtd.get('bands_path_H').append(newpath)
-
-            if pd.sensor == 'L8' and band in pd.image30m:
-                # copy 30m band as well
-                pd.image30m[band].write(creation_options=['COMPRESS=LZW'], filepath=newpath, COG=COG, band=band)
-                del pd.image30m[band]
-
         return image
 
     def postprocess(self, pd):

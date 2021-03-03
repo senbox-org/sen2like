@@ -119,8 +119,9 @@ class S2L_Fusion(S2L_Process):
             log.info('End')
             return image
 
-        # save into file before processing (packager will need it)
-        product.image30m[band] = image
+        # save into file before processing (old packager will need it)
+        if config.getboolean('doPackager'):
+            product.image30m[band] = image
 
         if band == 'B01':
             log.warning('Skipping Data Fusion for B01.')
