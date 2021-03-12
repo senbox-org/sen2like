@@ -44,10 +44,11 @@ class Sentinel2Product(S2L_Product):
         if self.mtl.data_type == 'Level-2A':
             resolutions = sorted([resolution_dir.name for resolution_dir in os.scandir(band_path)])
             for resolution in resolutions:
-                files = glob.glob(os.path.join(band_path, resolution, f'*_{band}_{resolution[1:-1]}m.jp2'))
+                files = glob.glob(
+                    os.path.join(band_path, resolution, f'*_{band}_{resolution[1:-1]}m{self.mtl.file_extension}'))
                 if files:
                     return files
-        return glob.glob(os.path.join(band_path, f'*_{band}.jp2' ))
+        return glob.glob(os.path.join(band_path, f'*_{band}{self.mtl.file_extension}'))
 
     def get_smac_filename(self, band):
         # select S2A or S2B coef

@@ -124,8 +124,10 @@ class Sentinel2MTL(BaseReader):
             self.scene_classif_band = None
             self.bands = {}
             file_path = None
-            ext = '.jp2'
+            self.file_extension = '.jp2'
             for node in node1:
+                if node.hasAttribute('imageFormat') and node.attributes['imageFormat'] == 'GEOTIFF':
+                    self.file_extension = '.TIF'
                 for rec in node.childNodes:
                     if rec.nodeType == 1:  # Select DOM Text Node
                         file_path = rec.childNodes[0].data
@@ -135,9 +137,10 @@ class Sentinel2MTL(BaseReader):
                             band_id = file_path[-3:]
 
                         if is_compact:
-                            file_path = os.path.join(self.product_path, file_path + ext)
+                            file_path = os.path.join(self.product_path, file_path + self.file_extension)
                         else:
-                            file_path = os.path.join(self.product_path, 'GRANULE', self.granule_id, 'IMG_DATA', file_path + ext)
+                            file_path = os.path.join(self.product_path, 'GRANULE', self.granule_id, 'IMG_DATA',
+                                                     file_path + self.file_extension)
                         log.debug(f'{band_id} {file_path}')
                         self.bands[band_id] = file_path
 

@@ -156,6 +156,8 @@ class MTD_writer_LS8(MtdWriter):
         tile_id = generate_LS8_tile_id(product, self.H_F)
         change_elm(self.root_out, rpath='./General_Info/Product_Info/Product_Organisation/Granule_List/Granule',
                    new_value=tile_id, attr_to_change='granuleIdentifier')
+        change_elm(self.root_out, rpath='./General_Info/Product_Info/Product_Organisation/Granule_List/Granule',
+                   new_value='GEOTIFF', attr_to_change='imageFormat')
 
 
         if not config.getboolean('doSbaf'):
