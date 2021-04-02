@@ -28,7 +28,8 @@ class Metadata:
                     "quicklooks_F": [],
                     "ang_filename": "NONE",
                     "qi_path": "NONE",
-                    "pvi_filename": "NONE"
+                    "pvi_filename": "NONE",
+                    "S2_AC": 'ZZZ'
                     }
 
         # self.qi is a dict with the 'Value' nodes from the QI report. key=node_name, item=node_text

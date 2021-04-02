@@ -42,7 +42,10 @@ class MTD_writer_S2(MtdWriter):
         change_elm(self.root_out, rpath='./General_Info/Product_Info/PRODUCT_TYPE', new_value='S2MSI2{}'.format(self.H_F))
 
         pdgs = config.get('PDGS', '9999')
-        PDGS = '.'.join([pdgs[:len(pdgs)//2],  pdgs[len(pdgs)//2:]])
+        PDGS = '.'.join([pdgs[:len(pdgs) // 2], pdgs[len(pdgs) // 2:]])
+        AC = self.root_in.findall('.//ARCHIVING_CENTRE')
+        if AC:
+            metadata.mtd['S2_AC'] = AC[0].text
         change_elm(self.root_out, rpath='./General_Info/Product_Info/PROCESSING_BASELINE', new_value=PDGS)
         generation_time = dt.datetime.strftime(metadata.mtd.get('product_creation_date'), '%Y-%m-%dT%H:%M:%S.%f')[:-3]+'Z'   # -3 to keep only 3 decimals
         change_elm(self.root_out, rpath='./General_Info/Product_Info/GENERATION_TIME', new_value=generation_time)
@@ -51,11 +54,17 @@ class MTD_writer_S2(MtdWriter):
         for band_path in set(metadata.mtd.get('bands_path_{}'.format(self.H_F))):
             adjusted_path = os.path.splitext(re.sub(r'^.*?GRANULE', 'GRANULE', band_path))[0]
             create_child(self.root_out, rpath='./General_Info/Product_Info/Product_Organisation/Granule_List/Granule',
-                           tag='IMAGE_FILE', text=adjusted_path)
-        grnl_id = find_element_by_path(self.root_in, './General_Info/Product_Info/Product_Organisation/Granule_List/Granule')[0].attrib.get('granuleIdentifier')
-        pd_lvl = metadata.mtd.get('granule_{}_name'.format(self.H_F)).split('_')[0]
-        change_elm(self.root_out, rpath='./General_Info/Product_Info/Product_Organisation/Granule_List/Granule',
-                           new_value=grnl_id.replace(pd_lvl, 'L2{}'.format(self.H_F)), attr_to_change='granuleIdentifier')
+                         tag='IMAGE_FILE', text=adjusted_path)
+        grnl_id = \
+            find_element_by_path(self.root_in, './General_Info/Product_Info/Product_Organisation/Granule_List/Granule')
+        if grnl_id:
+            change_elm(self.root_out, rpath='./General_Info/Product_Info/Product_Organisation/Granule_List/Granule',
+                       new_value=generate_S2_tile_id(product, self.H_F, metadata.mtd['S2_AC']),
+                       attr_to_change='granuleIdentifier')
+            change_elm(self.root_out, rpath='./General_Info/Product_Info/Product_Organisation/Granule_List/Granule',
+                       new_value='GEOTIFF', attr_to_change='imageFormat')
+        else:
+            pass  # Fixme
 
         # If Sbaf is done, we keep the values inside the backbone (S2A values)
         if not config.getboolean('doSbaf'):
@@ -203,12 +212,11 @@ class MTD_tile_writer_S2(MtdWriter):
             l2a_tile_id = find_element_by_path(self.root_in, './General_Info/TILE_ID')[0].text
 
         tilecode = product.mtl.mgrs
-        pdgs = metadata.hardcoded_values.get('PDGS', '9999')
-        PDGS = '.'.join([pdgs[:len(pdgs) // 2], pdgs[len(pdgs) // 2:]])
         AC = self.root_in.findall('.//ARCHIVING_CENTRE')
-        AC = AC[0].text if AC else 'ZZZ'
-        acqdate = dt.datetime.strftime(product.acqdate, '%Y%m%dT%H%M%S')
-        tile_id = '_'.join([product.sensor_name, 'OPER', 'MSI', 'L2{}'.format(self.H_F), AC, acqdate, 'A{}'.format(config.get('absolute_orbit')), tilecode, 'N{}'.format(PDGS)])
+        if AC:
+            metadata.mtd['S2_AC'] = AC[0].text
+
+        tile_id = generate_S2_tile_id(product, self.H_F, metadata.mtd['S2_AC'])
 
         change_elm(self.root_out, './General_Info/L1_TILE_ID', new_value=l1c_tile_id)
         change_elm(self.root_out, './General_Info/L2A_TILE_ID', new_value=l2a_tile_id)
@@ -387,4 +395,16 @@ def generate_LS8_tile_id(pd, H_F):
         [pd.sensor_name, 'OPER', 'OLI', 'L2{}'.format(H_F), AC, acqdate, 'A{}'.format(AO), creation_date,
          tilecode, 'N{}'.format(PDGS)])
 
+    return tile_id
+
+
+def generate_S2_tile_id(product, H_F, AC):
+    tilecode = product.mtl.mgrs
+    pdgs = metadata.hardcoded_values.get('PDGS', '9999')
+    PDGS = '.'.join([pdgs[:len(pdgs) // 2], pdgs[len(pdgs) // 2:]])
+    acqdate = dt.datetime.strftime(product.acqdate, '%Y%m%dT%H%M%S')
+    if AC.endswith('_'):
+        AC = AC[:-1]
+    tile_id = '_'.join([product.sensor_name, 'OPER', 'MSI', 'L2{}'.format(H_F), AC, acqdate,
+                        'A{}'.format(config.get('absolute_orbit')), tilecode, 'N{}'.format(PDGS)])
     return tile_id

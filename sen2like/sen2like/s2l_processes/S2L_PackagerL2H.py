@@ -259,20 +259,6 @@ class S2L_PackagerL2H(S2L_Process):
         product_QI_xsd = metadata.hardcoded_values.get('product_QIH_xsd')
         log.info('QI Report is valid : {}'.format(Qi_Writer.validate_schema(product_QI_xsd, out_QI_path)))
 
-        # Write product MTD
-        bb_S2_product = metadata.hardcoded_values.get('bb_S2H_product')
-        bb_L8_product = metadata.hardcoded_values.get('bb_L8H_product')
-        product_mtd_path = 'MTD_{}L2H.xml'.format(pd.mtl.sensor[0:3])  # MSI / OLI/ OLI_TIRS
-        product_MTD_outpath = os.path.join(tsdir, product_name, product_mtd_path)
-        mtd_pd_writer = MTD_writer_S2(bb_S2_product, pd.mtl.mtl_file_name, H_F='H') if pd.sensor == 'S2' \
-            else MTD_writer_LS8(bb_L8_product, H_F='H')
-        mtd_pd_writer._manual_replaces(pd)
-        mtd_pd_writer.write(product_MTD_outpath, pretty_print=True)
-        # TODO UNCOMMENT BELOW FOR XSD CHECK
-        # product_mtd_xsd = metadata.hardcoded_values.get('product_mtd_xsd')
-        # log.info('Product MTD is valid : {}'.format(mtd_pd_writer.validate_schema(product_mtd_xsd,
-        #                                                                           product_MTD_outpath)))
-
         # Write tile MTD
         bb_S2_tile = metadata.hardcoded_values.get('bb_S2H_tile')
         bb_L8_tile = metadata.hardcoded_values.get('bb_L8H_tile')
@@ -286,3 +272,17 @@ class S2L_PackagerL2H(S2L_Process):
         # TODO UNCOMMENT BELOW FOR XSD CHECK
         # product_tl_xsd = metadata.hardcoded_values.get('product_tl_xsd')
         # log.info('Tile MTD is valid : {}'.format(mtd_tl_writer.validate_schema(product_tl_xsd, tile_MTD_outpath)))
+
+        # Write product MTD
+        bb_S2_product = metadata.hardcoded_values.get('bb_S2H_product')
+        bb_L8_product = metadata.hardcoded_values.get('bb_L8H_product')
+        product_mtd_path = 'MTD_{}L2H.xml'.format(pd.mtl.sensor[0:3])  # MSI / OLI/ OLI_TIRS
+        product_MTD_outpath = os.path.join(tsdir, product_name, product_mtd_path)
+        mtd_pd_writer = MTD_writer_S2(bb_S2_product, pd.mtl.mtl_file_name, H_F='H') if pd.sensor == 'S2' \
+            else MTD_writer_LS8(bb_L8_product, H_F='H')
+        mtd_pd_writer._manual_replaces(pd)
+        mtd_pd_writer.write(product_MTD_outpath, pretty_print=True)
+        # TODO UNCOMMENT BELOW FOR XSD CHECK
+        # product_mtd_xsd = metadata.hardcoded_values.get('product_mtd_xsd')
+        # log.info('Product MTD is valid : {}'.format(mtd_pd_writer.validate_schema(product_mtd_xsd,
+        #                                                                           product_MTD_outpath)))
