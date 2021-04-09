@@ -385,14 +385,15 @@ def distance_variation_corr(date):
 
 def generate_LS8_tile_id(pd, H_F):
     tilecode = pd.mtl.mgrs
+    if not tilecode.startswith('T'):
+        tilecode = f"T{tilecode}"
     pdgs = metadata.hardcoded_values.get('PDGS', '9999')
     PDGS = '.'.join([pdgs[:len(pdgs) // 2], pdgs[len(pdgs) // 2:]])
     AC = metadata.hardcoded_values.get('L8_archiving_center')
     AO = metadata.hardcoded_values.get('L8_absolute_orbit')
     acqdate = dt.datetime.strftime(pd.acqdate, '%Y%m%dT%H%M%S')
-    creation_date = dt.datetime.strftime(metadata.mtd.get('product_creation_date'), '%Y%m%dT%H%M%S')
     tile_id = '_'.join(
-        [pd.sensor_name, 'OPER', 'OLI', 'L2{}'.format(H_F), AC, acqdate, 'A{}'.format(AO), creation_date,
+        [pd.sensor_name, 'OPER', 'OLI', 'L2{}'.format(H_F), AC, acqdate, 'A{}'.format(AO),
          tilecode, 'N{}'.format(PDGS)])
 
     return tile_id
