@@ -4,6 +4,7 @@ import logging
 import os
 import re
 import sqlite3
+import time
 import urllib
 from collections import defaultdict
 from urllib.request import urlopen
@@ -165,7 +166,8 @@ class InputProductArchive:
             cur = connection.execute(sql)
             # TODO: For now, first mgrs tile is excluded. To improve in a future version
             # TODO: Add coverage
-            tiles = [tile[0] for tile in cur.fetchall() if not tile[0].startswith('01') and not tile[0].startswith('60')]
+            tiles = [tile[0] for tile in cur.fetchall() if
+                     not tile[0].startswith('01') and not tile[0].startswith('60')]
             logging.debug("Tiles: {}".format(tiles))
         return tiles
 
@@ -196,18 +198,30 @@ class InputProductArchive:
             logging.debug("WRS WKT: {}".format(wkt))
         return wkt
 
+    def download_file(self, url):
+        try:
+            with urlopen(url, timeout=120) as stream:
+                logger.debug("http request status: %s" % stream.status)
+                return json.loads(stream.read().decode())
+        except (urllib.error.URLError, ValueError) as error:
+            logger.error("Cannot read %s" % url)
+            logger.error(error)
+            return {}
+
     def read_products_from_url(self, url, tile_coverage):
         urls = []
         products = {}
         logger.debug("URL: %s" % url)
-        try:
-            with urlopen(url, timeout=120) as stream:
-                logger.debug("http request status: %s" % stream.status)
-                products = json.loads(stream.read().decode())
-        except (urllib.error.URLError, ValueError) as error:
-            logger.error("Cannot read %s" % url)
-            logger.error(error)
-            return []
+
+        for download_try in range(1, 5):
+            logger.debug("Trying to download url: try %s/5 " % (download_try))
+            products = self.download_file(url)
+            if products:
+                break
+            time.sleep(5)
+        else:
+            logger.error("Cannot download products from url: %s" % url)
+
         for product in products.get("features"):
             downloaded = InputProduct(tile_coverage=tile_coverage)
             _product = product
