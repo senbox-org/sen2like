@@ -198,13 +198,16 @@ class InputProductArchive:
 
     def read_products_from_url(self, url, tile_coverage):
         urls = []
+        products = {}
+        logger.debug("URL: %s" % url)
         try:
-            stream = urlopen(url, timeout=120)
+            with urlopen(url, timeout=120) as stream:
+                logger.debug("http request status: %s" % stream.status)
+                products = json.loads(stream.read().decode())
         except (urllib.error.URLError, ValueError) as error:
             logger.error("Cannot read %s" % url)
             logger.error(error)
             return []
-        products = json.loads(stream.read())
         for product in products.get("features"):
             downloaded = InputProduct(tile_coverage=tile_coverage)
             _product = product
