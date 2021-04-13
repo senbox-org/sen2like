@@ -5,7 +5,7 @@ Generation of Analysis Ready Dataset - Sentinel-2 Mission category.
 
 The __Sen2Like__, [1] demonstration processor has been developed by ESA in the framework of the EU Copernicus programme (https://www.copernicus.eu/).
 
-The main goal of __Sen2Like__ is to generate Sentinel-2 like harmonised surface reflectances with higher periodicity by integrating additional compatible optical mission sensors.
+The main goal of __Sen2Like__ is to generate Sentinel-2 like harmonised/fused surface reflectances with higher periodicity by integrating additional compatible optical mission sensors.
 
 It is a contribution to on going worldwide initiatives (*NASA-HLS, Force, CESBIO [2],[3]) undertook to facilitate higher level processing starting from harmonized data. 
 
