@@ -2,9 +2,10 @@
 # -*- coding: utf-8 -*-
 # V. Debaecker (TPZ-F) 2018
 
-""" Main entry point for the sen2like application."""
+"""Main entry point for the sen2like application."""
 
 import datetime
+import hashlib
 import importlib
 import json
 import logging
@@ -16,7 +17,7 @@ from argparse import ArgumentParser
 from multiprocessing import Pool
 
 from core import S2L_config, log
-from core.QI_MTD.mtd import metadata
+from core.QI_MTD import mtd
 from core.S2L_config import config
 
 try:
@@ -62,18 +63,17 @@ def generic_process_step(blockname, pd, process_step):
     :param process_step: The step to process
     :return:
     """
-
     # check if block is switch ON
     if not config.getboolean('do' + blockname.split('_')[-1]):
         return
 
-    # check if block is applicable to the sensor (L8 or S2)
+    # check if block is applicable to the sensor (L8, L9 or S2)
     if pd.sensor not in S2L_config.PROC_BLOCKS[blockname]['applicability']:
         return
 
     class_instance = get_module(blockname)
 
-    # create object and run preprocess if method exists!
+    # create object and run process if method exists!
     processus = getattr(class_instance, process_step, None)
     if processus is not None:
         return processus(pd)
@@ -89,32 +89,73 @@ def generic_process_band(blockname, pd, image, band):
     # check if block is switch ON
     logger.debug(config.getboolean('do' + blockname.split('_')[-1]))
     if not config.getboolean('do' + blockname.split('_')[-1]):
-        return image
+        return image, None
 
-    # check if block is applicable to the sensor (L8 or S2)
+    # check if block is applicable to the sensor (L8, L9 or S2)
     if pd.sensor not in S2L_config.PROC_BLOCKS[blockname]['applicability']:
-        return image
+        return image, None
 
     class_instance = get_module(blockname)
 
     # create object and run it!
-    return class_instance.process(pd, image, band)
+    return class_instance.process(pd, image, band), class_instance
 
 
-def process_band(pd, band, list_of_blocks):
+def process_band(pd, band, list_of_blocks, _config, _metadata, _processus=None):
     """Function for running all the blocks over one band."""
+    if S2L_config.config.parser is None:
+        S2L_config.config = _config
+        globals()['config'] = _config
+
+    mtd.metadata.update(_metadata)
+    if _processus is not None:
+        global PROCESS_INSTANCES
+        PROCESS_INSTANCES = _processus
 
     # get band file path
     image = pd.get_band_file(band)
     if image is None:
-        return None
+        return None, None, None, None
 
     # iterate on blocks
+    packager_images = {}
     for block_name in list_of_blocks:
-        image = generic_process_band(block_name, pd, image, band)
+        image, block = generic_process_band(block_name, pd, image, band)
+
+        # Special case for packager as we need to keep self.images
+        if '_Packager' in block_name and block is not None:
+            packager_images[block_name] = block.images
 
     # return output
-    return image.filename
+    return image.filename, packager_images, config, mtd.metadata
+
+
+def compute_config_hash(args, _config):
+    """Compute hash from arguments and configuration.
+
+    :param args: Tool arguments.
+    :param _config: Configuration
+    :return: Hexdigest of the hash.
+    """
+
+    # debug
+    import copy
+    exclude_list = ['parallelize_bands']
+    dc = copy.deepcopy(args.__dict__)
+    for exc in exclude_list:
+        dc.pop(exc)
+    dc = str(dc)
+
+    # Prod
+    # dc = str(args.__dict__)
+
+    # Configuration hash
+    if _config.parser.config_file is not None:
+        with open(_config.parser.config_file) as file:
+            file_content = file.read()
+    _hash = hashlib.md5(file_content.encode())
+    _hash.update(dc.encode())
+    return _hash.hexdigest()
 
 
 def update_configuration(args, tile=None):
@@ -124,7 +165,14 @@ def update_configuration(args, tile=None):
 
     if args.confParams is not None:
         config.overload(args.confParams)
-    config.set('wd', os.path.join(args.wd, str(os.getpid())))
+
+    use_pid = False
+    if use_pid:
+        output_folder = str(os.getpid())
+    else:
+        date_now = datetime.datetime.now().strftime('%Y%m%dT_%H%M%S')
+        output_folder = f'{"" if args.no_log_date else f"{date_now}_"}{compute_config_hash(args, config)}'
+    config.set('wd', os.path.join(args.wd, output_folder))
     references_map_file = config.get('references_map')
     if args.refImage:
         config.set('refImage', args.refImage)
@@ -140,7 +188,6 @@ def update_configuration(args, tile=None):
     config.set('generate_intermediate_products', args.generate_intermediate_products)
     if hasattr(args, 'l2a'):
         config.set('s2_processing_level', 'LEVEL2A' if args.l2a else "LEVEL1C")
-
 
 def configure_sen2like(args):
     """Initialize application configuration.
@@ -197,8 +244,10 @@ def start_process(tile, products, args, start_date, end_date):
         if not _products:
             logger.info("No products found.")
         for product in _products:
-            tile_message = f'[ Tile coverage = {product.tile_coverage:6.0f}% ]' if product.tile_coverage is not None else ''
-            cloud_message = f'[ Cloud coverage = {product.cloud_cover:6.0f}% ]' if product.cloud_cover is not None else ''
+            tile_message = f'[ Tile coverage = {product.tile_coverage:6.0f}% ]' \
+                if product.tile_coverage is not None else ''
+            cloud_message = f'[ Cloud coverage = {product.cloud_cover:6.0f}% ]' \
+                if product.cloud_cover is not None else ''
             logger.info("%s %s %s" % (tile_message, cloud_message, product.path))
         return
 
@@ -240,17 +289,18 @@ def start_process(tile, products, args, start_date, end_date):
         config.set('relative_orbit', _product.mtl.relative_orbit)
         config.set('absolute_orbit', _product.mtl.absolute_orbit)
         config.set('mission', _product.mtl.mission)
+        config.set('none_S2_product_for_fusion', False)
 
         # Disable Atmospheric correction for Level-2A products
         atmcor = config.get('doAtmcor')
-        if _product.mtl.data_type in ('Level-2A', 'L2TP'):
+        if _product.mtl.data_type in ('Level-2A', 'L2TP', 'L2A'):
             config.overload('s2_processing_level=LEVEL2A')
             logger.info("Processing Level-2A product: Atmospheric correction is disabled.")
             config.overload('doAtmcor=False')
         else:
             config.overload('s2_processing_level=LEVEL1C')
 
-        process(_product, args.bands)
+        process(_product, args)
 
         # Restore atmcor status
         config.overload(f'doAtmcor={atmcor}')
@@ -259,9 +309,9 @@ def start_process(tile, products, args, start_date, end_date):
         logger.error('No product for tile %s' % tile)
 
 
-def process(product, bands):
+def process(product, args):
     """Launch process on product."""
-
+    bands = args.bands
     # create working directory and save conf (traceability)
     if not os.path.exists(os.path.join(config.get("wd"), product.name)):
         os.makedirs(os.path.join(config.get("wd"), product.name))
@@ -270,7 +320,7 @@ def process(product, bands):
     logger.debug("{} {}".format(product.sensor, product.path))
 
     # list of the blocks that are available
-    list_of_blocks = S2L_config.PROC_BLOCKS.keys()
+    list_of_blocks = tuple(S2L_config.PROC_BLOCKS.keys())
 
     # copy MTL files in wd
     wd = os.path.join(config.get("wd"), product.name)
@@ -301,12 +351,34 @@ def process(product, bands):
         # get all bands
         bands = product.bands
     elif product.sensor != 'S2':
-        bands = [product.reverse_bands_mapping.get(band) for band in bands]
+        bands = [product.reverse_bands_mapping.get(band, band) for band in bands]
 
-    bands_filenames = []
-    for band in bands:
-        # process the band through each block
-        bands_filenames.append(process_band(product, band, list_of_blocks))  # save image path
+    if args.parallelize_bands:
+        # Multi processus
+        params = [(product, band, list_of_blocks, config, mtd.metadata, PROCESS_INSTANCES) for band in bands]
+        with Pool() as pool:
+            results = pool.starmap(process_band, params)
+
+        bands_filenames, packager_files, configs, updated_metadatas = zip(*results)
+        if configs and configs[0].parser is not None:
+            S2L_config.config = configs[0]
+        if updated_metadatas:
+            for updated_metadata in updated_metadatas:
+                mtd.metadata.update(updated_metadata)
+        for packager_file in packager_files:
+            for process_instance in packager_file:
+                PROCESS_INSTANCES[process_instance].images.update(packager_file[process_instance])
+                for band, filename in PROCESS_INSTANCES[process_instance].images.items():
+                    S2L_config.config.set('imageout_dir', os.path.dirname(filename))
+                    S2L_config.config.set('imageout_' + band, os.path.basename(filename))
+
+    else:
+        # Single processus
+        bands_filenames = []
+        for band in bands:
+            # process the band through each block
+            bands_filenames.append(process_band(product, band, list_of_blocks, config, mtd.metadata))  # Save image path
+
     if bands_filenames == [None] * len(bands_filenames):
         logger.error("No valid band provided for input product.")
         logger.error("Valids band for products are: %s" % str(list(product.bands)))
@@ -316,12 +388,11 @@ def process(product, bands):
     for block_name in list_of_blocks:
         generic_process_step(block_name, product, "postprocess")
 
-
     # Clear metadata
-    metadata.clear()
+    mtd.metadata.clear()
 
     # save S2L_config file in wd
-    config.savetofile(os.path.join(config.get('wd'), product.name, 'processing_end.cfg'))
+    S2L_config.config.savetofile(os.path.join(S2L_config.config.get('wd'), product.name, 'processing_end.cfg'))
 
 
 def add_common_arguments(parser):
@@ -347,6 +418,8 @@ def add_common_arguments(parser):
                         help="Do not start process and only list products (default: False)")
     parser.add_argument("--intermediate-products", dest="generate_intermediate_products", action="store_true",
                         help="Generate intermediate products (default: False)")
+    parser.add_argument("--parallelize-bands", action="store_true",
+                        help="Process bands in parallel (default: False)")
     debug_group = parser.add_argument_group('Debug arguments')
     debug_group.add_argument("--debug", "-d", dest="debug", action="store_true",
                              help="Enable Debug mode (default: False)")
@@ -360,7 +433,6 @@ def configure_arguments():
 
     :return: The S2L_configured arguments parser.
     """
-
     parser = ArgumentParser()
     subparsers = parser.add_subparsers(dest='operational_mode', help="Operational mode")
     add_common_arguments(parser)

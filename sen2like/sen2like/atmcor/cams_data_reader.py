@@ -30,15 +30,15 @@ class EMWF_Product:
                            'aod1240'
                            ]
 
-    def __init__(self, cams_directory, cams_hourly_directory=None, cams_climatology_directory=None,
-                 observation_datetime=None):
+    def __init__(self, cams_config, observation_datetime=None):
         """ Initialize CAMS data reader.
 
         :param observation_datetime - Optional parameter
         """
-        self.cams_monthly_dir = cams_directory
-        self.cams_hourly_directory = cams_hourly_directory
-        self.cams_climatology_directory = cams_climatology_directory
+        self.cams_monthly_dir = cams_config.get('default')
+        self.cams_daily_directory = cams_config.get('daily')
+        self.cams_hourly_directory = cams_config.get('hourly')
+        self.cams_climatology_directory = cams_config.get('climatology')
 
         self.observation_datetime = observation_datetime
         self.observation_date = None
@@ -65,6 +65,9 @@ class EMWF_Product:
 
         # If some attributes are incomplete, try to complete them
         for parameter in self.mandatory_attributes:
+            if getattr(self, parameter) is None and self.cams_daily_directory is not None:
+                log.warning('No %s found, try to find daily data' % parameter)
+                self.read_cams_daily(parameter)
             if getattr(self, parameter) is None and self.cams_hourly_directory is not None:
                 log.warning('No %s found, try to find hourly data' % parameter)
                 self.read_cams_hourly(parameter)
@@ -166,7 +169,6 @@ class EMWF_Product:
         self.longitude = rootgrp.variables['longitude'][:]
         # Should add index-1
         log.debug(key_in)
-        self.key_in = key_in
         for key in key_in:
             C = rootgrp.variables[key][index1, ...]
 
@@ -196,7 +198,7 @@ class EMWF_Product:
             if ncfile_h0 is not None:
                 break
         if h0 is None or ncfile_h0 is None:
-            log.warning('No CAMS lower data found for %s' % parameter)
+            log.error('No CAMS lower data found for %s' % parameter)
             return None
 
         # Find h1
@@ -206,14 +208,14 @@ class EMWF_Product:
             if h1 != h0 and ncfile_h1 is not None:
                 break
         if h1 is None or ncfile_h1 is None:
-            log.warning('No CAMS upper data found for %s' % parameter)
+            log.error('No CAMS upper data found for %s' % parameter)
             return None
 
         # get visibility for both dates
         data_h0 = self.read_date_values(h0, ncfile_h0, parameter)
         data_h1 = self.read_date_values(h1, ncfile_h1, parameter)
         if data_h0 is None or data_h1 is None:
-            log.warning('No CAMS hourly data found for %s' % parameter)
+            log.error('No CAMS hourly data found for %s' % parameter)
             return None
 
         # interpolate to exact time
@@ -288,6 +290,98 @@ class EMWF_Product:
 
     # endregion
 
+    # region Daily CAMS
+
+    def read_cams_daily(self, parameter):
+        log.info('Looking for CAMS daily %s data file' % parameter)
+        h1900 = (self.observation_datetime - datetime.datetime(1900, 1, 1)).total_seconds() / 60. / 60.
+        nc_file = self._find_cams_daily_nc(h1900, parameter)
+        if nc_file:
+            self.is_valid = True
+            self.set_daily_array(nc_file, self.observation_datetime)
+        else:
+            log.error('No CAMS daily data found')
+
+    def _find_cams_daily_nc(self, hour1900, parameter):
+        date = datetime.datetime(1900, 1, 1) + datetime.timedelta(hours=hour1900)
+        date_str = date.strftime('%Y%m%d')
+        log.debug("Hour: %s" % date_str)
+        nc_name = f'CAMS_archive_aod550_tcwv_msl_gtco3_analysis_0H_6H_12H_18H_{date.year:4}-{date.month:02}-{date.day:02}.nc'
+        nc_file = os.path.join(self.cams_daily_directory, date_str, nc_name)
+        if os.path.exists(nc_file):
+            return nc_file
+        return None
+
+    def set_daily_array(self, nc_file, observation_date):
+        """ Retrieve for the given observation date
+        The full array for each available atmospheric parameters
+        The nearest time from obs_date in the netcdf is considered
+        It is possible to interpolate in time, but it is not performed here
+        Warning if delta hour between observation date and cams data exceed
+        4 hours
+        """
+        rootgrp = Dataset(nc_file)
+        nctimes = rootgrp.variables['time'][:]
+
+        key_in = list(rootgrp.variables.keys())
+        log.debug(key_in)
+        umatch = []
+        for rec in self.mandatory_attributes:
+            if rec not in key_in:
+                umatch.append(rec)
+        if len(umatch) > 0:
+            log.warning("Mismatch NETCDF elements with " + str(umatch))
+
+        # Try to find the two closest values
+        hour1900 = (self.observation_datetime - datetime.datetime(1900, 1, 1)).total_seconds() / 60. / 60.
+
+        u = np.abs(nctimes - hour1900)
+        # np.argpartition : used to retrieve the two closest values for statistiscs
+        val = [np.sort(u), np.argsort(u)]
+        # The two first index :
+        index1 = val[1][0]
+        v1 = datetime.datetime(1900, 1, 1) + timedelta(
+            hours=int(nctimes[index1]))  # VDE : failure for me if hours is type np.int32
+        index2 = val[1][1]
+        v2 = datetime.datetime(1900, 1, 1) + timedelta(hours=int(nctimes[index2]))
+
+        log.info('Input observation date (hour): ' + str(self.observation_datetime))
+        log.info('The two selected CAMS Dates:')
+        log.info('    Date 1 :' + str(v1))
+        log.info('    Date 2 :' + str(v2))
+
+        log.info('Time elapsed between observation date and CAMS data date (hour) :')
+        log.info('    %s / %s' % (str(val[0][0]), str(val[0][1])))
+
+        self.observation_date_hour = hour1900
+        self.cams_date_hour = nctimes[index1]
+        # Retrieve data from CAMS dataset
+        key_in.remove('time')
+        key_in.remove('latitude')
+        key_in.remove('longitude')
+        self.latitude = rootgrp.variables['latitude'][:]
+        self.longitude = rootgrp.variables['longitude'][:]
+        # Should add index-1
+        log.debug(key_in)
+        for key in key_in:
+            var_1 = rootgrp.variables[key][index1, ...]
+            var_2 = rootgrp.variables[key][index2, ...]
+
+            interpolated_data = var_1 + (hour1900 - nctimes[index1]) * (var_2 - var_1) / (nctimes[index2] - nctimes[index1])
+
+            sc_factor = 1
+            sc_offset = 0
+            units = rootgrp.variables[key].getncattr('units')
+            var_rescale = np.multiply(sc_factor, np.array(interpolated_data)) + sc_offset
+            log.info('Parameter Set (unit) : ' + key + ' (' + units + ')')
+
+            setattr(self, key, var_rescale)
+            setattr(self, key + '_units', units)
+
+        rootgrp.close()
+
+    # endregion
+
 
 if __name__ == '__main__':
     # CAMS location
@@ -311,7 +405,11 @@ if __name__ == '__main__':
     # # print(aod550 - aod550_multi)
     # # print(gtco3 - aod550_multi)
 
-    obs_datetime = datetime.datetime.strptime('2018-02-19T10:34:54.040000Z', '%Y-%m-%dT%H:%M:%S.%fZ')
-    ecmwf_data = EMWF_Product(config.get('cams_dir'), cams_hourly_directory=config.get('cams_hourly_dir'),
-                              cams_climatology_directory=config.get('cams_climatology_dir'),
-                              observation_datetime=obs_datetime)
+    obs_datetime = datetime.datetime.strptime('2021-01-23T10:34:54.040000Z', '%Y-%m-%dT%H:%M:%S.%fZ')
+    _cams_config = {
+        "default": config.get('cams_dir'),
+        "hourly": config.get('cams_hourly_dir'),
+        "daily": config.get('cams_daily_dir'),
+        "climatology": config.get('cams_climatology_dir')
+    }
+    ecmwf_data = EMWF_Product(cams_config=_cams_config, observation_datetime=obs_datetime)

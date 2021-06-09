@@ -1,5 +1,4 @@
 import sqlite3
-from collections import OrderedDict
 
 import pandas as pd
 
@@ -19,15 +18,12 @@ for i, wrs_id in enumerate(list_wrs):
     # get utm
     df = pd.read_sql_query(f'SELECT UTM FROM l8tiles WHERE WRS_ID=="{wrs_id}"', conn1)
     utm = int(df['UTM'])
-    #print(utm)
 
     # get l8_s2_coverage on this wrs id
     df = pd.read_sql_query(f'SELECT * FROM l8_s2_coverage WHERE WRS_ID=="{wrs_id}"', conn2)
-    #print(df)
 
     # keep only tile with same utm
     df = df[df['TILE_ID'].str.startswith(f'{utm}')]
-    #print(df)
     dataframes.append(df)
     """count += 1
     if count == 10:
@@ -43,7 +39,6 @@ df = pd.concat(dataframes)
 df.sort_values(by='TILE_ID', axis=0, inplace=True)
 df.drop(columns=['index'], inplace=True)
 df.reset_index(inplace=True, drop=True)
-#print(df)
 
 # to sql
 print('write new db')

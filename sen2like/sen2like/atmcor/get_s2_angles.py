@@ -1,13 +1,35 @@
 # -*- coding: utf-8 -*-
 import logging
+import re
 import sys
 import xml.parsers as pars
+from typing import Union
+from xml.dom import minidom
 
 import numpy as np
 from osgeo import gdal, osr
-from xml.dom import minidom
 
 log = logging.getLogger("Sen2Like")
+
+re_band = re.compile(r'B0?(\d{1,2})$')
+
+
+def get_angles_band_index(band: str) -> Union[int, None]:
+    """
+    Convert the band index into the S2 angles indexing convention
+    B1->B8 : indices from 0 to 7
+    B8A : index 8
+    B9 -> B12 : indices from 9 to 12
+    """
+    if band == "B8A":
+        return 8
+    band_index = re_band.match(band)
+    if band_index:
+        band_index = int(band_index.group(1))
+        if 0 < band_index < 9:
+            return band_index - 1
+        return band_index
+    return None
 
 
 def from_values_list_to_array(selected_node):

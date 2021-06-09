@@ -5,12 +5,18 @@ import shutil
 import numpy as np
 from osgeo import gdal, osr
 
-from core.S2L_config import config
+from core import S2L_config
 
 log = logging.getLogger("Sen2Like")
 
 
 class S2L_ImageFile:
+
+    FILE_EXTENSIONS = {
+        'GTIFF': 'TIF',
+        'COG': 'TIF',
+        'JPEG2000': 'jp2',
+    }
 
     def __init__(self, path, mode='r'):
         self.setFilePath(path)
@@ -188,14 +194,15 @@ class S2L_ImageFile:
 
         return newInstance
 
-    def write(self, creation_options=None, DCmode=False, filepath=None, nodata_value=0, COG:bool=False, band:str=None):
+    def write(self, creation_options=None, DCmode=False, filepath=None, nodata_value=0, output_format: str = 'GTIFF',
+              band: str = None):
         """
         write to file
         :param creation_options: gdal create options
         :param DCmode: if true, the type is kept. Otherwise float are converted to int16 using
         offset and gain from config
         :param filepath:
-        :param COG : whether to create COG output format or not
+        :param output_format: writed file format ('GTIFF' for geotiff, 'COG' for COG and 'JPEG2000' for jpeg2000)
         :param band : provide information about the band, to set the overviews downsampling algorithm.
                       band can be 'MASK', 'QA', or None for all others
         """
@@ -206,9 +213,9 @@ class S2L_ImageFile:
         if filepath is None:
             filepath = self.filepath
 
-        # Ensure that file extension is tiff
-        if not filepath.endswith('.tif'):
-            filepath = os.path.splitext(filepath)[0] + ".TIF"
+        # Ensure file extension
+        if not filepath.upper().endswith(self.FILE_EXTENSIONS[output_format]):
+            filepath = os.path.splitext(filepath)[0] + "." + self.FILE_EXTENSIONS[output_format]
 
         # check if directory to create
         if not os.path.exists(self.dirpath):
@@ -230,7 +237,7 @@ class S2L_ImageFile:
         if not os.path.exists(self.dirpath):
             os.makedirs(self.dirpath)
 
-        if not COG:
+        if output_format == 'GTIFF':
             driver = gdal.GetDriverByName('GTiff')
             dst_ds = driver.Create(self.filepath, xsize=self.xSize,
                                    ysize=self.ySize, bands=1, eType=etype, options=creation_options)
@@ -245,8 +252,8 @@ class S2L_ImageFile:
         dst_ds.SetGeoTransform(geotranform)
         if 'float' in self.array.dtype.name and not DCmode:
             # float to UInt16 with scaling factor of 10000
-            offset = float(config.get('offset'))
-            gain = float(config.get('gain'))
+            offset = float(S2L_config.config.get('offset'))
+            gain = float(S2L_config.config.get('gain'))
             dst_ds.GetRasterBand(1).WriteArray(((offset + self.array).clip(min=0) * gain).astype(np.uint16))
             # set GTiff metadata
             dst_ds.GetRasterBand(1).SetScale(1 / gain)
@@ -256,49 +263,84 @@ class S2L_ImageFile:
         if nodata_value:
             dst_ds.GetRasterBand(1).SetNoDataValue(nodata_value)
 
-        if COG:
-            resampling_algo = config.get('resampling_algo_MASK') if band in ['QA', 'MASK'] else config.get('resampling_algo')
-            downsampling_levels = config.get('downsampling_levels_{}'.format(int(self.xRes)), config.get('downsampling_levels_10'))  # If the res isn't [10, 15, 20, 30, 60], consider it as 30
+        if output_format == 'JPEG2000':
+            driver_JPG = gdal.GetDriverByName('JP2OpenJPEG')
+
+            # Overloading creation options
+            creation_options = dict(map(lambda o: o.split('='), creation_options))
+            if S2L_config.config.getboolean('lossless_jpeg2000'):
+                creation_options["QUALITY"] = 100
+                creation_options["REVERSIBLE"] = 'YES'
+                creation_options["YCBCR420"] = 'NO'
+            if self.xRes == 60:
+                creation_options.update({
+                    'CODEBLOCK_WIDTH': 4,
+                    'CODEBLOCK_HEIGHT': 4,
+                    'BLOCKXSIZE': 192,
+                    'BLOCKYSIZE': 192,
+                    'PROGRESSION': 'LRCP',
+                    'PRECINCTS': '{64,64},{64,64},{64,64},{64,64},{64,64},{64,64}',
+                })
+            elif self.xRes == 20:
+                creation_options.update({
+                    'CODEBLOCK_WIDTH': 8,
+                    'CODEBLOCK_HEIGHT': 8,
+                    'BLOCKXSIZE': 640,
+                    'BLOCKYSIZE': 640,
+                    'PROGRESSION': 'LRCP',
+                    'PRECINCTS': '{128,128},{128,128},{128,128},{128,128},{128,128},{128,128}',
+                })
+            elif self.xRes == 10:
+                creation_options.update({
+                    'CODEBLOCK_WIDTH': 64,
+                    'CODEBLOCK_HEIGHT': 64,
+                    'BLOCKXSIZE': 1024,
+                    'BLOCKYSIZE': 1024,
+                    'PROGRESSION': 'LRCP',
+                    'PRECINCTS': '{256,256},{256,256},{256,256},{256,256},{256,256},{256,256}',
+                })
+            creation_options = list(map(lambda ops: ops[0] + '=' + str(ops[1]), creation_options.items()))
+
+            data_set2 = driver_JPG.CreateCopy(self.filepath, dst_ds, options=creation_options)
+            data_set2 = None
+
+        if output_format == 'COG':
+            resampling_algo = S2L_config.config.get('resampling_algo_MASK') if band in ['QA', 'MASK'] else S2L_config.config.get(
+                'resampling_algo')
+            downsampling_levels = S2L_config.config.get('downsampling_levels_{}'.format(int(self.xRes)), S2L_config.config.get(
+                'downsampling_levels_10'))  # If the res isn't [10, 15, 20, 30, 60], consider it as 30
             downsampling_levels = [int(x) for x in downsampling_levels.split(" ")]
 
             # Overloading creation options
-            creation_options = [opt for opt in creation_options if opt.split("=")[0] not in
-                                ['TILED', 'COMPRESS', 'INTERLEAVE', 'BLOCKYSIZE', 'BLOCKXSIZE', 'PREDICTOR']] + \
-                               \
-                               ['TILED=YES',
-                                "COMPRESS=" + config.get('compression'),
-                                "INTERLEAVE=" + config.get('interleave'),
-                                "BLOCKXSIZE=" + str(config.get('internal_tiling')),
-                                "BLOCKYSIZE=" + str(config.get('internal_tiling')),
-                                "PREDICTOR=" + str(config.get('predictor'))]
-            # FIXME :  in this gdal version, driver GTiff does not support creation option GDAL_TIFF_OVR_BLOCKSIZE to set the
-            # FIXME :  internal overview blocksize ; however it is set at 128 as default, as requested here
+            creation_options = dict(map(lambda o: o.split('='), creation_options))
+            creation_options.update(
+                {
+                    'TILED': 'YES',
+                    "COMPRESS": S2L_config.config.get('compression'),
+                    "INTERLEAVE": S2L_config.config.get('interleave'),
+                    "BLOCKXSIZE": str(S2L_config.config.get('internal_tiling')),
+                    "BLOCKYSIZE": str(S2L_config.config.get('internal_tiling')),
+                    "PREDICTOR": str(S2L_config.config.get('predictor')),
+                }
+            )
+            creation_options = list(map(lambda ops: ops[0] + '=' + str(ops[1]), creation_options.items()))
+            # FIXME : in this gdal version, driver GTiff does not support creation option GDAL_TIFF_OVR_BLOCKSIZE
+            # FIXME : to set the internal overview blocksize ; however it is set at 128 as default, as requested here
             # Source : https://gdal.org/drivers/raster/gtiff.html#raster-gtiff
             # add in options : "GDAL_TIFF_OVR_BLOCKSIZE=" + str(config.get('internal_overviews'))
 
             dst_ds.BuildOverviews(resampling_algo, downsampling_levels)
             driver_Gtiff = gdal.GetDriverByName('GTiff')
-            data_set2 = driver_Gtiff.CreateCopy(self.filepath, dst_ds, options=creation_options + ['COPY_SRC_OVERVIEWS=YES'])
-            data_set2 = None
+            try:
+                data_set2 = driver_Gtiff.CreateCopy(self.filepath, dst_ds,
+                                                    options=creation_options + ['COPY_SRC_OVERVIEWS=YES'])
+                data_set2 = None
+            except RuntimeError as err:
+                log.error(err)
+
+            else:
+                log.info('Written: {}'.format(self.filepath))
+
 
         dst_ds.FlushCache()
-
         dst_ds = None
-        log.info('Written: {}'.format(self.filepath))
-
-    def rename(self, newpath):
-        """
-        Rename file is exists, otherwise write image to newpath
-        If renaming to another directory that not exists, create it.
-        TODO: Copy metadata also?
-        :param newpath: new path
-        """
-        # check if new directory to create
-        newdir = os.path.dirname(newpath)
-        if not os.path.exists(newdir):
-            os.makedirs(newdir)
-
-        # rename file (move) and reinit class attributes
-        log.debug('Moving {}\n\t to {}'.format(self.filepath, newpath))
-        shutil.move(self.filepath, newpath)
-        self.__init__(newpath)

@@ -13,7 +13,7 @@ from os.path import join, basename, dirname
 import numpy as np
 from skimage.transform import resize as skit_resize
 
-from core.S2L_config import config
+from core import S2L_config
 from core.image_file import S2L_ImageFile
 from core.products.hls_product import S2L_HLS_Product
 from grids import mgrs_framing
@@ -70,16 +70,13 @@ def get_fractional_year(ad):
 
 class S2L_Fusion(S2L_Process):
 
-    def __init__(self):
-        super().__init__()
-
     def initialize(self):
         self.reference_products = []
 
     def preprocess(self, pd):
 
         # check most recent HLS S2 products available
-        archive_dir = config.get('archive_dir')
+        archive_dir = S2L_config.config.get('archive_dir')
         tsdir = join(archive_dir, pd.mtl.mgrs)
 
         # list products with dates
@@ -102,7 +99,7 @@ class S2L_Fusion(S2L_Process):
 
         # reset ref list and keep 2 last ones
         self.reference_products = []
-        nb_products = int(config.get('predict_nb_products', 2))
+        nb_products = int(S2L_config.config.get('predict_nb_products', 2))
         for date, pdname in pdlist[-nb_products:]:
             product = S2L_HLS_Product(pdname)
             if product.product is not None:
@@ -111,16 +108,18 @@ class S2L_Fusion(S2L_Process):
         for product in self.reference_products:
             log.info('Selected product: {}'.format(product.name))
 
+        S2L_config.config.set('none_S2_product_for_fusion', len(self.reference_products) == 0)
+
     def process(self, product, image, band):
         log.info('Start')
 
-        if not config.getboolean('hlsplus'):
+        if not S2L_config.config.getboolean('hlsplus'):
             log.warning('Skipping Data Fusion because doPackager and doPackagerL2F options are not activated')
             log.info('End')
             return image
 
         # save into file before processing (old packager will need it)
-        if config.getboolean('doPackager'):
+        if S2L_config.config.getboolean('doPackager'):
             product.image30m[band] = image
 
         if band == 'B01':
@@ -139,7 +138,7 @@ class S2L_Fusion(S2L_Process):
             return image
 
         # method selection
-        predict_method = config.get('predict_method', 'predict')
+        predict_method = S2L_config.config.get('predict_method', 'predict')
         if len(self.reference_products) == 1:
             log.warning(
                 'Not enough Sentinel2 products for the predict (only one product). Using last S2 product as ref.')
@@ -159,7 +158,7 @@ class S2L_Fusion(S2L_Process):
             array_L2H_predict, array_L2F_predict = self._predict(product, band_s2, qa_mask, output_shape)
 
             # save
-            if config.getboolean('generate_intermediate_products'):
+            if S2L_config.config.getboolean('generate_intermediate_products'):
                 self._save_as_image_file(image_file_L2F, qa_mask, product, band, '_FUSION_QA.TIF')
                 self._save_as_image_file(image_file_L2F, array_L2H_predict, product, band, '_FUSION_L2H_PREDICT.TIF')
                 self._save_as_image_file(image_file_L2F, array_L2F_predict, product, band, '_FUSION_L2F_PREDICT.TIF')
@@ -170,7 +169,7 @@ class S2L_Fusion(S2L_Process):
             array_L2H_predict, array_L2F_predict = self._composite(product, band_s2, output_shape)
 
             # save
-            if config.getboolean('generate_intermediate_products'):
+            if S2L_config.config.getboolean('generate_intermediate_products'):
                 self._save_as_image_file(image_file_L2F, array_L2H_predict, product, band, '_FUSION_L2H_COMPO.TIF')
                 self._save_as_image_file(image_file_L2F, array_L2F_predict, product, band, '_FUSION_L2F_COMPO.TIF')
 
@@ -189,9 +188,9 @@ class S2L_Fusion(S2L_Process):
         return image
 
     def _save_as_image_file(self, image_template, array, product, band, extension):
-        path = os.path.join(config.get('wd'), product.name, product.get_band_file(band).rootname + extension)
+        path = os.path.join(S2L_config.config.get('wd'), product.name, product.get_band_file(band).rootname + extension)
         image_file = image_template.duplicate(path, array=array)
-        if config.getboolean('generate_intermediate_products'):
+        if S2L_config.config.getboolean('generate_intermediate_products'):
             image_file.write(creation_options=['COMPRESS=LZW'])
         return image_file
 
@@ -223,7 +222,8 @@ class S2L_Fusion(S2L_Process):
         """
         Makes a composite from reference products (usually last S2 L2F/L2H products), with the most recent
         valid pixels (no predict), using validity masks.
-        Returns 2 images, one high res (typically 10 or 20m), and one low resolution (typically 30m) resampled to high res.
+        Returns 2 images, one high res (typically 10 or 20m), and one low resolution (typically 30m)
+        resampled to high res.
 
         :param pd: L8 product (S2L_Product object)
         :param bandindex: band index

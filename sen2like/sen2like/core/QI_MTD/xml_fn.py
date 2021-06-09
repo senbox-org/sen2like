@@ -2,10 +2,10 @@
 # -*- coding: utf-8 -*-
 # G. Cavaro (TPZ-F) 2018
 
-import xml
+import copy
 import os
 import re
-import copy
+import xml
 from xml.etree.ElementTree import Element
 
 
@@ -24,13 +24,12 @@ def find_element_by_path(root, path_to_match):
     return children, indexes
 
 
-def adjust_node(root:Element, path:str, node_to_match:str):
-
+def adjust_node(root: Element, path: str, node_to_match: str):
     ns_path = node_to_match
     parents = root.findall('/'.join(path.split('/')[:-1]))
     for parent in parents:
 
-        children = parent.getchildren()
+        children = list(parent)
 
         for child in children:
             if node_to_match.split('[')[0] in child.tag:
@@ -38,6 +37,7 @@ def adjust_node(root:Element, path:str, node_to_match:str):
                 ns_path = append_namespace_to_path(node_to_match, namespace)
                 return ns_path
     return ns_path
+
 
 def get_final_path(root, path_to_match):
     """
@@ -51,7 +51,7 @@ def get_final_path(root, path_to_match):
     final_nodes = nodes
 
     for i, node_path in enumerate(nodes):
-        if node_path=='.':
+        if node_path == '.':
             continue
         path = '/'.join([node for node in final_nodes[0:i + 1]])
         adjusted_node = adjust_node(root, path, node_path)
@@ -81,28 +81,27 @@ def append_namespace_to_path(path, namespace):
     ns_path = path.lstrip('./').rstrip('/').split('/')
     for i, sub_path in enumerate(ns_path):
         if not sub_path.startswith('['):
-            ns_path[i] = namespace+sub_path
+            ns_path[i] = namespace + sub_path
 
-    ns_path = '/'.join([sub_path for sub_path in ns_path if sub_path ])
+    ns_path = '/'.join([sub_path for sub_path in ns_path if sub_path])
     ns_path = first_char + ns_path + last_char
 
     # Replace tags but not attribs, which do not have namespaces
     ns_path = ns_path.replace('[@', '@123456789@')
-    ns_path = ns_path.replace('[', '['+namespace)
+    ns_path = ns_path.replace('[', '[' + namespace)
     ns_path = ns_path.replace('@123456789@', '[@')
 
     return ns_path
 
 
-def getParentObjectNode(root:Element, node:Element):
+def getParentObjectNode(root: Element, node: Element):
     for elem in root.iter('*'):
         if node in list(elem):
             return elem
     return None
 
 
-def get_elem_path(root:Element, node:Element, rm_ns=False):
-
+def get_elem_path(root: Element, node: Element, rm_ns=False):
     tag, _ = remove_namespace(node.tag)
     path = node.tag if rm_ns else tag
     parent = getParentObjectNode(root, node)
@@ -129,7 +128,7 @@ def remove_namespace(tag):
     return node_name, namespace
 
 
-def compare_nodes(node1:Element, node2:Element, rpath:str):
+def compare_nodes(node1: Element, node2: Element, rpath: str):
     """
     Compares recursively in the nodes which elements are in common, based on the tag
     :param node1:
@@ -156,12 +155,12 @@ def compare_nodes(node1:Element, node2:Element, rpath:str):
             tag2, _ = remove_namespace(child2.tag)
 
             if tag1 == tag2:
-
                 matched = True
                 common_nodes.append(child2)
                 paths_to_nodes.append(child_rpath)
 
-                new_common_nodes, new_paths, new_not_matched, new_not_matched_paths = compare_nodes(child1, child2, child_rpath)
+                new_common_nodes, new_paths, new_not_matched, new_not_matched_paths = compare_nodes(child1, child2,
+                                                                                                    child_rpath)
                 common_nodes += new_common_nodes
                 paths_to_nodes += new_paths
                 not_matched += new_not_matched
@@ -175,7 +174,6 @@ def compare_nodes(node1:Element, node2:Element, rpath:str):
 
 
 def compare_trees(self):
-
     # Find wich elements are in the backbone, and also in the MTD of the used product
     common_nodes, path_to_nodes, not_matched, not_matched_paths = compare_nodes(self.root_bb, self.root_in, rpath='./')
     print('Matched :')
@@ -184,14 +182,15 @@ def compare_trees(self):
     [print(m) for m in set(not_matched_paths)]
     print()
 
+
 # @get_modifications
-def chg_elm_with_tag(root: Element, tag: str, new_value: str, attrs: dict=None):
+def chg_elm_with_tag(root: Element, tag: str, new_value: str, attrs: dict = None):
     """
     Searchs in the tree all elements with a particular tag, and replaces its value
     :param root:      Element from xml tree
     :param tag:       Elements with this tag will have their text replaced
     :param new_value: New text value
-    :param attr :     If provided, adds a constraint on the element to find (attributes must match)
+    :param attrs :     If provided, adds a constraint on the element to find (attributes must match)
     :return:
     """
     changed = []
@@ -206,8 +205,9 @@ def chg_elm_with_tag(root: Element, tag: str, new_value: str, attrs: dict=None):
                 changed.append(elem)
     return changed
 
+
 # @get_modifications
-def change_elm(root:Element, rpath:str, new_value:str, attr_to_change: str=None):
+def change_elm(root: Element, rpath: str, new_value: str, attr_to_change: str = None):
     """
     Changes the text or the attribute's value of a particular element
     :param root:
@@ -232,8 +232,9 @@ def change_elm(root:Element, rpath:str, new_value:str, attr_to_change: str=None)
 
     return elements
 
+
 # @get_modifications
-def copy_children(root_in:Element, ini_rpath:str, root_out:Element, out_rpath:str):
+def copy_children(root_in: Element, ini_rpath: str, root_out: Element, out_rpath: str):
     """
     Copies all children from root_in's element to root_out's one
     :param root_in:
@@ -248,7 +249,8 @@ def copy_children(root_in:Element, ini_rpath:str, root_out:Element, out_rpath:st
     out_elem, _ = find_element_by_path(root_out, out_rpath)
     ini_elem, _ = find_element_by_path(root_in, ini_rpath)
 
-    if len(out_elem)!=1 or len(ini_elem)!=1: return changed
+    if len(out_elem) != 1 or len(ini_elem) != 1:
+        return changed
     out_elem = out_elem[0]
     ini_elem = ini_elem[0]
 
@@ -280,11 +282,13 @@ def replace_namespace_recursively(root: Element, root_bb: Element):
     for elem in root.iter('*'):
         replace_namespace(elem, root_bb)
 
-# @get_modifications
-def create_child(root:Element, rpath:str, tag:str, text:str=None, attribs:dict={}):
 
+# @get_modifications
+def create_child(root: Element, rpath: str, tag: str, text: str = None, attribs=None):
+    if attribs is None:
+        attribs = {}
     parent_elm, _ = find_element_by_path(root, rpath)
-    if len(parent_elm) >1 or len(parent_elm)==0:
+    if len(parent_elm) > 1 or len(parent_elm) == 0:
         print('(create_child) Multiple ot 0 elements found with this path {}'.format(rpath),
               '\n Will not create element under.')
         return []
@@ -295,7 +299,7 @@ def create_child(root:Element, rpath:str, tag:str, text:str=None, attribs:dict={
 
 
 # @get_modifications
-def copy_elements(elements_to_copy:list, root_in, root_out, root_bb):
+def copy_elements(elements_to_copy: list, root_in, root_out, root_bb):
     """
     Finds matching elements in elements_to_copy, and replaces them in the root_out.
     Supports some xpath queries.

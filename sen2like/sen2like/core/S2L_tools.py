@@ -10,7 +10,7 @@ from osgeo import gdal
 log = logging.getLogger("Sen2Like")
 
 
-def quicklook(pd, images, bands, qlpath, quality=95, xRes=30, yRes=30, format='JPEG', creationOptions:list=None):
+def quicklook(pd, images, bands, qlpath, quality=95, xRes=30, yRes=30, format='JPEG', creationOptions: list = None):
     """
 
     :param pd: S2L_Product object
@@ -51,7 +51,7 @@ def quicklook(pd, images, bands, qlpath, quality=95, xRes=30, yRes=30, format='J
         src_max = 4000
 
     # FIXME: site specific should be in configuration
-    if pd.mtl.mgrs == '34RGS':
+    if pd.mtl.mgrs[-5:] == '34RGS':
         src_max = 4000
         if bands == ["B12", "B11", "B8A"]:
             src_max = 10000

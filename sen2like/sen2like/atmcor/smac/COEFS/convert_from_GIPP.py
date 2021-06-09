@@ -2,11 +2,14 @@
 Convert SMAC coefficients given by O.Hagolle (1 array, each colomn == 1 band)
 to the SMAC format (1 file per band, and specific format)
 """
+import sys
+
+from lxml import objectify
 
 
 class coeff:
     def __init__(self, smac_filename):
-        with file(smac_filename) as f:
+        with open(smac_filename) as f:
             lines = f.readlines()
         # H20
         temp = lines[0].strip().split()
@@ -120,73 +123,71 @@ def writeline(array, n, o, line=None):
         array.pop(0)
 
 
-# MAIN
+if __name__ == '__main__':
 
+    # read source file
+    # lines = open("landsat8_coeff.txt").readlines()
+    # line = lines[0]
 
-import sys
+    xmlFile = sys.argv[1]
+    with open(xmlFile) as f:
+        xmltext = f.read()
+    root = objectify.fromstring(xmltext)
+    print(root)
+    line = root.Data_Block.SMAC_Coefficients.text
 
-# read source file
-# lines = open("landsat8_coeff.txt").readlines()
-# line = lines[0]
-from lxml import objectify
+    bands = []
+    if xmlFile.startswith('L8'):
+        bands = ['440', '490', '560', '660', '860', '1630', '2250', '1370']  # 1 to 9 bands without PAN (band 8)
+        name = 'LANDSAT8'
+    elif xmlFile.startswith('L9'):
+        bands = ['440', '490', '560', '660', '860', '1630', '2250', '1370']  # 1 to 9 bands without PAN (band 8)
+        name = 'LANDSAT9'
+    elif xmlFile.startswith('S2'):
+        bands = ['B' + str(b) for b in range(1, 13)]
+        bands.insert(8, 'B8a')
+        name = 'S2A_CONT'
+        if xmlFile.startswith('S2B'):
+            name = 'S2B_CONT'
+    print(name)
+    print(bands)
 
-xmlFile = sys.argv[1]
-with open(xmlFile) as f:
-    xmltext = f.read()
-root = objectify.fromstring(xmltext)
-print(root)
-line = root.Data_Block.SMAC_Coefficients.text
+    a = [float(x) for x in line.split()]  # all coeff of all bands in 1 row
+    # nCoeff = 49
 
-bands = []
-if xmlFile.startswith('L8'):
-    bands = ['440', '490', '560', '660', '860', '1630', '2250', '1370']  # 1 to 9 bands without PAN (band 8)
-    name = 'LANDSAT8'
-elif xmlFile.startswith('S2'):
-    bands = ['B' + str(b) for b in range(1, 13)]
-    bands.insert(8, 'B8a')
-    name = 'S2A_CONT'
-    if xmlFile.startswith('S2B'):
-        name = 'S2B_CONT'
-print(name)
-print(bands)
+    # for each column (each band)
+    for i, band in enumerate(bands):
+        print('band:', band)
+        # coeffs = a[nCoeff*i:nCoeff*(i+1)]
+        coeffs = a[i::len(bands)]
+        print(len(coeffs))
+        smac_filename = 'Coef_{}_{}.dat'.format(name, band)
+        with open(smac_filename, 'w') as o:
+            # write in the SMAC specific format
+            writeline(coeffs, 2, o)  # line1
+            writeline(coeffs, 2, o)
+            writeline(coeffs, 3, o)
+            writeline(coeffs, 3, o)
+            writeline(coeffs, 3, o)  # line5
+            writeline(coeffs, 3, o)
+            writeline(coeffs, 3, o)
+            writeline(coeffs, 4, o)
+            writeline(coeffs, 4, o)
+            writeline(coeffs, 2, o)  # line10
+            writeline(coeffs, 2, o, line=11)
+            writeline(coeffs, 2, o)
+            writeline(coeffs, 3, o, line=13)
+            writeline(coeffs, 2, o, line=14)
+            writeline(coeffs, 2, o)  # line15
+            writeline(coeffs, 2, o)
+            writeline(coeffs, 3, o)
+            writeline(coeffs, 2, o)
+            writeline(coeffs, 2, o)  # line19
+            if len(coeffs) != 0:
+                print('ERROR: some values have not been used')
 
-a = [float(x) for x in line.split()]  # all coeff of all bands in 1 row
-# nCoeff = 49
-
-
-# for each column (each band)
-for i, band in enumerate(bands):
-    print('band:', band)
-    # coeffs = a[nCoeff*i:nCoeff*(i+1)]
-    coeffs = a[i::len(bands)]
-    print(len(coeffs))
-    smac_filename = 'Coef_{}_{}.dat'.format(name, band)
-    with open(smac_filename, 'w') as o:
-        # write in the SMAC specific format
-        writeline(coeffs, 2, o)  # line1
-        writeline(coeffs, 2, o)
-        writeline(coeffs, 3, o)
-        writeline(coeffs, 3, o)
-        writeline(coeffs, 3, o)  # line5
-        writeline(coeffs, 3, o)
-        writeline(coeffs, 3, o)
-        writeline(coeffs, 4, o)
-        writeline(coeffs, 4, o)
-        writeline(coeffs, 2, o)  # line10
-        writeline(coeffs, 2, o, line=11)
-        writeline(coeffs, 2, o)
-        writeline(coeffs, 3, o, line=13)
-        writeline(coeffs, 2, o, line=14)
-        writeline(coeffs, 2, o)  # line15
-        writeline(coeffs, 2, o)
-        writeline(coeffs, 3, o)
-        writeline(coeffs, 2, o)
-        writeline(coeffs, 2, o)  # line19
-        if len(coeffs) != 0:
-            print('ERROR: some values have not been used')
-
-    test = coeff(smac_filename)
-    print(test.__dict__)
-    print()
-    print('Written:', smac_filename)
-    print()
+        test = coeff(smac_filename)
+        print(test.__dict__)
+        print()
+        print('Written:', smac_filename)
+        print()

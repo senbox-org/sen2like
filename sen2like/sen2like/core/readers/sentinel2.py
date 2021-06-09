@@ -1,20 +1,20 @@
 import glob
 import logging
 import os
-import sys
-import shutil
 import re
+import shutil
+import sys
 from xml import parsers as pars
-
-import numpy as np
-from osgeo import gdal, osr
-from skimage.transform import resize as skit_resize
 from xml.dom import minidom
 
+import numpy as np
+from osgeo import gdal
+from skimage.transform import resize as skit_resize
+
 from atmcor import get_s2_angles as s2_angles
+from core.image_file import S2L_ImageFile
 from core.metadata_extraction import from_date_to_doy
 from core.readers.reader import BaseReader
-from core.image_file import S2L_ImageFile
 
 log = logging.getLogger('Sen2Like')
 
@@ -74,9 +74,11 @@ class Sentinel2MTL(BaseReader):
             sys.exit('No MTD product file information found')
         try:
             dom = minidom.parse(mtl_file_name)
-        except pars.expat.ExpatError:
+        except pars.expat.ExpatError as err:
             self.isValid = False
-            sys.exit('Not well formed MTD product file')
+            logging.error("Error during parsing of MTD product file: %s" % mtl_file_name)
+            logging.error(err)
+            sys.exit(-1)
 
         self.mask_filename = None
         self.nodata_mask_filename = None
@@ -90,7 +92,8 @@ class Sentinel2MTL(BaseReader):
             dom_ds = minidom.parse(datastrip_metadata)
             self.datastrip_metadata = datastrip_metadata
             self.dt_sensing_start = node_value(dom_ds, 'DATATAKE_SENSING_START')
-            self.ds_sensing_start = node_value(dom_ds, 'DATASTRIP_SENSING_START')  # Also equal to str(node_value(dom, 'SENSING_TIME'))  , with dom being the tile mtd
+            # Also equal to str(node_value(dom, 'SENSING_TIME')) with dom being the tile mtd
+            self.ds_sensing_start = node_value(dom_ds, 'DATASTRIP_SENSING_START')
 
         # Read XML Metadata
         try:
@@ -120,6 +123,12 @@ class Sentinel2MTL(BaseReader):
                 # manage old S2 format (SAFE not compact)
                 node_name = 'Granules'
                 node1 = dom.getElementsByTagName(node_name)
+
+            # Check if product is refined (GRI)
+            if float(self.processing_sw) >= 3:
+                gri_list = dom.getElementsByTagName('GRI_List')
+                if gri_list and gri_list[0].getElementsByTagName('GRI_FILENAME'):
+                    self.is_refined = True
 
             self.scene_classif_band = None
             self.bands = {}
@@ -300,13 +309,13 @@ class Sentinel2MTL(BaseReader):
                         maskpath = os.path.join(product_path, 'GRANULE', self.granule_id, 'QI_DATA', maskpath)
 
                     if node.getAttribute('type') == 'MSK_CLOUDS':
-                            self.cloudmask = maskpath
+                        self.cloudmask = maskpath
                     elif node.getAttribute('type') == 'MSK_NODATA':
-                            band = os.path.splitext(maskpath)[0][-3:]
-                            self.nodata_mask[band] = maskpath
+                        band = os.path.splitext(maskpath)[0][-3:]
+                        self.nodata_mask[band] = maskpath
                     elif node.getAttribute('type') == 'MSK_DETFOO':
-                            band = os.path.splitext(maskpath)[0][-3:]
-                            self.detfoo_mask[band] = maskpath
+                        band = os.path.splitext(maskpath)[0][-3:]
+                        self.detfoo_mask[band] = maskpath
                 log.debug(self.cloudmask)
                 log.debug(self.nodata_mask)
                 log.debug(self.detfoo_mask)
@@ -317,7 +326,7 @@ class Sentinel2MTL(BaseReader):
             self.isValid = False
 
         # Absolute orbit is contained in the granule ID as _A00000_
-        absolute_orbit = re.compile('A\d{6}_').search(self.granule_id)
+        absolute_orbit = re.compile(r'A\d{6}_').search(self.granule_id)
         self.absolute_orbit = '000000' if absolute_orbit is None else absolute_orbit.group()[1:-1]
 
     def get_valid_pixel_mask(self, mask_filename, res=20):
@@ -328,7 +337,7 @@ class Sentinel2MTL(BaseReader):
         """
 
         if self.scene_classif_band:
-            log.info(f'Generating validity and nodata masks from SCL band')
+            log.info('Generating validity and nodata masks from SCL band')
             log.debug(f'Read SCL: {self.scene_classif_band}')
             scl = S2L_ImageFile(self.scene_classif_band)
             scl_array = scl.array
@@ -365,7 +374,8 @@ class Sentinel2MTL(BaseReader):
             log.debug(f'Read cloud mask: {band_path}')
             image = S2L_ImageFile(band_path)
             array = image.array
-            nodata_mask_filename = os.path.join(os.path.dirname(mask_filename), f'nodata_pixel_mask_{nodata_ref_band}.tif')
+            nodata_mask_filename = os.path.join(os.path.dirname(mask_filename),
+                                                f'nodata_pixel_mask_{nodata_ref_band}.tif')
             nodata = np.ones(array.shape, np.uint8)
             # shall be 0, but due to compression artefact, threshold increased to 4:
             nodata[array <= 4] = 0
@@ -384,7 +394,7 @@ class Sentinel2MTL(BaseReader):
                 # Cloud mask
                 rname, ext = os.path.splitext(self.cloudmask)
                 if ext == '.gml':
-                    log.info(f'Generating validity mask from cloud mask')
+                    log.info('Generating validity mask from cloud mask')
                     log.debug(f'Read cloud mask: {self.cloudmask}')
                     # Check if any cloud feature in gml
                     dom = minidom.parse(self.cloudmask)
@@ -413,10 +423,7 @@ class Sentinel2MTL(BaseReader):
                     log.info('Written: {}'.format(mask_filename))
                     self.mask_filename = mask_filename
 
-
             return True
-
-        return False
 
     def get_angle_images(self, DST=None):
         """
@@ -464,5 +471,6 @@ class Sentinel2MTL(BaseReader):
     @staticmethod
     def can_read(product_name):
         name = os.path.basename(product_name)
-        S2L_structure_check = 'L2F_' in name and os.path.isdir(os.path.join(product_name, 'GRANULE'))
+        S2L_structure_check = os.path.isdir(os.path.join(product_name, 'GRANULE')) and \
+                              ('L2F_' in name or 'LS8_' in name or 'LS9_' in name)
         return name.startswith('S2') or (name.startswith('L2F') and '_S2' in name) or S2L_structure_check

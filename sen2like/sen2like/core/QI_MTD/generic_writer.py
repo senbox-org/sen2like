@@ -2,17 +2,21 @@
 # -*- coding: utf-8 -*-
 # G. Cavaro (TPZ-F) 2020
 
-from xml.etree.ElementTree import Element
-from xml.etree import ElementTree
-import xml
-from xml import parsers as pars
+import copy
+import json
+import logging
 import os
 import re
 import sys
-import logging
-import copy
-import xmlschema
+import xml
 import xml.dom.minidom
+from typing import Union
+from xml import parsers as pars
+from xml.etree import ElementTree
+from xml.etree.ElementTree import Element
+
+import xmlschema
+import xmltodict
 
 from grids import grids
 
@@ -24,7 +28,7 @@ class MtdWriter:
     Generic xml writer.
     """
 
-    def __init__(self, backbone_path: str, init_MTD_path: str, H_F: str):
+    def __init__(self, backbone_path: str, init_MTD_path: Union[str, None], H_F: str):
         """
         :param backbone_path: path of the .xml backbone
         :param init_MTD_path: path of the .xml file of the input product, if exists. Can be None
@@ -52,22 +56,25 @@ class MtdWriter:
             else:
                 self.root_in = None
 
-        except pars.expat.ExpatError:
-            sys.exit('Not well formed MTD product file')
+        except pars.expat.ExpatError as err:
+            logging.error("Error during parsing of MTD product file: %s" % backbone_path)
+            logging.error(err)
+            sys.exit(-1)
 
         self.root_out = copy.deepcopy(self.root_bb)  # Tree which will be modified and saved
         self.outfile = None
 
         self.H_F = H_F  # Product level (H or F)
 
-    def _manual_replaces(self, product):
+    def manual_replaces(self, product):
         pass
 
-    def _remove_children(self, root, tag: str = '', attrs: dict=None, exceptions: list=None):
+    def remove_children(self, root, tag: str = '', attrs: dict = None, exceptions: list = None):
         """
         Removes direct children from a node. Conditions can be added on tag and attributes
         Usage example :
-        _remove_children('./Data_Block/report/checkList[parentID="L2H_SBAF"]/check/extraValues', tag='value', attrs= {'name': 'SBAF_'})
+        remove_children('./Data_Block/report/checkList[parentID="L2H_SBAF"]/check/extraValues',
+                         tag='value', attrs= {'name': 'SBAF_'})
 
         :param root:  Element or path to element
         :param tag:   If provided, only elements with this tag will be removed
@@ -110,7 +117,7 @@ class MtdWriter:
         schema = xmlschema.XMLSchema(os.path.join(os.path.dirname(__file__), xsd_path))
         return schema.is_valid(xml_file)
 
-    def write(self, outfile: str = None, pretty_print=True):
+    def write(self, outfile: str = None, pretty_print=True, json_print=True):
         """
         Writes self.root_out in an .xml file
         :param outfile:
@@ -126,6 +133,9 @@ class MtdWriter:
             # XML creation
             tree = ElementTree.ElementTree(element=self.root_out)
             tree.write(outpath, encoding='UTF-8', xml_declaration=True)
+
+        if json_print:
+            write_json(outpath)
 
 
 def find_element_by_path(root: Element, path_to_match: str):
@@ -175,7 +185,7 @@ def adjust_node(root: Element, path: str, node_to_match: str):
     ns_path = node_to_match
     parents = root.findall('/'.join(path.split('/')[:-1]))
     for parent in parents:
-        children = parent.getchildren()
+        children = list(parent)
         for child in children:
             if node_to_match.split('[')[0] in child.tag:
                 _, namespace = remove_namespace(child.tag)
@@ -272,7 +282,7 @@ def search_db(tilecode, search):
     return roi[search][0]
 
 
-def chg_elm_with_tag(root: Element, tag: str, new_value: str, attrs: dict=None):
+def chg_elm_with_tag(root: Element, tag: str, new_value: str, attrs: dict = None):
     """
     Searchs in the tree all elements with a particular tag, and replaces its value
     :param root:      Element from xml tree
@@ -326,11 +336,12 @@ def copy_children(root_in: Element, ini_rpath: str, root_out: Element, out_rpath
     out_elem = find_element_by_path(root_out, out_rpath)
     ini_elem = find_element_by_path(root_in, ini_rpath)
 
-    if len(out_elem) != 1 or len(ini_elem) != 1: return
+    if len(out_elem) != 1 or len(ini_elem) != 1:
+        return
     out_elem = out_elem[0]
     ini_elem = ini_elem[0]
 
-    for idx, child in enumerate(ini_elem.getchildren()):
+    for idx, child in enumerate(list(ini_elem)):
         out_elem.insert(idx, child)
 
     replace_namespace_recursively(out_elem, root_out)
@@ -358,7 +369,8 @@ def replace_namespace_recursively(root: Element, root_bb: Element):
 def create_child(root: Element, rpath: str, tag: str, text: str = None, attribs: dict = None):
     """
     Usage example:
-    create_child(root_out, rpath='./General_Info/Product_Info/Product_Organisation/Granule_List/Granule', tag='IMAGE_FILE', text='trololo')
+    create_child(root_out, rpath='./General_Info/Product_Info/Product_Organisation/Granule_List/Granule',
+                 tag='IMAGE_FILE', text='trololo')
     :param root:
     :param rpath:    relative path of the element in the root
     :param tag:      Tag to give to the created node
@@ -417,7 +429,6 @@ def rm_elm_with_tag(root: Element, tag: str, attrs: dict = None):
     If multiple elements match, all are removed
     :param root:      Element from xml tree
     :param tag:       Elements with this tag will have their text replaced
-    :param new_value: New text value
     :param attrs :     If provided, adds a constraint on the element to find (attributes must match)
     :return:
     """
@@ -460,3 +471,18 @@ def write_pretty_format(outfile: str, root: Element = None):
                 line = line.replace(search.group(), search.group() + '\n')
             if not (len(set(line)) <= 3 and '\n' in set(line)):  # Remove lines with only {'\n', '\t', ' '}
                 fout.write(line)
+
+
+def write_json(xml_file: str):
+    """
+    Writes a json file with with metadata.
+    :param xml_file: xml metadata file path.
+    """
+    json_file = f'{os.path.splitext(xml_file)[0]}.json'
+    log.info('Writing metadata as json')
+    xml_content = ''
+    with open(xml_file) as p_xml:
+        xml_content = xmltodict.parse(p_xml.read())
+    with open(json_file, 'w') as fp:
+        json.dump(xml_content, fp, indent=4)
+    log.info('Json file writed: {}'.format(json_file))

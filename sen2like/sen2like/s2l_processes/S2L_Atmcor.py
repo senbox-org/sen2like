@@ -12,10 +12,19 @@ import numpy as np
 from atmcor.atmospheric_parameters import ATMO_parameter
 from atmcor.cams_data_reader import EMWF_Product
 from atmcor.smac import smac
-from core.S2L_config import config
+from core import S2L_config
 from s2l_processes.S2L_Process import S2L_Process
 
 log = logging.getLogger("Sen2Like")
+
+
+def get_cams_configuration():
+    return {
+        "default": S2L_config.config.get('cams_dir'),
+        "hourly": S2L_config.config.get('cams_hourly_dir'),
+        "daily": S2L_config.config.get('cams_daily_dir'),
+        "climatology": S2L_config.config.get('cams_climatology_dir')
+    }
 
 
 def get_smac_coefficients(product, band):
@@ -34,9 +43,7 @@ def get_smac_coefficients(product, band):
 def smac_correction_grid(obs_datetime, extent, hcs_code, resolution=120):
     output_filename = 'output_file.tif'
 
-    ecmwf_data = EMWF_Product(config.get('cams_dir'), cams_hourly_directory=config.get('cams_hourly_dir'),
-                              cams_climatology_directory=config.get('cams_climatology_dir'),
-                              observation_datetime=obs_datetime)
+    ecmwf_data = EMWF_Product(cams_config=get_cams_configuration(), observation_datetime=obs_datetime)
 
     new_SRS = gdal.osr.SpatialReference()
     new_SRS.ImportFromEPSG(int(4326))
@@ -97,9 +104,7 @@ def smac_correction(product, array_in, extent, band):
     # # Get CAMS Data corresponding to Extent and observation data time
     # # ----------------------------------------------------------------------------------
 
-    ecmwf_data = EMWF_Product(config.get('cams_dir'), cams_hourly_directory=config.get('cams_hourly_dir'),
-                              cams_climatology_directory=config.get('cams_climatology_dir'),
-                              observation_datetime=obs_datetime)
+    ecmwf_data = EMWF_Product(cams_config=get_cams_configuration(), observation_datetime=obs_datetime)
     if ecmwf_data.is_valid:
         # Process each corner in the scene and set atmospheric parameter with cams_data
         v_ctwv = np.empty((4, 1))
@@ -157,10 +162,10 @@ def smac_correction(product, array_in, extent, band):
         pressure = 1013.095  # Pressure - unit: hpa
         taup550 = 0.2  # taup550 - unit: g.cm-2
 
-    config.set('uH2O', uH2O)
-    config.set('uO3', uO3)
-    config.set('pressure', pressure)
-    config.set('taup550', taup550)
+    S2L_config.config.set('uH2O', uH2O)
+    S2L_config.config.set('uO3', uO3)
+    S2L_config.config.set('pressure', pressure)
+    S2L_config.config.set('taup550', taup550)
 
     # # ----------------------------------------------------------------------------------
     # # Prepare RGB composite TOA Reflectance
@@ -218,8 +223,6 @@ def smac_correction(product, array_in, extent, band):
 
 
 class S2L_Atmcor(S2L_Process):
-    def __init__(self):
-        super().__init__()
 
     def process(self, product, image, band):
         log.info('Start')
@@ -229,7 +232,7 @@ class S2L_Atmcor(S2L_Process):
         array_in = image.array
         array_out = smac_correction(product, array_in, extent, band)
         image = image.duplicate(self.output_file(product, band), array_out)
-        if config.getboolean('generate_intermediate_products'):
+        if S2L_config.config.getboolean('generate_intermediate_products'):
             image.write(creation_options=['COMPRESS=LZW'])
 
         log.info('End')

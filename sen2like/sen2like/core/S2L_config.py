@@ -8,7 +8,6 @@ import os
 from collections import OrderedDict
 from xml.etree import ElementTree
 
-from lxml import etree
 import xmlschema
 
 # INTERNAL CONFIGURATION (static)
@@ -16,16 +15,16 @@ import xmlschema
 # define here all the blocks that are implemented, then user to choose
 # which blocks are to be run through the on/off switches in the config.ini file
 PROC_BLOCKS = OrderedDict()
-PROC_BLOCKS['S2L_Stitching'] = {'extension': '_STITCHED.TIF', 'applicability': 'L8_S2'}
-PROC_BLOCKS['S2L_GeometryKLT'] = {'extension': '_REFRAMED.TIF', 'applicability': 'L8_S2'}
-PROC_BLOCKS['S2L_Toa'] = {'extension': '_TOA.TIF', 'applicability': 'L8_S2'}
-PROC_BLOCKS['S2L_Atmcor'] = {'extension': '_SURF.TIF', 'applicability': 'L8_S2'}
-PROC_BLOCKS['S2L_Nbar'] = {'extension': '_BRDF.TIF', 'applicability': 'L8_S2'}
-PROC_BLOCKS['S2L_Sbaf'] = {'extension': '_SBAF.TIF', 'applicability': 'L8_S2'}
-PROC_BLOCKS['S2L_PackagerL2H'] = {'extension': None, 'applicability': 'L8_S2'}
-PROC_BLOCKS['S2L_Fusion'] = {'extension': '_FUSION.TIF', 'applicability': 'L8'}
-PROC_BLOCKS['S2L_Packager'] = {'extension': None, 'applicability': 'L8_S2'}
-PROC_BLOCKS['S2L_PackagerL2F'] = {'extension': None, 'applicability': 'L8_S2'}
+PROC_BLOCKS['S2L_Stitching'] = {'extension': '_STITCHED.TIF', 'applicability': 'L8_L9_S2'}
+PROC_BLOCKS['S2L_GeometryKLT'] = {'extension': '_REFRAMED.TIF', 'applicability': 'L8_L9_S2'}
+PROC_BLOCKS['S2L_Toa'] = {'extension': '_TOA.TIF', 'applicability': 'L8_L9_S2'}
+PROC_BLOCKS['S2L_Atmcor'] = {'extension': '_SURF.TIF', 'applicability': 'L8_L9_S2'}
+PROC_BLOCKS['S2L_Nbar'] = {'extension': '_BRDF.TIF', 'applicability': 'L8_L9_S2'}
+PROC_BLOCKS['S2L_Sbaf'] = {'extension': '_SBAF.TIF', 'applicability': 'L8_L9_S2'}
+PROC_BLOCKS['S2L_PackagerL2H'] = {'extension': None, 'applicability': 'L8_L9_S2'}
+PROC_BLOCKS['S2L_Fusion'] = {'extension': '_FUSION.TIF', 'applicability': 'L8_L9'}
+PROC_BLOCKS['S2L_Packager'] = {'extension': None, 'applicability': 'L8_L9_S2'}
+PROC_BLOCKS['S2L_PackagerL2F'] = {'extension': None, 'applicability': 'L8_L9_S2'}
 
 logger = logging.getLogger("Sen2Like")
 
@@ -71,6 +70,13 @@ class XmlParser:
                     value = None
                 break
         return value
+
+    def get_section(self, section):
+        """Return content of a section as a dictionary."""
+        found_section = self.root.find(section)
+        if found_section:
+            return {option.tag: option.text for option in found_section}
+        return {}
 
     def getboolean(self, option):
         """
@@ -174,6 +180,12 @@ class IniParser:
                 break
         return value
 
+    def get_section(self, section):
+        """Return content of a section as a dictionary."""
+        if self.configObject.has_section(section):
+            return dict(self.configObject.items(section))
+        return {}
+
     def getboolean(self, option):
         """
         Search option in all sections and return value
@@ -243,8 +255,11 @@ class S2L_Config:
                ".ini": IniParser,
                ".cfg": IniParser}
 
-    def __init__(self):
+    def __init__(self, configuration_file=None):
         self.parser = None
+
+        if configuration_file is not None:
+            self.initialize(configuration_file)
 
     def initialize(self, config_file):
         if not os.path.exists(config_file):
@@ -259,7 +274,7 @@ class S2L_Config:
         return self.parser.initialize()
 
     def __getattr__(self, item):
-        if item in ["display", "get", "getboolean", "getfloat", "set", "overload", "savetofile"]:
+        if item in ["display", "get", "getboolean", "getfloat", "set", "overload", "savetofile", "get_section"]:
             return getattr(self.parser, item)
         raise AttributeError("'S2L_Config' object has no attribute '%s'" % item)
 

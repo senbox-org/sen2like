@@ -6,7 +6,7 @@ import logging
 
 import numpy as np
 
-from core.S2L_config import config
+from core import S2L_config
 from s2l_processes.S2L_Process import S2L_Process
 
 log = logging.getLogger("Sen2Like")
@@ -39,8 +39,8 @@ def convert_to_reflectance_from_reflectance_cal_product(mtl, data_in, band):
             mask = (data_in <= 0)
             reflectance_data[mask] = 0
         elif band in ('B10', 'B11'):
-            offset = float(config.get('offset'))
-            gain = float(config.get('gain'))
+            offset = float(S2L_config.config.get('offset'))
+            gain = float(S2L_config.config.get('gain'))
             reflectance_data = np.float32(data_in) / gain - offset
             mask = (data_in <= 0)
             reflectance_data[mask] = 0
@@ -53,8 +53,6 @@ def convert_to_reflectance_from_reflectance_cal_product(mtl, data_in, band):
 
 
 class S2L_Toa(S2L_Process):
-    def __init__(self):
-        super().__init__()
 
     def process(self, product, image, band):
         log.info('Start')
@@ -63,7 +61,7 @@ class S2L_Toa(S2L_Process):
         array_in = image.array
         array_out = convert_to_reflectance_from_reflectance_cal_product(product.mtl, array_in, band)
         image = image.duplicate(self.output_file(product, band), array=array_out)
-        if config.getboolean('generate_intermediate_products'):
+        if S2L_config.config.getboolean('generate_intermediate_products'):
             image.write(creation_options=['COMPRESS=LZW'])
 
         log.info('End')

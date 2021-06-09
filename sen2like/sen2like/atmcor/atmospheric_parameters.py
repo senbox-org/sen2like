@@ -1,7 +1,6 @@
 import logging
 
 import numpy as np
-from scipy import ndimage
 
 log = logging.getLogger("Sen2Like")
 
@@ -18,7 +17,7 @@ class ATMO_parameter:
     def __init__(self, cams_data):
         self.ecmwf_data = cams_data
         self.tcwv = None
-        self.gtc03 = None
+        self.gtco3 = None
         self.msl = None
         self.aod550 = None
 
@@ -29,7 +28,7 @@ class ATMO_parameter:
 
     def getTotalOzone(self):
         result = np.divide(np.divide(self.gtco3, 2.14151869e-05), 1000.0)
-        log.debug("Ozone DU (dobson): %s" % str(result))
+        log.debug("Ozone concentration (cm-atm): %s" % str(result))
         return result
 
     def getAirPressure(self):
@@ -110,9 +109,10 @@ class ATMO_parameter:
         Retrieve value associated with the extent
 
         :param A: Matrix as input (tcwv,...)
-        :param beta_latitude:  Weight coordinate of the point (latitude)
+        :param beta_latitude: Weight coordinate of the point (latitude)
         :param beta_longitude: Weight coordinate of the point (longitude)
-        :param extent_index:   Geographical coordinates of the Matrix in the order LL,LR,UR,UL for twin (longitude,latitude)
+        :param extent_index: Geographical coordinates of the Matrix
+                             in the order LL,LR,UR,UL for twin (longitude,latitude)
         :return: the estimated value at the relative location
                 given by beta_latitude / beta longitude
 

@@ -73,6 +73,7 @@
 									<xs:enumeration value="S2A"/>
 									<xs:enumeration value="S2B"/>
 									<xs:enumeration value="LS8"/>
+									<xs:enumeration value="LS9"/>
 								</xs:restriction>
 							</xs:simpleType>
 						</xs:element>

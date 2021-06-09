@@ -26,7 +26,7 @@ def get_product_from_sensor_name(sensor):
     :return:
     """
     for current_product in PRODUCTS.values():
-        if hasattr(current_product, 'supported_sensors') and sensor in current_product.supported_sensors:
+        if getattr(current_product, 'is_final', False) and sensor in getattr(current_product, 'supported_sensors', []):
             return current_product
 
 

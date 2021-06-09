@@ -52,6 +52,7 @@
             <xs:element type="StringBoolType" name="doMatchingCorrection"/>
             <xs:element type="xs:string" name="doAssessGeometry"/>
             <xs:element type="xs:string" name="references_map"/>
+            <xs:element type="StringBoolType" name="force_geometric_correction" />
         </xs:sequence>
     </xs:complexType>
     <xs:complexType name="AtmcorType">
@@ -75,7 +76,7 @@
         <xs:sequence>
             <xs:element type="xs:integer" name="gain"/>
             <xs:element type="xs:integer" name="offset"/>
-            <xs:element type="StringBoolType" name="COG"/>
+            <xs:element type="xs:string" name="output_format"/>
         </xs:sequence>
     </xs:complexType>
     <xs:complexType name="COGoptionsType">
@@ -92,6 +93,11 @@
             <xs:element type="xs:string" name="resampling_algo"/>
             <xs:element type="xs:string" name="compression"/>
             <xs:element type="xs:integer" name="predictor"/>
+        </xs:sequence>
+    </xs:complexType>
+    <xs:complexType name="JPEG2000optionsType">
+        <xs:sequence>
+            <xs:element type="StringBoolType" name="lossless_jpeg2000"/>
         </xs:sequence>
     </xs:complexType>
     <xs:complexType name="MultiprocessingType">
@@ -122,6 +128,7 @@
             <xs:element type="StitchingType" name="Stitching"/>
             <xs:element type="OutputFormatType" name="OutputFormat"/>
             <xs:element type="COGoptionsType" name="COGoptions"/>
+            <xs:element type="JPEG2000optionsType" name="JPEG2000options"/>
             <xs:element type="MultiprocessingType" name="Multiprocessing"/>
             <xs:element type="PackagerType" name="Packager"/>
             <xs:element type="RunTimeType" name="RunTime"/>

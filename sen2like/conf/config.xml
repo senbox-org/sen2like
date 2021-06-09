@@ -40,6 +40,7 @@
         <doMatchingCorrection>True</doMatchingCorrection>
         <doAssessGeometry>B04</doAssessGeometry>
         <references_map>/data/References/references_map.json</references_map>
+        <force_geometric_correction>False</force_geometric_correction>
     </Geometry>
     <Atmcor>
         <use_sen2cor>True</use_sen2cor>
@@ -55,22 +56,25 @@
     <OutputFormat>
         <gain>10000</gain>
         <offset>0</offset>
-        <COG>True</COG>
+        <output_format>COG</output_format>
     </OutputFormat>
     <COGoptions>
         <interleave>PIXEL</interleave>
         <internal_tiling>1024</internal_tiling>
-        <internal_overviews>1024</internal_overviews>
-        <downsampling_levels_10>2 6 12 36</downsampling_levels_10>
-        <downsampling_levels_15>2 4 8 24</downsampling_levels_15>
-        <downsampling_levels_20>2 6 18</downsampling_levels_20>
-        <downsampling_levels_30>2 4 12</downsampling_levels_30>
-        <downsampling_levels_60>2 6</downsampling_levels_60>
+        <internal_overviews>128</internal_overviews>
+        <downsampling_levels_10>2</downsampling_levels_10>
+        <downsampling_levels_15>2</downsampling_levels_15>
+        <downsampling_levels_20>2 3 6</downsampling_levels_20>
+        <downsampling_levels_30>2 4 6 12</downsampling_levels_30>
+        <downsampling_levels_60>6 12 18 36</downsampling_levels_60>
         <resampling_algo_MASK>MODE</resampling_algo_MASK>
         <resampling_algo>AVERAGE</resampling_algo>
         <compression>LZW</compression>
         <predictor>1</predictor>
     </COGoptions>
+    <JPEG2000options>
+        <lossless_jpeg2000>True</lossless_jpeg2000>
+    </JPEG2000options>
     <Multiprocessing>
         <number_of_process>5</number_of_process>
     </Multiprocessing>

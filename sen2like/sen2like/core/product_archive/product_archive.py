@@ -91,8 +91,8 @@ class InputProductArchive:
             end_date = end_date.strftime("%Y-%m-%dT23:59:59")
         parameter = self.configuration.get(f'url_parameters_pattern_{mission}')
         if parameter is None:
-            parameter = self.configuration.get(f'url_parameters_pattern')
-        s2_processing_level = self.configuration.get(f's2_processing_level')
+            parameter = self.configuration.get('url_parameters_pattern')
+        s2_processing_level = self.configuration.get('s2_processing_level')
         # Get location parameter depending on mission
         location = self.configuration.get(f'location_{mission}', "").format(**locals())
         if cloud_cover is None:
@@ -166,16 +166,15 @@ class InputProductArchive:
             cur = connection.execute(sql)
             # TODO: For now, first mgrs tile is excluded. To improve in a future version
             # TODO: Add coverage
-            tiles = [tile[0] for tile in cur.fetchall() if
-                     not tile[0].startswith('01') and not tile[0].startswith('60')]
+            tiles = [tile[0] for tile in cur.fetchall() if not tile[0].startswith('01') and not tile[0].startswith('60')]
             logging.debug("Tiles: {}".format(tiles))
         return tiles
 
     @staticmethod
-    def mgrs_to_wkt(tile):
+    def mgrs_to_wkt(tile, utm=False):
         with sqlite3.connect(database_path("s2tiles.db")) as connection:
             logging.debug("TILE: {}".format(tile))
-            sql = f"select LL_WKT from s2tiles where TILE_ID='{tile}'"
+            sql = f"select {'UTM_WKT' if utm else 'LL_WKT'} from s2tiles where TILE_ID='{tile}'"
             logging.debug("SQL request: {}".format(sql))
             cur = connection.execute(sql)
             res = cur.fetchall()
@@ -316,6 +315,8 @@ class InputProductArchive:
         products = []
         for product in products_urls:
             product.reader = get_product(product.path)
+            if product.reader is None:
+                continue
             regexp, date_format = product.reader.date_format(os.path.basename(product.path))
             product.date = product.reader.date(product.path, regexp, date_format)
             is_product_valid = self.filter_on_date(product, start_date, end_date)
@@ -340,9 +341,11 @@ class InputProductArchive:
     def filter_product_composition(products):
         if products:
             reader = get_product(products[0].path)
-            if reader.sensor == 'L8':
+            try:
                 filtered = reader.best_product([p.path for p in products])
                 return [p for p in products if p.path in filtered]
+            except AttributeError:
+                logger.debug('{} has no best_product method.'.format(reader.__class__.__name__))
         return products
 
     def filter_on_tile_coverage(self, products):

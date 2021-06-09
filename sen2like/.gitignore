@@ -7,3 +7,5 @@ docs/source/api
 docs/source/modules
 /docs/coverage/
 /doc-generated.txt
+dist/
+sen2cor/

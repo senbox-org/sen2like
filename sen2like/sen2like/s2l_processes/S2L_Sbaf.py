@@ -7,7 +7,7 @@ import logging
 
 import numpy as np
 
-from core.S2L_config import config
+from core import S2L_config
 from core.QI_MTD.mtd import metadata
 from core.products.landsat_8.landsat8 import Landsat8Product
 from s2l_processes.S2L_Process import S2L_Process
@@ -16,8 +16,6 @@ log = logging.getLogger("Sen2Like")
 
 
 class S2L_Sbaf(S2L_Process):
-    def __init__(self):
-        super().__init__()
 
     def getSen2likeCoef(self, mission):
         """
@@ -27,7 +25,7 @@ class S2L_Sbaf(S2L_Process):
         Coef array definition [slope, intercept]"""
 
         adj_coef = dict()
-        if mission == 'LANDSAT_8':
+        if mission in ('LANDSAT_8', 'LANDSAT_9'):
             adj_coef['B01'] = {'bandLabel': 'CA'}
             adj_coef['B02'] = {'bandLabel': 'BLUE'}
             adj_coef['B03'] = {'bandLabel': 'GREEN'}
@@ -104,9 +102,9 @@ class S2L_Sbaf(S2L_Process):
                 slope = slope2 * slope1
                 offset = slope2 * offset1 + offset2
             else:
-                log.error("No Sbaf coefficient defined for {}".format(band))
+                log.info("No Sbaf coefficient defined for {}".format(band))
 
-        elif product.mtl.mission == "LANDSAT_8":
+        elif product.mtl.mission in ('LANDSAT_8', 'LANDSAT_9'):
             # L8 => S2A
             band_sbaf = band
             adj_coef = self.getSen2likeCoef("LANDSAT_8")
@@ -115,7 +113,7 @@ class S2L_Sbaf(S2L_Process):
             else:
                 metadata.qi['SBAF_COEFFICIENT_{}'.format(band)] = 1
                 metadata.qi['SBAF_OFFSET_{}'.format(band)] = 0
-                log.error("No Sbaf coefficient defined for {}".format(band))
+                log.info("No Sbaf coefficient defined for {}".format(band))
                 return image
 
         metadata.qi['SBAF_COEFFICIENT_{}'.format(band)] = slope
@@ -131,7 +129,7 @@ class S2L_Sbaf(S2L_Process):
 
             # Format Output : duplicate, link  to product as parameter
             image = image.duplicate(self.output_file(product, band), array=new.astype(np.float32))
-            if config.getboolean('generate_intermediate_products'):
+            if S2L_config.config.getboolean('generate_intermediate_products'):
                 image.write(creation_options=['COMPRESS=LZW'])
 
         log.info('End')

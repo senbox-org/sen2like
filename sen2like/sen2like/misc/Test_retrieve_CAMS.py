@@ -29,7 +29,7 @@ from ecmwfapi import ECMWFDataServer
 
 # n_days = (end_date_sec_elapsed - start_date_sec_elapsed)/86400 + 1
 
-### Initialize ECMWF data server
+# Initialize ECMWF data server
 
 server = ECMWFDataServer()
 

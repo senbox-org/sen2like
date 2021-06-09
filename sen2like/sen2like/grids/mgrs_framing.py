@@ -2,9 +2,8 @@
 # -*- coding: utf-8 -*-
 # V. Debaecker (TPZ-F) 2018
 
-# external packages
-import os
 import logging
+import os
 from collections import namedtuple
 from math import ceil
 
@@ -32,15 +31,15 @@ def resample(imagein, res, filepath_out):
     input_res = imagein.xRes
     dst_in = None
 
-    ## SCIKIT resampling
+    # SCIKIT resampling
     fullRes = imagein.array
 
-    ## Method1: BLOCK REDUCE (10->30):
+    # Method1: BLOCK REDUCE (10->30):
     if input_res == 10 and res % input_res == 0:
         R = int(res / input_res)  # resolution factor
         data = np.uint16(block_reduce(fullRes, block_size=(R, R), func=np.mean) + 0.5)  # source: sen2cor
 
-    ## Method2: SCIKIT RESIZE (20->30, 60->30)
+    # Method2: SCIKIT RESIZE (20->30, 60->30)
     else:
         sizeUp = fullRes.shape[0] * input_res / res
         # order 3 is for cubic spline:
@@ -111,7 +110,8 @@ def reframe(image, tilecode, filepath_out, dx=0., dy=0., order=3, dtype=None, ma
         new = skit_warp(array, inverse_map=tf, output_shape=(ySize, xSize), order=order, preserve_range=True)
 
     # set into new S2L_ImageFile
-    return image.duplicate(filepath_out, array=new.astype(dtype), origin=(box.xMin + r_dx, box.yMax + r_dy), output_EPSG=target_epsg)
+    return image.duplicate(filepath_out, array=new.astype(dtype), origin=(box.xMin + r_dx, box.yMax + r_dy),
+                           output_EPSG=target_epsg)
 
 
 def reframeMulti(filepath_in, tilecode, filepath_out, dx=0., dy=0., order=3):

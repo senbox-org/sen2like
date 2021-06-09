@@ -7,7 +7,9 @@ from core.products.product import S2L_Product
 
 class Sentinel2Product(S2L_Product):
     sensor = 'S2'
-    supported_sensors = ['S2A', 'S2B']
+    supported_sensors = ('S2A', 'S2B')
+    is_final = True  # Indicates if this reader is a final format
+    native_bands = ('B05', 'B06', 'B07', 'B08')
     brdf_coefficients = {"B02": {"s2_like_band_label": 'BLUE', "coef": [0.0774, 0.0079, 0.0372]},
                          "B03": {"s2_like_band_label": 'GREEN', "coef": [0.1306, 0.0178, 0.058]},
                          "B04": {"s2_like_band_label": 'RED', "coef": [0.169, 0.0227, 0.0574]},

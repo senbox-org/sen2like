@@ -91,6 +91,7 @@ class Metadata:
                     if IMAGE_FILE_2A.text.endswith('_CLD_%2dm' % res):
                         cldpath = IMAGE_FILE_2A.text + '.jp2'
                         break
+        return cldpath
 
     def getBand(self, band):
         path = None
@@ -163,8 +164,8 @@ def getBand(pd, band, download=False):
     # get tilename
     subdir = os.getcwd()
     path = getPath(pd, band, subdir)  # TOO LONG; vi Try something like:
-    # path = 'GRANULE/L2A_{0}_A{1:06d}_{2}/IMG_DATA/R20m/L2A_{0}_{3}_{4}.jp2'.format(pd.tileid, pd.absorb, pd.timeprodstr,
-    #                                                                               pd.timestr, band)
+    # path = 'GRANULE/L2A_{0}_A{1:06d}_{2}/IMG_DATA/R20m/L2A_{0}_{3}_{4}.jp2'.format(pd.tileid, pd.absorb,
+    #                                                                                pd.timeprodstr, pd.timestr, band)
 
     print(path)
 

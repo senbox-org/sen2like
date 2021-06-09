@@ -1,12 +1,12 @@
 import sqlite3
 from collections import OrderedDict
-
 from math import floor
+
 import pandas as pd
 from pykml import parser
 
 
-def readDescription(pm):
+def readDescription(des):
     """
     read kml description and derive a dictionary
     with key/value for each parameters
@@ -37,7 +37,7 @@ def readDescription(pm):
     return meta
 
 
-## MAIN ##
+# MAIN
 
 # KML can be downloaded on Landsat website:
 # https://landsat.usgs.gov/pathrow-shapefiles
@@ -61,7 +61,11 @@ for pm in root.Document.Placemark[0:]:
     meta['PATH'] = path
     meta['ROW'] = row
     coords_txt = pm.Polygon.outerBoundaryIs.LinearRing.coordinates.text.strip()
-    # -178.785,-80.929,6999.999999999999 -177.567,-82.68000000000001,6999.999999999999 169.654,-82.68000000000001,6999.999999999999 170.873,-80.929,6999.999999999999 -178.785,-80.929,6999.999999999999
+    # -178.785,-80.929,6999.999999999999 -177.567,
+    # -82.68000000000001,6999.999999999999 169.654,
+    # -82.68000000000001,6999.999999999999 170.873,
+    # -80.929,6999.999999999999 -178.785,
+    # -80.929,6999.999999999999
 
     coords = []
     for coord in coords_txt.split(' '):
@@ -81,7 +85,6 @@ for pm in root.Document.Placemark[0:]:
     ctr_lon = float(pm.description.text.split('CTR LON</strong>:')[-1].split('<br>')[0])
     utm_zone = floor((ctr_lon + 180) / 6) + 1
     meta['UTM'] = utm_zone
-
 
     # get key/values pairs from kml description
     for key in ['WRS_ID', 'PATH', 'ROW', 'LL_WKT', 'UTM']:

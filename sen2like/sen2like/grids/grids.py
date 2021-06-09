@@ -39,9 +39,9 @@ class GridsConverter:
         # return as dict
         return roi.to_dict(orient='list')
 
-    ### Don't know why but with this method the SRS code is not added in the geojson
-    ### if the GDAL_DATA variable is set in the environment. However we need
-    ### this GDAL_DATA variable for other methods. So we do not use this method.
+    # Don't know why but with this method the SRS code is not added in the geojson
+    # if the GDAL_DATA variable is set in the environment. However we need
+    # this GDAL_DATA variable for other methods. So we do not use this method.
     def WktToJson2(self, wkt, epsg_code, filename):
 
         # polygon from wkt
@@ -73,7 +73,7 @@ class GridsConverter:
         outFeature = None
         outDataSource = None
 
-    ## Manual export...
+    # Manual export...
     def WktToJson(self, wkt, epsg_code, filename):
 
         # polygon from wkt, to geojson string
@@ -82,7 +82,8 @@ class GridsConverter:
 
         param = "{\n"
         param += "\"type\": \"FeatureCollection\",\n"
-        param += "\"crs\": { \"type\": \"name\", \"properties\": { \"name\": \"urn:ogc:def:crs:EPSG::" + epsg_code + "\" } },\n"
+        param += "\"crs\": { \"type\": \"name\", \"properties\": { \"name\": \"urn:ogc:def:crs:EPSG::" + \
+                 epsg_code + "\" } },\n"
         param += "\"features\": [\n"
         param += "{ \"type\": \"Feature\", \"properties\": { \"prop0\": null }, \"geometry\":"
 

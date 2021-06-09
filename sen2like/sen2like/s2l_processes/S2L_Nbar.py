@@ -9,8 +9,9 @@ import numpy as np
 from osgeo import gdal
 from skimage.transform import resize
 
-from core.S2L_config import config
+from atmcor.get_s2_angles import get_angles_band_index
 from core.QI_MTD.mtd import metadata
+from core import S2L_config
 from s2l_processes.S2L_Process import S2L_Process
 
 log = logging.getLogger("Sen2Like")
@@ -67,8 +68,7 @@ def li_sparse_kernel(theta_s, theta_v, phi):
     t = np.arccos(cos_t)
 
     # Compute overlap value between the view and the solar shadow :
-    overlap = np.divide(1.0, np.pi) * (t - sin_t * cos_t) \
-              * (sec_theta_s_p + sec_theta_v_p)
+    overlap = np.divide(1.0, np.pi) * (t - sin_t * cos_t) * (sec_theta_s_p + sec_theta_v_p)
     # Compute KGEO :
     t = - sec_theta_s_p - sec_theta_v_p + 0.5 * (1 + cos_zetha_p) * sec_theta_v_p * sec_theta_v_p
     K_GEO = overlap - sec_theta_s_p - sec_theta_v_p + 0.5 * (1 + cos_zetha_p) * sec_theta_s_p * sec_theta_v_p
@@ -146,8 +146,6 @@ def get_mean_sun_angle(scene_center_latitude):
 
 
 class S2L_Nbar(S2L_Process):
-    def __init__(self):
-        super().__init__()
 
     def process(self, product, image, band):
 
@@ -155,7 +153,7 @@ class S2L_Nbar(S2L_Process):
 
         # coeff for this band?
         if get_brdf_coefficient(product, band) is None:
-            log.warning('No BRDF coefficient for {}'.format(band))
+            log.info('No BRDF coefficient for {}'.format(band))
             image_out = image
         else:
             # Compute Kernels
@@ -166,7 +164,7 @@ class S2L_Nbar(S2L_Process):
 
             # Format Output : duplicate, link  to product as parameter
             image_out = image.duplicate(self.output_file(product, band), array=OUT.astype(np.float32))
-            if config.getboolean('generate_intermediate_products'):
+            if S2L_config.config.getboolean('generate_intermediate_products'):
                 image_out.write(creation_options=['COMPRESS=LZW'])
 
         log.info('End')
@@ -193,7 +191,7 @@ class S2L_Nbar(S2L_Process):
 
         else:
             # VAA for each band, VZA for each band, SAA, SZZ
-            angle_band_index = product.get_angles_band_index(band)
+            angle_band_index = get_angles_band_index(band)
             VAA = src_ds.GetRasterBand(angle_band_index + 1).ReadAsArray().astype(np.float32) / 100.0
             VZA = src_ds.GetRasterBand(13 + angle_band_index + 1).ReadAsArray().astype(np.float32) / 100.0
             SAA = src_ds.GetRasterBand(nBands - 1).ReadAsArray().astype(np.float32) / 100.0
@@ -203,7 +201,7 @@ class S2L_Nbar(S2L_Process):
         src_ds = None
         metadata.qi['MEAN_DELTA_AZIMUTH'] = np.mean(SAA - VAA) % 360
 
-        if config.getboolean('debug'):
+        if S2L_config.config.getboolean('debug'):
             out_stat(VAA, 'VAA')
             out_stat(VZA, 'VZA')
             out_stat(SAA, 'SAA')
@@ -232,19 +230,19 @@ class S2L_Nbar(S2L_Process):
         log.debug('--------------- KGEO INPUT STAT-----------------------------------')
 
         log.debug('---- KGEO INPUT ---')
-        if config.getboolean('debug'):
+        if S2L_config.config.getboolean('debug'):
             out_stat(self.KGEO_INPUT)
 
         log.debug('---- KVOL INPUT ---')
-        if config.getboolean('debug'):
+        if S2L_config.config.getboolean('debug'):
             out_stat(self.KVOL_INPUT)
 
         log.debug('---- KGEO NORM ---')
-        if config.getboolean('debug'):
+        if S2L_config.config.getboolean('debug'):
             out_stat(self.KGEO_NORM)
 
         log.debug('---- KVOL NORM')
-        if config.getboolean('debug'):
+        if S2L_config.config.getboolean('debug'):
             out_stat(self.KVOL_NORM)
 
     def _nbar(self, product, image, band):
@@ -258,13 +256,13 @@ class S2L_Nbar(S2L_Process):
                                   brdf_coef_set)
         IM1 = image.array
         U = IM1 >= 0
-        if config.getboolean('debug'):
+        if S2L_config.config.getboolean('debug'):
             out_stat(IM1[U])
 
         CMATRIX_full = resize(CMATRIX, IM1.shape)
         IM = CMATRIX_full
         U = IM >= 0
-        if config.getboolean('debug'):
+        if S2L_config.config.getboolean('debug'):
             out_stat(IM[U])
 
         OUT = CMATRIX_full * IM1

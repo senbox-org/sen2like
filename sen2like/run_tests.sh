@@ -25,7 +25,7 @@ if hash pylint 2> /dev/null; then
 fi
 
 if hash flake8 2> /dev/null; then
-    flake8 --max-line-length=120 --statistics . > reports/flake8.report
+    flake8 --max-line-length=120 --statistics sen2like > reports/flake8.report
     echo Result file written in $PWD/reports/pycodestyle.report
 fi
 

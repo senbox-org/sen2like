@@ -147,7 +147,6 @@ def smac_inv(r_toa, tetas, phis, tetav, phiv, pressure, taup550, uo3, uh2o, coef
     a2T = coef.a2T
     a3T = coef.a3T
     taur = coef.taur
-    sr = coef.sr
     a0taup = coef.a0taup
     a1taup = coef.a1taup
     wo = coef.wo
@@ -317,7 +316,6 @@ def smac_dir(r_surf, tetas, phis, tetav, phiv, pressure, taup550, uo3, uh2o, coe
     a2T = coef.a2T
     a3T = coef.a3T
     taur = coef.taur
-    sr = coef.sr
     a0taup = coef.a0taup
     a1taup = coef.a1taup
     wo = coef.wo

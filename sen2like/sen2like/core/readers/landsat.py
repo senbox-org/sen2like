@@ -22,17 +22,17 @@ log = logging.getLogger('Sen2Like')
 band_regex = re.compile(r'[B,d]\d{1,2}')
 
 # LC08_L1TP_196030_20171130_20171130_01_RT_sr_band2.tif => regex2
-regex2 = r'(?i)L[O,M,T,C]0[1-8]_L.*_(RT|T1|LT|T2).*(_MTI)?_sr_band\d{1,2}.tif'
+regex2 = r'(?i)L[O,M,T,C]0[1-9]_L.*_(RT|T1|LT|T2).*(_MTI)?_sr_band\d{1,2}.tif'
 p2 = re.compile(regex2)
 # LM31980381978220MTI00_B4.TIF                        => regex3
 # LC81960302015153MTI00_B2.TIF                        => regex3
-regex3 = '(?i)L[O,M,T,C][1-8].*_B.?.TIF'
+regex3 = '(?i)L[O,M,T,C][1-9].*_B.?.TIF'
 p3 = re.compile(regex3)
 # LT05_L1TP_198030_20111011_20161005_01_T1_B1.TIF     => regex4
 # LC08_L1TP_196030_20170420_20170501_01_T1_B1.TIF     => regex4
 # LC08_L1TP_196030_20171130_20171130_01_RT_MTI_B1.TIF => regex4
 # LC08_L1GT_087113_20171118_20171205_01_T2_B1.TIF     => regex4
-regex4 = r'(?i)L[O,M,T,C]0[1-8]_L.*_(RT|T1|LT|T2).*(_MTI)?B\d{1,2}.TIF(F)?'
+regex4 = r'(?i)L[O,M,T,C]0[1-9]_L.*_(RT|T1|LT|T2).*(_MTI)?B\d{1,2}.TIF(F)?'
 p4 = re.compile(regex4)
 
 
@@ -77,6 +77,10 @@ class LandsatMTL(BaseReader):
                 mtl_text = mtl_file.read()
             self.product_name = os.path.basename(
                 os.path.dirname(mtl_file_name))  # PRODUCT_NAME # VDE : linux compatible
+
+            string_to_search = 'COLLECTION_NUMBER =.*'
+            self.collection_number = reg_exp(mtl_text, string_to_search)
+
             regex = re.compile('LANDSAT_SCENE_ID =.*')
             res = regex.findall(mtl_text)
             if res:
@@ -87,7 +91,10 @@ class LandsatMTL(BaseReader):
 
             string_to_search = 'LANDSAT_PRODUCT_ID =.*'
             self.product_id = reg_exp(mtl_text, string_to_search)
-            string_to_search = 'FILE_DATE =.*'
+            if self.collection_number == '02':
+                string_to_search = 'DATE_PRODUCT_GENERATED =.*'
+            else:
+                string_to_search = 'FILE_DATE =.*'
             self.file_date = reg_exp(mtl_text, string_to_search)
             string_to_search = 'PROCESSING_SOFTWARE_VERSION =.*'
             self.processing_sw = reg_exp(mtl_text, string_to_search)
@@ -95,7 +102,10 @@ class LandsatMTL(BaseReader):
             self.mission = reg_exp(mtl_text, string_to_search)
             string_to_search = 'SENSOR_ID =.*'
             self.sensor = reg_exp(mtl_text, string_to_search)
-            string_to_search = 'DATA_TYPE =.*'
+            if self.collection_number == '02':
+                string_to_search = 'PROCESSING_LEVEL =.*'
+            else:
+                string_to_search = 'DATA_TYPE =.*'
             self.data_type = reg_exp(mtl_text, string_to_search)
             string_to_search = 'COLLECTION_CATEGORY =.*'
             self.collection = reg_exp(mtl_text, string_to_search)
@@ -124,7 +134,10 @@ class LandsatMTL(BaseReader):
             self.model_fit = reg_exp(mtl_text, string_to_search)
 
             if self.data_type in ["L1T", "L2A"]:
-                string_to_search = 'ELEVATION_SOURCE =.*'
+                if self.collection_number == '02':
+                    string_to_search = 'DATA_SOURCE_ELEVATION =.*'
+                else:
+                    string_to_search = 'ELEVATION_SOURCE =.*'
                 self.elevation_source = reg_exp(mtl_text, string_to_search)
             else:
                 self.elevation_source = 'N/A'
@@ -172,7 +185,10 @@ class LandsatMTL(BaseReader):
             string_to_search = 'CORNER_LL_LON_PRODUCT =.*'
             self.scene_boundary_lon.append(reg_exp(mtl_text, string_to_search))
             # INFORMATION ON GROUND CONTROL POINTS :
-            string_to_search = 'GROUND_CONTROL_POINT_FILE_NAME =.*'
+            if self.collection_number == '02':
+                string_to_search = 'FILE_NAME_GROUND_CONTROL_POINT =.*'
+            else:
+                string_to_search = 'GROUND_CONTROL_POINT_FILE_NAME =.*'
             self.gcp_filename = reg_exp(mtl_text, string_to_search)
 
             if self.processing_sw == "SLAP_03.04":
@@ -206,9 +222,16 @@ class LandsatMTL(BaseReader):
 
             self.mask_filename = None
             # INFORMATION ON FILE NAMES :
-            string_to_search = 'METADATA_FILE_NAME =.*'
+            if self.collection_number == '02':
+                string_to_search = 'FILE_NAME_METADATA_ODL =.*'
+            else:
+                string_to_search = 'METADATA_FILE_NAME =.*'
+
             self.md_filename = reg_exp(mtl_text, string_to_search)
-            string_to_search = 'CPF_NAME =.*'
+            if self.collection_number == '02':
+                string_to_search = 'FILE_NAME_CPF =.*'
+            else:
+                string_to_search = 'CPF_NAME =.*'
             self.cpf_filename = reg_exp(mtl_text, string_to_search)
 
             string_to_search = 'CLOUD_COVER =.*'
@@ -317,8 +340,18 @@ class LandsatMTL(BaseReader):
             self.solar_irradiance = get_in_band_solar_irrandiance_value(self.mission, self.sensor)
 
             #  BQA List :
-            self.bqa, self.bqa_filename = self.get_qa_band()
-            self.ang, self.ang_filename = self.get_ang_band()
+            if self.collection_number == '02':
+                string_to_search = 'FILE_NAME_QUALITY_L1_PIXEL =.*'
+            else:
+                string_to_search = 'FILE_NAME_BAND_QUALITY =.*'
+            self.bqa_filename = reg_exp(mtl_text, string_to_search)
+
+            if self.collection_number == '02':
+                string_to_search = 'ANGLE_COEFFICIENT_FILE_NAME =.*'
+            else:
+                string_to_search = 'FILE_NAME_ANGLE_COEFFICIENT =.*'
+            self.ang_filename = reg_exp(mtl_text, string_to_search)
+
             self.scl, self.scene_classif_band = self.get_scl_band()
 
             #  Set Image list :
@@ -361,7 +394,7 @@ class LandsatMTL(BaseReader):
                     log.info(' Radiance Images found')
                 else:
                     self.radiance_image_valid = False
-                    log.warning('WARNING No Radiance Images')
+                    log.debug('WARNING No Radiance Images')
 
                 self.rhotoa_image_list = self.set_image_file_name('RHO')
                 self.rhotoa_image_valid = False
@@ -373,7 +406,7 @@ class LandsatMTL(BaseReader):
                     log.info(' Reflectance TOA Images found')
                 else:
                     self.rhotoa_image_valid = False
-                    log.warning('WARNING No TOA Images')
+                    log.debug('WARNING No TOA Images')
 
                 # If harmonization reprocessing start at level 2, needs to set
                 # reflective band properties in any cases
@@ -403,8 +436,9 @@ class LandsatMTL(BaseReader):
         """
 
         # Open QA Image
-        if self.bqa:
-            log.info(f'Generating validity and nodata masks from BQA band')
+        if self.bqa_filename != 'not found':
+            self.bqa_filename = os.path.join(self.product_path, self.bqa_filename)
+            log.info('Generating validity and nodata masks from BQA band')
             log.debug(f'Read cloud mask: {self.bqa_filename}')
             bqa = S2L_ImageFile(self.bqa_filename)
             bqa_array = bqa.array
@@ -440,7 +474,7 @@ class LandsatMTL(BaseReader):
 
             return True
         elif self.scl:
-            log.info(f'Generating validity and nodata masks from SCL band')
+            log.info('Generating validity and nodata masks from SCL band')
             log.debug(f'Read SCL: {self.scene_classif_band}')
             scl = S2L_ImageFile(self.scene_classif_band)
             scl_array = scl.array
@@ -469,38 +503,6 @@ class LandsatMTL(BaseReader):
             return True
         return False
 
-    def get_valid_pixel_mask2(self, DST=None):
-        """
-        Depending on collection / processing level, provide the cloud / sea mask
-        Set self.mask_filename
-        """
-        # Open QA Image
-        if self.bqa:
-            log.debug(self.bqa_filename)
-            if self.data_type == 'L2A':
-                image = self.surf_image_list[0]
-            else:
-                image = self.dn_image_list[0]
-            # Create Output dataset
-            src_ds = gdal.Open(self.bqa_filename)
-            dn_image = gdal.Open(image)
-            gtiff_driver = gdal.GetDriverByName('MEM')
-            tmp_ds = gtiff_driver.CreateCopy('', dn_image, 0)
-            dn_image = None
-
-            bqa_band = src_ds.GetRasterBand(1)
-            bqa_band.SetNoDataValue(0)
-            bqa_array = src_ds.GetRasterBand(1).ReadAsArray()
-            src_ds = None
-
-            # Process Pixel valid 'pre collection
-            # Process Land Water Mask 'collection 1
-            if self.collection != 'Pre Collection':
-                th = 2720  # No land sea mask given with Collection products
-                log.debug(th)
-        else:
-            return False
-
     def get_angle_images(self, DST=None):
         """
         :param DST: Optional name of the output tif containing all angles images
@@ -517,7 +519,8 @@ class LandsatMTL(BaseReader):
         else:
             out_file = os.path.join(self.product_path, 'tie_points.tif')
 
-        if self.ang and sys.platform == 'linux2':
+        if self.ang_filename != 'not found' and sys.platform == 'linux2':
+            self.ang_filename = os.path.join(self.product_path, self.ang_filename)
             ls8_angles_exe = os.path.join(BINDIR, 'l8_angles', 'l8_angles')
             args = [ls8_angles_exe, os.path.abspath(self.ang_filename), 'SATELLITE {} -b 1,2,3,4,5,6,7'.format(F)]
             subprocess.check_call(' '.join(args), shell=True, cwd=os.path.dirname(out_file))
@@ -585,12 +588,6 @@ class LandsatMTL(BaseReader):
                       re.search(regex, filename, re.IGNORECASE)]
         return len(image_list) > 0, os.path.join(self.product_path, image_list[0]) if image_list else ' '
 
-    def get_qa_band(self):
-        return self._get_band(r'.*bqa\.tif')
-
-    def get_ang_band(self):
-        return self._get_band(r'.*_ANG\.txt')
-
     def get_scl_band(self):
         return self._get_band(r'.*_SCL\.tif')
 
@@ -626,7 +623,7 @@ class LandsatMTL(BaseReader):
                     band_id = self._get_band_id(record)
                     if band_id is not None:
                         array.append([band_id, full_name])
-                        if self.mission == 'LANDSAT_8':
+                        if self.mission in ('LANDSAT_8', 'LANDSAT_9'):
                             if band_id in [1, 2, 3, 4, 5, 6, 7, 9]:
                                 self.reflective_band_list.append(full_name)
                             elif band_id in [10, 11]:
@@ -682,7 +679,7 @@ class LandsatMTL(BaseReader):
                 band_id = self._get_band_id(record, ['_sr_band'])
                 if band_id is not None:
                     array.append([band_id, record])
-                    if self.mission == 'LANDSAT_8':
+                    if self.mission in ('LANDSAT_8', 'LANDSAT_9'):
                         if band_id in [1, 2, 3, 4, 5, 6, 7]:
                             self.reflective_band_list.append(record)
             if not self.reflective_band_list:
@@ -700,5 +697,5 @@ class LandsatMTL(BaseReader):
     @staticmethod
     def can_read(product_name):
         name = os.path.basename(product_name)
-        return os.path.basename(product_name).startswith('LC') or os.path.basename(product_name).startswith('LO') or (
-                    name.startswith('L2F') and '_LS8_' in name)
+        return name.startswith('LC') or name.startswith('LO') or \
+               (name.startswith('L2F') and ('_LS8_' in name or '_LS9_' in name))

@@ -55,14 +55,31 @@ class Metadata:
                                  "bb_L8H_tile": "xml_backbones/MTD_TL_L2H_L8.xml",
                                  "bb_QIH_path": "xml_backbones/L2H_QI_Report_backbone.xml",
                                  "bb_QIF_path": "xml_backbones/L2F_QI_Report_backbone.xml",
-                                 "product_mtd_xsd": "xsd_files/S2-PDGS-TAS-DI-PSD-V14.5_Schema/S2_User_Product_Level-2A_Metadata.xsd",
-                                 "product_tl_xsd": "xsd_files/S2-PDGS-TAS-DI-PSD-V14.5_Schema/S2_PDI_Level-2A_Tile_Metadata.xsd",
+                                 "product_mtd_xsd":
+                                     "xsd_files/S2-PDGS-TAS-DI-PSD-V14.5_Schema/S2_User_Product_Level-2A_Metadata.xsd",
+                                 "product_tl_xsd":
+                                     "xsd_files/S2-PDGS-TAS-DI-PSD-V14.5_Schema/S2_PDI_Level-2A_Tile_Metadata.xsd",
                                  "product_QIH_xsd": "xsd_files/L2H_QI_Report.xsd",
                                  "product_QIF_xsd": "xsd_files/L2F_QI_Report.xsd",
                                  "L8_absolute_orbit": "000000",
                                  "PDGS": "9999",
                                  "L8_archiving_center": "ZZZ_",
                                  "L8_archiving_time": "0000-00-00T00:00:00.000Z"}
+
+    def update(self, new_medatada):
+        """Merge a metadata content with current metadata
+
+        :param new_medatada: Metadata to merge
+        """
+        self.qi.update(new_medatada.qi)
+
+        for key, val in new_medatada.mtd.items():
+            if isinstance(val, list):
+                self.mtd[key].extend(val)
+            elif isinstance(val, dict):
+                self.mtd[key].update(val)
+            else:
+                self.mtd[key] = val
 
 
 metadata = Metadata()

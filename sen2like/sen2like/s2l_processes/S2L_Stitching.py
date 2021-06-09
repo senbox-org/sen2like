@@ -4,7 +4,7 @@ import os
 import gdal
 import numpy as np
 
-from core.S2L_config import config
+from core import S2L_config
 from core.product_archive.product_archive import InputProductArchive
 from core.image_file import S2L_ImageFile
 from grids import mgrs_framing
@@ -18,29 +18,30 @@ class S2L_Stitching(S2L_Process):
     margin = 10
     tile_coverage = 0.5
 
-    def __init__(self):
-        super().__init__()
-
     def initialize(self):
-        self.downloader = InputProductArchive(config)
+        self.downloader = InputProductArchive(S2L_config.config)
         self.new_product = None
 
     def output_file(self, product, band=None, image=None, extension=None):
         if band is None and image is not None:
-            return os.path.join(config.get('wd'), product.name, image.rootname + extension)
+            return os.path.join(S2L_config.config.get('wd'), product.name, image.rootname + extension)
         return S2L_Process.output_file(self, product, band, extension)
 
     @property
     def tile(self):
-        return config.get('tile', '31TFJ')
+        return S2L_config.config.get('tile', '31TFJ')
 
     def acquisition(self, product, row_offset=1):
         start_date = product.acqdate.replace(hour=0, minute=0, second=0, microsecond=0)
         end_date = product.acqdate.replace(hour=23, minute=59, second=59)
-        if product.sensor == 'L8':
-            log.debug(f"Search product on path [{product.mtl.path}, {int(product.mtl.row) + row_offset}]")
+        if product.sensor in ('L8', 'L9'):
+            if product.mtl.row is not None:
+                row = int(product.mtl.row) + row_offset
+            else:
+                row = product.mtl.row
+                log.debug(f"Search product on path [{product.mtl.path}, {row}]")
             urls = [(self.downloader.construct_url("Landsat8", path=product.mtl.path,
-                                                   row=int(product.mtl.row) + row_offset, start_date=start_date,
+                                                   row=row, start_date=start_date,
                                                    end_date=end_date, cloud_cover=100), None)]
         else:
             log.debug("Search product on same tile [{}]".format(self.tile))
@@ -87,7 +88,7 @@ class S2L_Stitching(S2L_Process):
             self.new_product = None
 
     def get_new_product(self, product):
-        if product.sensor == 'L8':
+        if product.sensor in ('L8', 'L9'):
             self._get_l8_new_product(product)
         elif product.sensor == 'S2':
             self._get_s2_new_product(product)
@@ -97,12 +98,12 @@ class S2L_Stitching(S2L_Process):
 
     def reframe(self, image, product, band=None, dtype=None):
         # Add margin
-        margin = int(config.get('reframe_margin', self.margin))
+        margin = int(S2L_config.config.get('reframe_margin', self.margin))
         log.debug(f"Using {margin} as margin.")
         product_image = mgrs_framing.reframe(image, self.tile,
                                              filepath_out=self.output_file(product, band, image, "_PREREFRAMED"),
                                              order=0, margin=margin, dtype=dtype, compute_offsets=True)
-        if config.getboolean('generate_intermediate_products'):
+        if S2L_config.config.getboolean('generate_intermediate_products'):
             product_image.write(creation_options=['COMPRESS=LZW'], DCmode=True)  # digital count
         return product_image
 
@@ -121,7 +122,7 @@ class S2L_Stitching(S2L_Process):
         ds_product_src = gdal.Open(product_file)
         ds_new_product_src = gdal.Open(new_product_file)
 
-        filepath_out = os.path.join(config.get('wd'), product.name, 'tie_points_STITCHED.TIF')
+        filepath_out = os.path.join(S2L_config.config.get('wd'), product.name, 'tie_points_STITCHED.TIF')
         for i in range(1, ds_product_src.RasterCount + 1):
             array_product = ds_product_src.GetRasterBand(i).ReadAsArray()
             array_new_product = ds_new_product_src.GetRasterBand(i).ReadAsArray()
@@ -157,14 +158,14 @@ class S2L_Stitching(S2L_Process):
             # Validity mask
             if _product.mtl.mask_filename is None:
                 is_mask_valid = _product.mtl.get_valid_pixel_mask(
-                    os.path.join(config.get("wd"), _product.name, 'valid_pixel_mask.tif'))
+                    os.path.join(S2L_config.config.get("wd"), _product.name, 'valid_pixel_mask.tif'))
             if is_mask_valid:
                 product_validity_masks.append(self.reframe(S2L_ImageFile(_product.mtl.mask_filename), _product))
                 product_nodata_masks.append(self.reframe(S2L_ImageFile(_product.mtl.nodata_mask_filename), _product))
             # Angles
             if _product.mtl.angles_file is None:
-                _product.mtl.get_angle_images(os.path.join(config.get("wd"), _product.name, 'tie_points.tif'))
-            filepath_out = os.path.join(config.get('wd'), _product.name, 'tie_points_PREREFRAMED.TIF')
+                _product.mtl.get_angle_images(os.path.join(S2L_config.config.get("wd"), _product.name, 'tie_points.tif'))
+            filepath_out = os.path.join(S2L_config.config.get('wd'), _product.name, 'tie_points_PREREFRAMED.TIF')
             mgrs_framing.reframeMulti(_product.mtl.angles_file, self.tile, filepath_out=filepath_out, order=0)
             product_angles.append(filepath_out)
 
@@ -182,8 +183,8 @@ class S2L_Stitching(S2L_Process):
         product.mtl.angles_file = stitched_angles
 
         # Stitch reference band (needed by geometry module)
-        band = config.get('reference_band', 'B04')
-        if config.getboolean('doMatchingCorrection') and config.get('refImage'):
+        band = S2L_config.config.get('reference_band', 'B04')
+        if S2L_config.config.getboolean('doMatchingCorrection') and S2L_config.config.get('refImage'):
             image = product.get_band_file(band)
             self.process(product, image, band)
 

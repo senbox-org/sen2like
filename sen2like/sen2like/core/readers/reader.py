@@ -13,6 +13,7 @@ class BaseReader:
         logger.info("Product: %s" % self.product_path)
         self.scene_boundary_lon = None
         self.scene_boundary_lat = None
+        self.is_refined = False
 
     def get_scene_center_coordinates(self):
         lon = np.divide(np.sum(np.double(self.scene_boundary_lon)), 4)

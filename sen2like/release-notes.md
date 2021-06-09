@@ -1,14 +1,27 @@
 # Sen2Like Release Notes
 
-## v3.1.2
+## v3.2.0
+
+### New features
+
+* Add support for new products
+    * Maja products
+    * Landsat-8 Collection 2
+    * Landsat-9
+* Disable geometric correction for refined products
+* In Atmospheric correction, add a reader for CAMS daily data
+* Metadata are also written in json format
+* Add per-band parallelization
+* Add a parameter to force geometric correction
+* Add support for JPEG2000 output format in configuration file
+* Add a downloader for Copernicus DEM
+* Generate stac items for output products
 
 ### Fixes
 
-* Fix S2 band naming in output
-* Do not resample S2 images to 30m
-* Downsample band to 30m during fusion if needed
-* Fix COG levels in configuration file
-* Fix QL naming in metadata
+* Fix image format written in metadata file
+* Harmonize L8 tile/granule ID with S2
+* For S2 products replace the granuleIdentifier by the virtual full PDGS filename
 
 ## v3.1.1
 
@@ -19,7 +32,7 @@
 * Outputs band files for Packagers L2H and L2F now use S2 band names
 * Update COG options in configuration file
 * QuickLook for SWIR-NIR now use B12, B11 and B8A
-* Fix native thermal bands outputs for L8 products 
+* Fix native thermal bands outputs for L8 products
 
 ## v3.1
 
@@ -31,7 +44,6 @@
 * New L2F / L2H output formats
 * Bands for geometry assessment can now be specified in configuration file
 * Add support for COG output format in configuration file
-
 
 ### Fixes
 
