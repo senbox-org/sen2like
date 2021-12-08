@@ -8,6 +8,7 @@ from xml import parsers as pars
 import numpy as np
 import osr
 from osgeo import gdal
+import mgrs
 
 from atmcor.get_s2_angles import reduce_angle_matrix, from_values_list_to_array, get_angles_band_index
 from core.image_file import S2L_ImageFile
@@ -33,7 +34,7 @@ class Sentinel2MajaMTL(BaseReader):
 
         self.isValid = True
 
-        self.mgrs = os.path.basename(self.product_path).split('_')[3]
+        self.mgrs = os.path.basename(self.product_path).split('_')[3][-5:]
 
         try:
             mtl_file_name = glob.glob(os.path.join(self.product_path, '*MTD*.xml'))[0]
@@ -429,6 +430,11 @@ class Sentinel2MajaMTL(BaseReader):
         band.SetDescription('Solar_' + angle_type)
         band.WriteArray((arr * 100).astype(np.int16), 0, 0)  # int16 with scale factor 100
         target_ds.SetProjection(wkt)
+
+    def get_scene_center_coordinates(self):
+        m = mgrs.MGRS()
+        lat, lon = m.toLatLon(self.mgrs + '5490045100')
+        return lon, lat
 
 
 def from_values_list_to_array(selected_node):

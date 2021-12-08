@@ -8,6 +8,7 @@
             <xs:element type="StringBoolType" name="doStitching"/>
             <xs:element type="StringBoolType" name="doGeometryKLT"/>
             <xs:element type="StringBoolType" name="doToa"/>
+            <xs:element type="StringBoolType" name="doInterCalibration"/>
             <xs:element type="StringBoolType" name="doAtmcor"/>
             <xs:element type="StringBoolType" name="doNbar"/>
             <xs:element type="StringBoolType" name="doSbaf"/>
@@ -21,8 +22,11 @@
         <xs:sequence>
             <xs:element type="xs:string" name="archive_dir"/>
             <xs:element type="xs:string" name="cams_dir"/>
+            <xs:element type="xs:string" name="cams_daily_dir"/>
             <xs:element type="xs:string" name="cams_hourly_dir"/>
             <xs:element type="xs:string" name="cams_climatology_dir"/>
+            <xs:element type="xs:string" name="dem_dir"/>
+            <xs:element type="xs:string" name="scl_dir"/>
         </xs:sequence>
     </xs:complexType>
 
@@ -30,13 +34,13 @@
         <xs:sequence>
             <xs:element type="xs:float" name="coverage"/>
             <xs:element type="xs:string" name="base_url"/>
+            <xs:element type="xs:integer" name="cloud_cover"/>
             <xs:choice>
                 <xs:sequence>
                     <xs:element type="xs:string" name="url_parameters_pattern_Sentinel2"/>
                     <xs:element type="xs:string" name="url_parameters_pattern_Landsat8"/>
                 </xs:sequence>
                 <xs:sequence>
-                    <xs:element type="xs:integer" name="cloud_cover"/>
                     <xs:element type="xs:string" name="location_Landsat8"/>
                     <xs:element type="xs:string" name="location_Sentinel2"/>
                     <xs:element type="xs:string" name="url_parameters_pattern"/>
@@ -66,10 +70,18 @@
             <xs:element type="xs:integer" name="reframe_margin"/>
         </xs:sequence>
     </xs:complexType>
+    <xs:complexType name="NbarType">
+        <xs:sequence>
+            <xs:element type="xs:string" name="nbar_methode"/>
+            <xs:element type="xs:string" name="vjb_coeff_matrice_dir"/>
+        </xs:sequence>
+    </xs:complexType>
     <xs:complexType name="FusionType">
         <xs:sequence>
             <xs:element type="xs:string" name="predict_method"/>
             <xs:element type="xs:integer" name="predict_nb_products"/>
+            <xs:element type="xs:string" name="fusion_auto_check_band"/>
+            <xs:element type="xs:float" name="fusion_auto_check_threshold"/>
         </xs:sequence>
     </xs:complexType>
     <xs:complexType name="OutputFormatType">
@@ -124,6 +136,7 @@
             <xs:element type="DownloaderType" name="InputProductArchive"/>
             <xs:element type="GeometryType" name="Geometry"/>
             <xs:element type="AtmcorType" name="Atmcor"/>
+            <xs:element type="NbarType" name="Nbar"/>
             <xs:element type="FusionType" name="Fusion"/>
             <xs:element type="StitchingType" name="Stitching"/>
             <xs:element type="OutputFormatType" name="OutputFormat"/>

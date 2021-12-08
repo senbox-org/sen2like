@@ -203,6 +203,7 @@ Enable or disable a processing block based on value `(True, False)`:
 * `doStitching`: Run the stitching processing
 * `doGeometryKLT`: Run the geometric correction processing using KLT
 * `doToa`: Run the TOA correction
+* `doInterCalibration`: Run the Inter Calibration correction
 * `doAtmcor`: Run the Atmospheric correction
 * `doNbar`: Run Nbar correction processing
 * `doSbaf`: Run the Sbaf correction processing
@@ -221,6 +222,7 @@ Indicates path for special directories:
 * `cams_hourly_dir`: Where are located CAMS hourly files
 * `cams_climatology_dir`: Where are located CAMS climatology files
 * `dem_dir`: Where are located DEM files
+* `scl_dir`: Where are located scl maps files
 
 #### Downloader
 
@@ -247,6 +249,7 @@ In addition these parameters are defined in the tool and can be used in brackets
 ##### Local
 
 * `base_url`: Specify where the products are stored
+* `cloud_cover`: Maximum cloud cover in percent [0, 100]
 * `url_parameters_pattern_Sentinel2`: Describe storage path for Sentinel 2 products
 * `url_parameters_pattern_Landsat8`: Describe storage path for Landsat 8 products
 
@@ -264,7 +267,7 @@ will be replaced by:
 ##### Creodias API
 
 * `base_url`: Base address of the api
-* `cloud_cover`: Maximum cloud cover [0, 100]
+* `cloud_cover`: Maximum cloud cover in percent [0, 100]
 * `location_Landsat8`: Expression specifiying Landsat 8 filter
 * `location_Sentinel2`: Expression specifiying Seninel 2 filter
 * `url_parameters_pattern`: API request url. Special parameters between brackets are replaced by defined attributes
@@ -302,12 +305,22 @@ Atmospheric method to use.
 * `use_sen2cor`: Activate sen2cor for Atmospheric correction (SMAC otherwise)
 * `sen2cor_path`: Path to sen2cor tool
 
+#### Nbar
+
+Define parameters for Nbar processing.
+
+* `nbar_methode`: Methode to get BRDF coefficients. Nowadays, available methode are : ROY, VJB
+* `vjb_coeff_matrice_dir`: If choose VJB methode, coefficient netcdf file directory path
+
 #### Fusion
 
 Define parameters for fusion processing.
 
 * `predict_method` : Predic method to use (predict or composite using most recent valid pixels)
 * `predict_nb_products`: Number of products needed by predict method
+* `fusion_auto_check_band` : Band on witch apply fusion auto check
+* `fusion_auto_check_threshold` : (in [0,1]) Threshold of fusion auto check proportion diff. 
+  Use to compute threshold mask.
 
 #### Stitching
 

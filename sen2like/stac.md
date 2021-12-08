@@ -66,6 +66,9 @@ Install nodejs
 ```curl -sL https://rpm.nodesource.com/setup_10.x | sudo bash -```  
 ```sudo yum install nodejs```
 
+Browser github  
+```https://github.com/radiantearth/stac-browser/releases/tag/v1.0.1```
+
 Move to extracted stac-browser folder  
 ```cd stac-browser```
 

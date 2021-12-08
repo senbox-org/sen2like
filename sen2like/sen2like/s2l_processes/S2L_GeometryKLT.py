@@ -145,30 +145,39 @@ class S2L_GeometryKLT(S2L_Process):
         S2L_config.config.set('dy', 0)
 
         if product.sensor != 'S2':
-
             # Reframe angles and masks
             filepath_out = os.path.join(S2L_config.config.get('wd'), product.name, 'tie_points_REFRAMED.TIF')
-            mgrs_framing.reframeMulti(product.mtl.angles_file, product.mtl.mgrs, filepath_out, S2L_config.config.getfloat('dx'),
+            mgrs_framing.reframeMulti(product.mtl.angles_file, product.mtl.mgrs, filepath_out,
+                                      S2L_config.config.getfloat('dx'),
                                       S2L_config.config.getfloat('dy'), order=0)
             product.mtl.angles_file = filepath_out
 
-            # Reframe mask
-            if product.mtl.mask_filename:
-                filepath_out = os.path.join(S2L_config.config.get('wd'), product.name, 'valid_pixel_mask_REFRAMED.TIF')
-                image = S2L_ImageFile(product.mtl.mask_filename)
-                imageout = mgrs_framing.reframe(image, product.mtl.mgrs, filepath_out, S2L_config.config.getfloat('dx'),
-                                                S2L_config.config.getfloat('dy'), order=0)
-                imageout.write(creation_options=['COMPRESS=LZW'])
-                product.mtl.mask_filename = filepath_out
+        # Reframe mask
+        if product.mtl.mask_filename:
+            filepath_out = os.path.join(S2L_config.config.get('wd'), product.name, 'valid_pixel_mask_REFRAMED.TIF')
+            image = S2L_ImageFile(product.mtl.mask_filename)
+            imageout = mgrs_framing.reframe(image, product.mtl.mgrs, filepath_out, S2L_config.config.getfloat('dx'),
+                                            S2L_config.config.getfloat('dy'), order=0)
+            imageout.write(creation_options=['COMPRESS=LZW'])
+            product.mtl.mask_filename = filepath_out
 
-            # Reframe nodata mask
-            if product.mtl.nodata_mask_filename:
-                filepath_out = os.path.join(S2L_config.config.get('wd'), product.name, 'nodata_pixel_mask_REFRAMED.TIF')
-                image = S2L_ImageFile(product.mtl.nodata_mask_filename)
-                imageout = mgrs_framing.reframe(image, product.mtl.mgrs, filepath_out, S2L_config.config.getfloat('dx'),
-                                                S2L_config.config.getfloat('dy'), order=0)
-                imageout.write(creation_options=['COMPRESS=LZW'])
-                product.mtl.nodata_mask_filename = filepath_out
+        # Reframe nodata mask
+        if product.mtl.nodata_mask_filename:
+            filepath_out = os.path.join(S2L_config.config.get('wd'), product.name, 'nodata_pixel_mask_REFRAMED.TIF')
+            image = S2L_ImageFile(product.mtl.nodata_mask_filename)
+            imageout = mgrs_framing.reframe(image, product.mtl.mgrs, filepath_out, S2L_config.config.getfloat('dx'),
+                                            S2L_config.config.getfloat('dy'), order=0)
+            imageout.write(creation_options=['COMPRESS=LZW'])
+            product.mtl.nodata_mask_filename = filepath_out
+
+        # Reframe NDVI
+        if product.ndvi_filename is not None:
+            filepath_out = os.path.join(S2L_config.config.get('wd'), product.name, 'ndvi_REFRAMED.TIF')
+            image = S2L_ImageFile(product.ndvi_filename)
+            imageout = mgrs_framing.reframe(image, product.mtl.mgrs, filepath_out, S2L_config.config.getfloat('dx'),
+                                            S2L_config.config.getfloat('dy'), order=0)
+            imageout.write(creation_options=['COMPRESS=LZW'], DCmode=True)
+            product.ndvi_filename = filepath_out
 
         # Matching for dx/dy correction?
         band = S2L_config.config.get('reference_band', 'B04')
@@ -202,13 +211,11 @@ class S2L_GeometryKLT(S2L_Process):
 
         # Resampling to 30m for S2 (HLS)
         elif product.sensor == 'S2':
-            if not S2L_config.config.getboolean('hlsplus'):
-                image = self._resample(image)
-            else:
-                # refine geometry
-                # if config.getfloat('dx') > 0.3 or config.getfloat('dy') > 0.3:
-                log.debug("{} {}".format(S2L_config.config.getfloat('dx'), S2L_config.config.getfloat('dy')))
-                image = self._reframe(product, image, S2L_config.config.getfloat('dx'), S2L_config.config.getfloat('dy'))
+            # refine geometry
+            # if config.getfloat('dx') > 0.3 or config.getfloat('dy') > 0.3:
+            log.debug("{} {}".format(S2L_config.config.getfloat('dx'), S2L_config.config.getfloat('dy')))
+            image = self._reframe(product, image, S2L_config.config.getfloat('dx'),
+                                  S2L_config.config.getfloat('dy'))
 
         # matching for having QA stats
         if S2L_config.config.get('refImage'):
@@ -259,12 +266,13 @@ class S2L_GeometryKLT(S2L_Process):
                 # save values for correction on bands
                 S2L_config.config.set('dx', dx)
                 S2L_config.config.set('dy', dy)
-                log.info("Geometrical Offsets (DX/DY): {}m {}m".format(S2L_config.config.getfloat('dx'), S2L_config.config.getfloat('dy')))
+                log.info("Geometrical Offsets (DX/DY): {}m {}m".format(S2L_config.config.getfloat('dx'),
+                                                                       S2L_config.config.getfloat('dy')))
 
             # Append bands name to keys
             for key, item in self._tmp_stats.items():
                 if S2L_config.config.get('reference_band') != band:
-                    self._tmp_stats[key+'_{}'.format(band)] = self._tmp_stats.pop(key)
+                    self._tmp_stats[key + '_{}'.format(band)] = self._tmp_stats.pop(key)
             metadata.qi.update(self._tmp_stats)
 
         log.info('End')

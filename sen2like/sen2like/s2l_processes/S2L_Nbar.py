@@ -5,14 +5,21 @@
 
 import logging
 
+import os
+import glob
 import numpy as np
+import re
 from osgeo import gdal
-from skimage.transform import resize
+from skimage.transform import resize as skit_resize
+from skimage.measure import block_reduce
+import xarray as xr
 
 from atmcor.get_s2_angles import get_angles_band_index
 from core.QI_MTD.mtd import metadata
 from core import S2L_config
+from core.S2L_tools import out_stat
 from s2l_processes.S2L_Process import S2L_Process
+from core.image_file import S2L_ImageFile
 
 log = logging.getLogger("Sen2Like")
 
@@ -76,44 +83,21 @@ def li_sparse_kernel(theta_s, theta_v, phi):
     return K_GEO
 
 
-def ross_thick(theta_s, theta_v, phi):
-    # Roujean et al. [32].
-    # Implement old formula of MODIS ATBD 1999 (pp 13) ,
-    # But different from Roujean and Al
-
-    ct = np.float(np.pi / 180.0)
-    # Convert to radiance
-    theta_s_r = np.multiply(ct, theta_s)
-    theta_v_r = np.multiply(ct, theta_v)
-    phi_r = np.multiply(ct, phi)
-    cos_zetha = np.cos(theta_s_r) * np.cos(theta_v_r) + np.sin(theta_s_r) * np.sin(theta_v_r) * np.cos(phi_r)
-    zetha = np.arccos(cos_zetha)
-    numerator = (np.pi / 2.0 - zetha) * np.cos(zetha) + np.sin(zetha)
-    denominator = np.cos(theta_v_r) + np.cos(theta_s_r)
-    #    Kvol = ( numerator / denominator ) - np.pi / 4.0
-    Kvol = (4.0 / (3.0 * np.pi)) * (numerator / denominator) - (1.0 / 3.0)
-
-    return Kvol
-
-
 def normalized_brdf(KVOL_norm, KGEO_norm, KVOL_input, KGEO_input, coef):
     """
     :param KVOL_norm: Li_sparse brdf Kernel  (np.array) for geometry to normalize
     :param KGEO_norm: Ross Thick brdf Kernel (np.array) for geometry to normalize
     :param KVOL_input: Li_sparse brdf Kernel  (np.array) for geometry as input
     :param KGEO_input: Ross Thick brdf Kernel (np.array) for geometry as input
-    :param coef: c-factor coefficients    (f_iso,f_vol,f_geo)
+    :param coef: c-factor coefficients    (f_iso,f_geo,f_vol)
     :return: OUT as np.array
     """
-
-    # Create identity Matrix :
-    id_M = np.ones(KVOL_norm.shape)
 
     f_iso = coef[0]
     f_geo = coef[1]
     f_vol = coef[2]
-    numerator = f_iso * id_M + f_geo * KGEO_norm + f_vol * KVOL_norm
-    denominator = f_iso * id_M + f_geo * KGEO_input + f_vol * KVOL_input
+    numerator = f_iso + f_geo * KGEO_norm + f_vol * KVOL_norm
+    denominator = f_iso + f_geo * KGEO_input + f_vol * KVOL_input
     CMATRIX = numerator / denominator
 
     return CMATRIX
@@ -121,9 +105,178 @@ def normalized_brdf(KVOL_norm, KGEO_norm, KVOL_input, KGEO_input, coef):
 
 # END BRDF KERNEL Functions :
 
-def get_brdf_coefficient(product, band):
-    return product.brdf_coefficients.get(band, {}).get("coef")
+class BRDFCoefficient:
+    mtd = 'NONE'
 
+    def __init__(self, product, image, band):
+        self.product = product
+        self.image = image
+        self.band = product.bands_mapping[band]
+
+    def check(self):
+        return True
+
+    def get(self):
+        return None
+
+    def get_cmatrix_full(self,KVOL_norm, KGEO_norm, KVOL_input, KGEO_input):
+        return np.zeros(self.image.shape)
+
+    def compute_Kvol(self, theta_s, theta_v, phi):
+        return np.identity(theta_s.shape[0])
+
+
+class ROYBRDFCoefficient(BRDFCoefficient):
+    mtd = 'Roy and al. 2016'
+
+    def __init__(self, product, image, band):
+        super().__init__(product, image, band)
+        self.band = band
+
+    def check(self):
+        return self.product.brdf_coefficients.get(self.band, {}).get("coef") is not None
+
+    def get(self):
+        brdf_coef_set = self.product.brdf_coefficients.get(self.band, {}).get("coef")
+        log.debug('BRDF Coefficient Set :{}'.format(brdf_coef_set))
+        return brdf_coef_set
+
+    def get_cmatrix_full(self,KVOL_norm, KGEO_norm, KVOL_input, KGEO_input):
+        CMATRIX = normalized_brdf(KVOL_norm, KGEO_norm, KVOL_input, KGEO_input, self.get())
+        return skit_resize(CMATRIX, self.image.array.shape)
+
+    def compute_Kvol(self, theta_s, theta_v, phi):
+        """Compute Kvol with Ross Tick methode
+        Roujean et al. [32].
+        Implement old formula of MODIS ATBD 1999 (pp 13) ,
+        But different from Roujean and Al
+        """
+
+        ct = np.float(np.pi / 180.0)
+        # Convert to radiance
+        theta_s_r = np.multiply(ct, theta_s)
+        theta_v_r = np.multiply(ct, theta_v)
+        phi_r = np.multiply(ct, phi)
+        cos_zetha = np.cos(theta_s_r) * np.cos(theta_v_r) + np.sin(theta_s_r) * np.sin(theta_v_r) * np.cos(phi_r)
+        zetha = np.arccos(cos_zetha)
+        numerator = (np.pi / 2.0 - zetha) * np.cos(zetha) + np.sin(zetha)
+        denominator = np.cos(theta_v_r) + np.cos(theta_s_r)
+        #    Kvol = ( numerator / denominator ) - np.pi / 4.0
+        Kvol = (4.0 / (3.0 * np.pi)) * (numerator / denominator) - (1.0 / 3.0)
+
+        return Kvol
+
+
+class VJBMatriceBRDFCoefficient(BRDFCoefficient):
+    vr_file_glob_path = '*_BRDFinputs.nc'
+    mtd = 'VJB'  # TODO : put the reference article
+
+    def __init__(self, product, image, band, vr_matrice_file):
+        super().__init__(product, image, band)
+        vr_files = glob.glob(os.path.join(vr_matrice_file, self.vr_file_glob_path))
+        self.vr_matrice = None
+        self.tile = product.mtl.mgrs
+        for file in vr_files:
+            vr_matrice = xr.open_dataset(file)
+            if vr_matrice.attrs['TILE'][-5:] == product.mtl.mgrs:
+                log.info(f"Find VJB matrices : {file}")
+                self.vr_matrice = vr_matrice
+                self.vr_matrice_resolution = int(self.vr_matrice.attrs['SPATIAL_RESOLUTION'])
+                self.vr_matrice_file = file
+                self.band_names = {
+                    k:v for k, v in zip(self.vr_matrice.attrs['BANDS_NUMBER'], self.vr_matrice.attrs['BANDS'])}
+                break  # Stop at the first correct file
+            vr_matrice.close()
+
+    def check(self):
+        return self.vr_matrice is not None and self.band in self.vr_matrice.attrs['BANDS_NUMBER']
+
+    def get(self):
+        # Load datas
+        if not self.check():
+            return None
+        V0 = self.vr_matrice['V0_tendency_' + self.band_names[self.band]]
+        V1 = self.vr_matrice['V1_tendency_' + self.band_names[self.band]]
+        R0 = self.vr_matrice['R0_tendency_' + self.band_names[self.band]]
+        R1 = self.vr_matrice['R1_tendency_' + self.band_names[self.band]]
+        ndvi_img = S2L_ImageFile(self.product.ndvi_filename)
+
+        # Resizing
+        img_res = int(self.image.xRes)
+        ndvi = _resize(ndvi_img.array, img_res / int(ndvi_img.xRes))
+        V0 = _resize(V0.data, img_res / self.vr_matrice_resolution)
+        V1 = _resize(V1.data, img_res / self.vr_matrice_resolution)
+        R0 = _resize(R0.data, img_res / self.vr_matrice_resolution)
+        R1 = _resize(R1.data, img_res / self.vr_matrice_resolution)
+        ndvi_min = _resize(self.vr_matrice.ndvi_min.data, img_res / self.vr_matrice_resolution)
+        ndvi_max = _resize(self.vr_matrice.ndvi_max.data, img_res / self.vr_matrice_resolution)
+
+        ndvi = np.clip(ndvi, ndvi_min, ndvi_max)
+        ndvi = ndvi - ndvi_min
+        if S2L_config.config.getboolean('generate_intermediate_products'):
+            ndvi_clip_img_path = os.path.join(S2L_config.config.get("wd"), self.product.name, 'ndvi_clipped.tif')
+            if not os.path.isfile(ndvi_clip_img_path):
+                ndvi_clip_img = ndvi_img.duplicate(
+                    filepath=ndvi_clip_img_path,
+                    array=ndvi,
+                    res=img_res
+                )
+                ndvi_clip_img.write(DCmode=True, creation_options=['COMPRESS=LZW'])
+
+        # Compute coefficiant
+        c_vol = V1 + V0 * ndvi  # c_geo = f_geo/f_iso
+        c_geo = R1 + R0 * ndvi  # c_vol = f_vol/f_iso
+        # TODO remove nan directli on V and R reading
+        log.debug(f"c_geo have {np.isnan(c_geo).sum()} NaN")
+        log.debug(f"c_vol have {np.isnan(c_vol).sum()} NaN")
+        np.nan_to_num(c_geo, copy=False)
+        np.nan_to_num(c_vol, copy=False)
+        if S2L_config.config.getboolean('generate_intermediate_products'):
+            c_geo_image = self.image.duplicate(
+                filepath=os.path.join(S2L_config.config.get("wd"), self.product.name, f'c_geo_{self.band}.tif'),
+                array=c_geo,
+                res=img_res
+            )
+            c_geo_image.write(DCmode=True, creation_options=['COMPRESS=LZW'])
+            c_vol_image = self.image.duplicate(
+                filepath=os.path.join(S2L_config.config.get("wd"), self.product.name, f'c_vol_{self.band}.tif'),
+                array=c_geo,
+                res=img_res
+            )
+            c_vol_image.write(DCmode=True, creation_options=['COMPRESS=LZW'])
+        return 1, c_geo, c_vol
+
+    def get_cmatrix_full(self,KVOL_norm, KGEO_norm, KVOL_input, KGEO_input):
+        IM1 = self.image.array
+        KVOL_NORM = skit_resize(KVOL_norm, IM1.shape)
+        KGEO_NORM = skit_resize(KGEO_norm, IM1.shape)
+        KVOL_INPUT = skit_resize(KVOL_input, IM1.shape)
+        KGEO_INPUT = skit_resize(KGEO_input, IM1.shape)
+        return normalized_brdf(KVOL_NORM, KGEO_NORM, KVOL_INPUT, KGEO_INPUT, self.get())
+
+    def compute_Kvol(self, theta_s, theta_v, phi):
+        """Compute Kvol with Maignan methode
+        Improvement of the Ross Thick Kernel accounting for Hot Spot
+        Bidirectional reflectance of Earth targets: Evaluation of analytical models
+        using a large set of spaceborne measurements with emphasis on the
+        Hot Spot
+        F. Maignana, F.-M. Bre ́ona,*, R. Lacazeb Remote Sensing of Environment 90 (2004) 210–220
+        """
+        ct = np.float(np.pi / 180.0)
+        # Convert to radiance
+        theta_s_r = np.multiply(ct, theta_s)
+        theta_v_r = np.multiply(ct, theta_v)
+        phi_r = np.multiply(ct, phi)
+        cos_zetha = np.cos(theta_s_r) * np.cos(theta_v_r) + np.sin(theta_s_r) * np.sin(theta_v_r) * np.cos(phi_r)
+        zetha = np.arccos(cos_zetha)
+        zetha_0 = ct * 1.5
+        numerator = (np.pi / 2.0 - zetha) * np.cos(zetha) + np.sin(zetha)
+        denominator = np.cos(theta_v_r) + np.cos(theta_s_r)
+        hot_spot_factor = (1 + (1 + (zetha/zetha_0)**-1))
+        #    Kvol = ( numerator / denominator ) - np.pi / 4.0
+        Kvol = (4.0 / (3.0 * np.pi)) * (numerator / denominator) * hot_spot_factor - (1.0 / 3.0)
+
+        return Kvol
 
 def get_mean_sun_angle(scene_center_latitude):
     # Polynomial coefficient to retrieve the mean sun zenith angle (SZA)
@@ -151,11 +304,36 @@ class S2L_Nbar(S2L_Process):
 
         log.info('Start')
 
+        # brdf coefficiant class
+        if S2L_config.config.get('nbar_methode') == 'VJB' and product.ndvi_filename is not None:
+            self.brdf_coeff = VJBMatriceBRDFCoefficient(
+                product, image, band, S2L_config.config.get('vjb_coeff_matrice_dir'))
+            if not self.brdf_coeff.check():
+                self.brdf_coeff = ROYBRDFCoefficient(product, image, band)
+                log.info(
+                    f"None VJB matrice for tile {product.mtl.mgrs} "
+                    f"and band {band}, try to use ROY coeff in place"
+                )
+        else:
+            self.brdf_coeff = ROYBRDFCoefficient(product, image, band)
+
         # coeff for this band?
-        if get_brdf_coefficient(product, band) is None:
+        if not self.brdf_coeff.check():
             log.info('No BRDF coefficient for {}'.format(band))
             image_out = image
         else:
+            if isinstance(self.brdf_coeff, VJBMatriceBRDFCoefficient):
+                log.debug(f"Use VJB coefficient matrices in : {self.brdf_coeff.vr_matrice_file}")
+                # # Save the r2 of vr matrice coefficients in order to estimate error
+                # r_r2_file = os.path.join(S2L_config.config.get("wd"), product.name, f'R_r2_{self.brdf_coeff.tile}.nc')
+                # v_r2_file = os.path.join(S2L_config.config.get("wd"), product.name, f'V_r2_{self.brdf_coeff.tile}.nc')
+                # if not os.path.isfile(r_r2_file):
+                #     self.brdf_coeff.vr_matrice[['V', 'R']].sel({'stat': 'r2'}).to_netcdf(r_r2_file)
+                # if not os.path.isfile(v_r2_file):
+                #     self.brdf_coeff.vr_matrice[['V', 'R']].sel({'stat': 'r2'}).to_netcdf(v_r2_file)
+            else:
+                log.debug("Use ROY coefficients")
+
             # Compute Kernels
             self._computeKernels(product, band)
 
@@ -177,6 +355,7 @@ class S2L_Nbar(S2L_Process):
         theta_s = get_mean_sun_angle(scene_center_latitude)
         metadata.qi['CONSTANT_SOLAR_ZENITH_ANGLE'] = theta_s
         log.debug('theta_s: {}'.format(theta_s))
+        metadata.qi['BRDF_METHOD'] = self.brdf_coeff.mtd
 
         # Read TP , unit = degree, scale=100
         src_ds = gdal.Open(product.mtl.angles_file)
@@ -202,10 +381,10 @@ class S2L_Nbar(S2L_Process):
         metadata.qi['MEAN_DELTA_AZIMUTH'] = np.mean(SAA - VAA) % 360
 
         if S2L_config.config.getboolean('debug'):
-            out_stat(VAA, 'VAA')
-            out_stat(VZA, 'VZA')
-            out_stat(SAA, 'SAA')
-            out_stat(SZA, 'SZA')
+            out_stat(VAA, log, 'VAA')
+            out_stat(VZA, log, 'VZA')
+            out_stat(SAA, log, 'SAA')
+            out_stat(SZA, log, 'SZA')
 
         # Prepare KGEO Input
         log.debug('--------------------  INPUT  --------------------------------------')
@@ -214,7 +393,7 @@ class S2L_Nbar(S2L_Process):
 
         # Prepare KVOL Input                      :
         log.debug('------------- KVOL INPUT COMPUTATION ------------------------------')
-        self.KVOL_INPUT = ross_thick(SZA, VZA, SAA - VAA)
+        self.KVOL_INPUT = self.brdf_coeff.compute_Kvol(SZA, VZA, SAA - VAA)
         # Prepare KGEO Norm    :
         SZA_NORM = np.ones(VAA.shape) * theta_s
         VZA_NORM = np.zeros(VAA.shape)
@@ -224,46 +403,41 @@ class S2L_Nbar(S2L_Process):
         log.debug('------------- KGEO NORM COMPUTATION ------------------------------')
         self.KGEO_NORM = li_sparse_kernel(SZA_NORM, VZA_NORM, DPHI_NORM)
         log.debug('---- KVOL NORM COMPUTATION ---')
-        self.KVOL_NORM = ross_thick(SZA_NORM, VZA_NORM, DPHI_NORM)
+        self.KVOL_NORM = self.brdf_coeff.compute_Kvol(SZA_NORM, VZA_NORM, DPHI_NORM)
 
         log.debug('------------------------------------------------------------------')
         log.debug('--------------- KGEO INPUT STAT-----------------------------------')
 
         log.debug('---- KGEO INPUT ---')
         if S2L_config.config.getboolean('debug'):
-            out_stat(self.KGEO_INPUT)
+            out_stat(self.KGEO_INPUT, log)
 
         log.debug('---- KVOL INPUT ---')
         if S2L_config.config.getboolean('debug'):
-            out_stat(self.KVOL_INPUT)
+            out_stat(self.KVOL_INPUT, log)
 
         log.debug('---- KGEO NORM ---')
         if S2L_config.config.getboolean('debug'):
-            out_stat(self.KGEO_NORM)
+            out_stat(self.KGEO_NORM, log)
 
-        log.debug('---- KVOL NORM')
+        log.debug('---- KVOL NORM ---')
         if S2L_config.config.getboolean('debug'):
-            out_stat(self.KVOL_NORM)
+            out_stat(self.KVOL_NORM, log)
 
     def _nbar(self, product, image, band):
-        # Get BRDF coefficients
-        brdf_coef_set = get_brdf_coefficient(product, band)
-
-        log.debug('BRDF Coefficient Set :{}'.format(brdf_coef_set))
-
-        CMATRIX = normalized_brdf(self.KVOL_NORM, self.KGEO_NORM,
-                                  self.KVOL_INPUT, self.KGEO_INPUT,
-                                  brdf_coef_set)
         IM1 = image.array
+        CMATRIX_full = self.brdf_coeff.get_cmatrix_full(
+            self.KVOL_NORM, self.KGEO_NORM, self.KVOL_INPUT, self.KGEO_INPUT)
         U = IM1 >= 0
         if S2L_config.config.getboolean('debug'):
-            out_stat(IM1[U])
+            log.debug('---- IMAGE before correction ---')
+            out_stat(IM1[U], log)
 
-        CMATRIX_full = resize(CMATRIX, IM1.shape)
         IM = CMATRIX_full
         U = IM >= 0
         if S2L_config.config.getboolean('debug'):
-            out_stat(IM[U])
+            log.debug('---- IMAGE after correction ---')
+            out_stat(IM[U], log)
 
         OUT = CMATRIX_full * IM1
         OUT[IM1 <= 0] = 0
@@ -271,8 +445,13 @@ class S2L_Nbar(S2L_Process):
         return OUT
 
 
-def out_stat(input_matrix, label=""):
-    log.debug('Maximum {} : {}'.format(label, np.max(input_matrix)))
-    log.debug('Mean {} : {}'.format(label, np.mean(input_matrix)))
-    log.debug('Std dev {} : {}'.format(label, np.std(input_matrix)))
-    log.debug('Minimum {} : {}'.format(label, np.min(input_matrix)))
+def _resize(array, resolution_ratio: float):
+    """Multiplie shape of array by resolution_ratio
+    """
+    if resolution_ratio == 1:
+        return array
+    elif resolution_ratio.is_integer():
+        return block_reduce(array,(int(resolution_ratio), int(resolution_ratio)), func=np.mean)
+    else:
+        out_shape = tuple(round(s / resolution_ratio) for s in array.shape)
+        return skit_resize(array, out_shape, order=1, preserve_range=True)

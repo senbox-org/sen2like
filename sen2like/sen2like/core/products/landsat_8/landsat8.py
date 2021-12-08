@@ -22,7 +22,6 @@ class Landsat8Product(S2L_Product):
                          "B05": {"s2_like_band_label": 'NIR', "coef": [0.3093, 0.033, 0.1535]},
                          "B06": {"s2_like_band_label": 'SWIR1', "coef": [0.343, 0.0453, 0.1154]},
                          "B07": {"s2_like_band_label": 'SWIR2', "coef": [0.2658, 0.0387, 0.0639]}}
-
     l8_date_regexp = re.compile(r"L[CTOEM]0[8-9]_.{4}_\d+_(\d+)_.*")
     l8_date_regexp_old_format = re.compile(r"L[CTOEM][8-9]\d{6}(\d{7}).*")
     l8_date_regexp_sc_format = re.compile(r"L[CTOEM]0[8-9]\d{6}(\d{8}).*")

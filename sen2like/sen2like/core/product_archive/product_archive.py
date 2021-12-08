@@ -15,13 +15,6 @@ from core.products import get_product
 
 logger = logging.getLogger("Sen2Like")
 
-s2_date_regexp = re.compile(r"S2._.+?_(\d{8}T\d{6})_.*")
-s2_date_regexp_long_name = re.compile(r"S2._.+?_\d{8}T\d{6}_R\d{3}_V(\d{8}T\d{6})_\d{8}T\d{6}.*")
-l8_date_regexp = re.compile(r"L[CTOEM]0[8-9]_.{4}_\d+_(\d+)_.*")
-l8_date_regexp_old_format = re.compile(r"L[CTOEM][8-9]\d{6}(\d{7}).*")
-l8_date_regexp_sc_format = re.compile(r"L[CTOEM]0[8-9]\d{6}(\d{8}).*")
-
-
 class InputProduct:
     def __init__(self, path=None, tile_coverage=None, date=None, reader=None):
         self.path = path
@@ -290,7 +283,7 @@ class InputProductArchive:
         :param urls: The urls to parse
         :param start_date: Start of the period
         :param end_date: End of the period
-        :return:
+        :return: list of selected InputProduct
         """
         products_urls = []
         for index, (url, tile_coverage) in enumerate(urls, 1):

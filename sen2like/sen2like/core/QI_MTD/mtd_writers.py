@@ -217,11 +217,13 @@ class MTD_writer_LS8(MtdWriter):
 
         # Quality_Indicators_Info
         # -----------------------
-        self.remove_children('./Quality_Indicators_Info', exceptions=['Input_Product_Info'])
+        self.remove_children('./Quality_Indicators_Info', exceptions=['Input_Product_Info', 'Cloud_Coverage_Assessment'])
         change_elm(self.root_out, './Quality_Indicators_Info/Input_Product_Info', attr_to_change='type',
                    new_value=product.mtl.mission)
         change_elm(self.root_out, './Quality_Indicators_Info/Input_Product_Info',
                    new_value=product.mtl.landsat_scene_id)
+        change_elm(self.root_out, './Quality_Indicators_Info/Cloud_Coverage_Assessment',
+                   new_value=product.mtl.cloud_cover)
 
 
 class MTD_tile_writer_S2(MtdWriter):
@@ -399,6 +401,8 @@ class MTD_tile_writer_LS8(MtdWriter):
         # Quality indicators info
         # -----------------------
         self.remove_children('./Quality_Indicators_Info/Image_Content_QI')
+        create_child(self.root_out, './Quality_Indicators_Info/Image_Content_QI',
+                tag="CLOUDY_PIXEL_PERCENTAGE", text=product.mtl.cloud_cover)
 
         # Replace masks with all existing
         self.remove_children('./Quality_Indicators_Info/Pixel_Level_QI', tag='MASK_FILENAME')
@@ -467,6 +471,8 @@ def generate_LS8_tile_id(pd, H_F):
 
 def generate_S2_tile_id(product, H_F, AC):
     tilecode = product.mtl.mgrs
+    if not tilecode.startswith('T'):
+        tilecode = f"T{tilecode}"
     pdgs = metadata.hardcoded_values.get('PDGS', '9999')
     PDGS = '.'.join([pdgs[:len(pdgs) // 2], pdgs[len(pdgs) // 2:]])
     acqdate = dt.datetime.strftime(product.acqdate, '%Y%m%dT%H%M%S')

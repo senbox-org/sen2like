@@ -41,7 +41,8 @@ class Metadata:
                    "RMSE": "NONE",
                    "NB_OF_POINTS": "NONE",
                    "MEAN_DELTA_AZIMUTH": "NONE",
-                   "CONSTANT_SOLAR_ZENITH_ANGLE": "NONE"
+                   "CONSTANT_SOLAR_ZENITH_ANGLE": "NONE",
+                   "BRDF_METHOD": "NONE",
                    }
 
         self.hardcoded_values = {"s2_struct_xml": "xml_backbones/S2_folder_backbone.xml",

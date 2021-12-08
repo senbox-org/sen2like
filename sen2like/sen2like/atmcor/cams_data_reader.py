@@ -14,7 +14,7 @@ from core.S2L_config import S2L_Config
 log = logging.getLogger("Sen2Like")
 
 
-class EMWF_Product:
+class ECMWF_Product:
     mandatory_attributes = ['aod550', 'gtco3', 'msl', 'tcwv']
     expected_attributes = ['longitude',
                            'latitude',
@@ -76,6 +76,8 @@ class EMWF_Product:
                 self.read_cams_climatology(doy, parameter)
             if getattr(self, parameter) is None:
                 log.error('No valid CAMS data found for datetime: %s' % str(observation_datetime))
+                log.info('Note that the CAMS monthly database for the Year 2020 is available : '
+                         'http://185.178.85.51/CAMS/')
                 self.is_valid = False
                 return
 
@@ -390,12 +392,12 @@ if __name__ == '__main__':
     config = S2L_Config()
     config.initialize('../conf/config.ini')
     # obs_datetime = datetime.datetime.strptime('2017-04-20T10:34:54.040000Z', '%Y-%m-%dT%H:%M:%S.%fZ')
-    # ecmwf_data = EMWF_Product(config.get('cams_dir'), cams_hourly_directory=config.get('cams_hourly_dir'),
+    # ecmwf_data = ECMWF_Product(config.get('cams_dir'), cams_hourly_directory=config.get('cams_hourly_dir'),
     #                               cams_climatology_directory=config.get('cams_climatology_dir'),
     #                               observation_datetime=obs_datetime)
 
     # obs_datetime = datetime.datetime.strptime('2020-04-08T10:34:54.040000Z', '%Y-%m-%dT%H:%M:%S.%fZ')
-    # ecmwf_data = EMWF_Product(config.get('cams_dir'), cams_hourly_directory=config.get('cams_hourly_dir'),
+    # ecmwf_data = ECMWF_Product(config.get('cams_dir'), cams_hourly_directory=config.get('cams_hourly_dir'),
     #                           cams_climatology_directory=config.get('cams_climatology_dir'),
     #                           observation_datetime=obs_datetime)
     # aod550 = ecmwf_data.aod550
@@ -412,4 +414,4 @@ if __name__ == '__main__':
         "daily": config.get('cams_daily_dir'),
         "climatology": config.get('cams_climatology_dir')
     }
-    ecmwf_data = EMWF_Product(cams_config=_cams_config, observation_datetime=obs_datetime)
+    ecmwf_data = ECMWF_Product(cams_config=_cams_config, observation_datetime=obs_datetime)

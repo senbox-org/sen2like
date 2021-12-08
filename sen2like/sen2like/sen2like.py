@@ -13,6 +13,7 @@ import os
 import shutil
 import subprocess
 import sys
+import glob
 from argparse import ArgumentParser
 from multiprocessing import Pool
 
@@ -36,6 +37,27 @@ logger = logging.getLogger('Sen2Like')
 
 PROCESS_INSTANCES = {}  # OPTIM
 
+
+def get_scl_map(scl_dir, product):
+    scl_map = None
+    tilecode = product.mtl.mgrs
+    
+    if product.sensor == 'S2':
+        acqdate = datetime.datetime.strftime(product.dt_sensing_start, '%Y%m%dT%H%M%S')        
+    else:
+        acqdate = datetime.datetime.strftime(product.acqdate, '%Y%m%dT%H%M%S')
+
+    result = glob.glob(os.path.join(scl_dir, tilecode, f"T{tilecode}_{acqdate}_SCL_60m.tif"))
+    if result:
+        scl_map = result[0]
+    
+    if scl_map is not None:
+        logger.info('Auxiliary scene classification map found: {}'.format(scl_map))
+    else:
+        logger.info('Auxiliary scene classification map NOT found.')
+    
+    return scl_map 
+    
 
 def get_module(blockname):
     """Get process class associated to blockname.
@@ -177,10 +199,14 @@ def update_configuration(args, tile=None):
     if args.refImage:
         config.set('refImage', args.refImage)
     elif references_map_file and tile:
-        # load dataset
-        with open(references_map_file) as j:
-            references_map = json.load(j)
-        config.set('refImage', references_map.get(tile))
+        if os.path.isfile(references_map_file):
+            # load dataset
+            with open(references_map_file) as j:
+                references_map = json.load(j)
+            config.set('refImage', references_map.get(tile))
+        else:
+            logger.warning(f"The reference path {references_map_file} doesn't exist. So it is considered as None.")
+            config.set('refImage', None)
     else:
         config.set('refImage', None)
     config.set('hlsplus', config.getboolean('doPackager') or config.getboolean('doPackagerL2F'))
@@ -230,6 +256,18 @@ def configure_sen2like(args):
     # Filter on original tiles:
     products = {tile: item for (tile, item) in products.items() if tile in tiles}
     return products, start_date, end_date
+
+
+def filter_product(product):
+    """ Filter on product after creat them
+    :param product: a core.product.S2L_Product
+    :return: bool
+    """
+    cloud_cover = config.getfloat('cloud_cover')
+    if float(product.mtl.cloud_cover) > cloud_cover:
+        logger.info(f'cloud cover > {cloud_cover}')
+        return False
+    return True
 
 
 def start_process(tile, products, args, start_date, end_date):
@@ -282,6 +320,9 @@ def start_process(tile, products, args, start_date, end_date):
         if _product is None:
             _product = product.reader(product.path)
 
+        if not filter_product(_product):
+            continue
+
         # Update processing configuration
         config.set('productName', _product.name)
         config.set('sensor', _product.sensor)
@@ -329,9 +370,16 @@ def process(product, args):
     if product.mtl.tile_metadata:
         shutil.copyfile(product.mtl.tile_metadata, os.path.join(wd, os.path.basename(product.mtl.tile_metadata)))
 
+    # Get scl map for valid pixel mask
+    scl_dir = config.get("scl_dir")
+    if scl_dir and (not config.getboolean('use_sen2cor')) and product.mtl.data_type != 'Level-2A':
+        product.mtl.scene_classif_band = get_scl_map(scl_dir, product)
+
     # Angles extraction
     product.mtl.get_angle_images(os.path.join(config.get("wd"), product.name, 'tie_points.tif'))
     product.mtl.get_valid_pixel_mask(os.path.join(config.get("wd"), product.name, 'valid_pixel_mask.tif'))
+    if S2L_config.config.get('nbar_methode') == 'VJB':
+        product.get_ndvi_image(os.path.join(config.get("wd"), product.name, 'ndvi.tif'))
 
     # !! Initialization of each block
     for block_name in list_of_blocks:

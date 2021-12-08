@@ -155,18 +155,18 @@ class LandsatMajaMTL(BaseReader):
             self.band_sequence.append(image.attrib['band_id'])
             self.reflective_band_list.append(os.path.join(self.product_path, image.text))
 
+        self.rad_radio_coefficient_dic = {}
         self.radio_coefficient_dic = {}
-        self.rho_radio_coefficient_dic = {}
         spectral_nodes = root.findall('.//Spectral_Band_Informations')
         for cpt, spectral_node in enumerate(spectral_nodes):
             band_id = spectral_node.attrib['band_id']
             gain = spectral_node.findtext('.//COEFFICIENT[@name="RadianceMult"]')
             offset = spectral_node.findtext('.//COEFFICIENT[@name="RadianceAdd"]')
-            self.radio_coefficient_dic[str(cpt)] = {"Band_id": band_id,
+            self.rad_radio_coefficient_dic[str(cpt)] = {"Band_id": band_id,
                                                     "Gain": gain, "Offset": offset}
             gain = spectral_node.findtext('.//COEFFICIENT[@name="ReflectanceeMult"]')
             offset = spectral_node.findtext('.//COEFFICIENT[@name="ReflectanceAdd"]')
-            self.rho_radio_coefficient_dic[str(cpt)] = {"Band_id": band_id,
+            self.radio_coefficient_dic[str(cpt)] = {"Band_id": band_id,
                                                         "Gain": gain, "Offset": offset}
 
         obs = self.observation_date.split('T')[0].split('-')

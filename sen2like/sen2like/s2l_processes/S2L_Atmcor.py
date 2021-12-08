@@ -10,7 +10,7 @@ import gdal
 import numpy as np
 
 from atmcor.atmospheric_parameters import ATMO_parameter
-from atmcor.cams_data_reader import EMWF_Product
+from atmcor.cams_data_reader import ECMWF_Product
 from atmcor.smac import smac
 from core import S2L_config
 from s2l_processes.S2L_Process import S2L_Process
@@ -43,7 +43,7 @@ def get_smac_coefficients(product, band):
 def smac_correction_grid(obs_datetime, extent, hcs_code, resolution=120):
     output_filename = 'output_file.tif'
 
-    ecmwf_data = EMWF_Product(cams_config=get_cams_configuration(), observation_datetime=obs_datetime)
+    ecmwf_data = ECMWF_Product(cams_config=get_cams_configuration(), observation_datetime=obs_datetime)
 
     new_SRS = gdal.osr.SpatialReference()
     new_SRS.ImportFromEPSG(int(4326))
@@ -104,7 +104,7 @@ def smac_correction(product, array_in, extent, band):
     # # Get CAMS Data corresponding to Extent and observation data time
     # # ----------------------------------------------------------------------------------
 
-    ecmwf_data = EMWF_Product(cams_config=get_cams_configuration(), observation_datetime=obs_datetime)
+    ecmwf_data = ECMWF_Product(cams_config=get_cams_configuration(), observation_datetime=obs_datetime)
     if ecmwf_data.is_valid:
         # Process each corner in the scene and set atmospheric parameter with cams_data
         v_ctwv = np.empty((4, 1))
@@ -145,22 +145,22 @@ def smac_correction(product, array_in, extent, band):
         estimate_aot = c1 * lon_sc + c2 * lat_sc + c3
 
         uH2O = estimate_ctwv[0]  # Water Vapor content - unit: g.cm-2
-        uO3 = estimate_gtc03[0]  # Ozone content - unit: Dobson
+        uO3 = estimate_gtc03[0]  # Ozone content - unit: unit: cm , 0.3 cm= 300 Dobson Units
         pressure = estimate_msl[0]  # Pressure - unit: hpa
-        taup550 = estimate_aot[0]  # taup550 - unit: g.cm-2
+        taup550 = estimate_aot[0]  # taup550 - unit: unitless
 
         log.info(" Results : ")
         log.info("Estimate Total colum water vapor: {}".format(estimate_ctwv))
-        log.info("Estimate Ozone content (Dobson) : {}".format(estimate_gtc03))
+        log.info("Estimate Ozone content (cm-atm) : {}".format(estimate_gtc03))
         log.info("Estimate Pression (hpa)         : {}".format(estimate_msl))
         log.info("Estimate Aot 550 nm             : {}".format(estimate_aot))
     else:
         log.error('!! No cams data found')
         log.error('!! Use Constant values')
         uH2O = 2.0  # Water Vapor content - unit: g.cm-2
-        uO3 = 0.2827911  # Ozone content - unit: Dobson
+        uO3 = 0.331  # Ozone content - unit: cm-atm , 0.3 cm-atm = 300 Dobson Units
         pressure = 1013.095  # Pressure - unit: hpa
-        taup550 = 0.2  # taup550 - unit: g.cm-2
+        taup550 = 0.2  # taup550 - unit: unitless
 
     S2L_config.config.set('uH2O', uH2O)
     S2L_config.config.set('uO3', uO3)

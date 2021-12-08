@@ -1,5 +1,23 @@
 # Sen2Like Release Notes
 
+## v3.3.0
+
+### New features
+
+* BRDF correction (in Nbar) can use VJB coefficient in place of ROY
+* Add new module for intercalibration correction
+* Use SCL file, if exist, to compute mask.
+* Add a fusion auto check and his result in intermediate product and output
+* Local product are now filter by cloud cover as creodias product
+
+### New environment
+
+* Add mgrs 1.4.0 module to requirement
+
+### Fixes
+
+* Add cloud coverage in output sen2like landsat product metadata
+
 ## v3.2.0
 
 ### New features

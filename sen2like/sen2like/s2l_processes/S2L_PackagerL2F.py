@@ -238,6 +238,13 @@ class S2L_PackagerL2F(S2L_Process):
             quicklook(pd, self.images, band_list, qlpath, S2L_config.config.get("quicklook_jpeg_quality", 95))
             metadata.mtd.get('quicklooks_F').append(qlpath)
 
+        # Copy fusion auto check threshold mask
+        if pd.fusion_auto_check_threshold_msk_file is not None:
+            outfile = "_".join([metadata.mtd.get('band_rootName_F'), 'FCM']) + '.TIF'
+            fpath = os.path.join(qi_dir, outfile)
+            shutil.copyfile(pd.fusion_auto_check_threshold_msk_file, fpath)
+            metadata.mtd.get('quicklooks_F').append(fpath)
+
         # PVI
         band_list = ["B04", "B03", "B02"]
         pvi_filename = "_".join([metadata.mtd.get('band_rootName_F'), 'PVI']) + '.TIF'

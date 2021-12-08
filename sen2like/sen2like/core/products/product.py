@@ -2,11 +2,14 @@ import datetime
 import datetime as dt
 import logging
 import os
+import numpy as np
+from skimage.transform import resize as skit_resize
 
 from core import readers
 from core import S2L_config
 from core.image_file import S2L_ImageFile
 from core.products import read_mapping
+from core.toa_reflectance import convert_to_reflectance_from_reflectance_cal_product
 
 logger = logging.getLogger('Sen2Like')
 
@@ -47,6 +50,8 @@ class S2L_Product(object):
         self.filenames = {}
         self.path = path  # product directory
         self.name = os.path.basename(path)  # product name
+        self.ndvi_filename = None
+        self.fusion_auto_check_threshold_msk_file = None
 
     @staticmethod
     def date(name, regexp, date_format):
@@ -168,3 +173,27 @@ class S2L_Product(object):
     @classmethod
     def get_band_from_s2(cls, s2_band: str) -> str:
         return cls.reverse_bands_mapping.get(s2_band)
+
+    def get_ndvi_image(self, ndvi_filepath):
+        B04_image = self.get_band_file(self.reverse_bands_mapping['B04'])
+        B8A_image = self.get_band_file(self.reverse_bands_mapping['B8A'])
+        B04 = B04_image.array
+        B8A = B8A_image.array
+
+        if B04_image.xRes != B8A_image.xRes:
+            # up scaling  of coarser matrix to finer:
+            print('band with resolution difference')
+            B8A = skit_resize(B8A, B04.shape, order=3, preserve_range=True)
+
+        # NDVI toujours basé sur les valeurs de reflectance
+        B04_index  = list(self.bands).index(self.reverse_bands_mapping['B04'])
+        B8A_index  = list(self.bands).index(self.reverse_bands_mapping['B8A'])
+        B04 = convert_to_reflectance_from_reflectance_cal_product(self.mtl, B04, self.reverse_bands_mapping['B04'])
+        B8A = convert_to_reflectance_from_reflectance_cal_product(self.mtl, B8A, self.reverse_bands_mapping['B8A'])
+        ndvi_arr = (B8A - B04) / (B04 + B8A)
+        ndvi_arr = ndvi_arr.clip(min=-1.0, max=1.0)
+        np.nan_to_num(ndvi_arr, copy=False)
+        ndvi = B04_image.duplicate(array=ndvi_arr, filepath=ndvi_filepath)
+        self.ndvi_filename = ndvi.filepath
+        ndvi.write(DCmode=True, creation_options=['COMPRESS=LZW'])
+        return True

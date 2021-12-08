@@ -11,6 +11,7 @@ import numpy as np
 from fmask import config, landsatangles
 from osgeo import gdal
 from rios import fileinfo
+from skimage.transform import resize as skit_resize
 
 from core.image_file import S2L_ImageFile
 from core.metadata_extraction import reg_exp, compute_earth_solar_distance, get_in_band_solar_irrandiance_value
@@ -276,7 +277,7 @@ class LandsatMTL(BaseReader):
                 v = np.float(k.split('=')[1].replace(' ', ''))
                 self.radiance_minimum.append(v)
 
-            self.radio_coefficient_dic = {}
+            self.rad_radio_coefficient_dic = {}
             regex = re.compile('RADIANCE_MULT_BAND_.* =.*')
             result = regex.findall(mtl_text)
             self.rescaling_gain = []
@@ -284,7 +285,7 @@ class LandsatMTL(BaseReader):
                 v = np.float(k.split('=')[1].replace(' ', ''))
                 self.rescaling_gain.append(v)
                 band_id = k.split('_')[3].split('=')[0].replace(' ', '')
-                self.radio_coefficient_dic[str(cpt)] = {"Band_id": str(band_id),
+                self.rad_radio_coefficient_dic[str(cpt)] = {"Band_id": str(band_id),
                                                         "Gain": v, "Offset": "0"}
 
             regex = re.compile('RADIANCE_ADD_BAND_.* =.*')
@@ -293,10 +294,10 @@ class LandsatMTL(BaseReader):
             for cpt, k in enumerate(result):
                 v = np.float((k.split('='))[1].replace(' ', ''))
                 band_id = k.split('_')[3].split('=')[0].replace(' ', '')
-                for x in self.radio_coefficient_dic:
-                    bd = self.radio_coefficient_dic[x]['Band_id']
+                for x in self.rad_radio_coefficient_dic:
+                    bd = self.rad_radio_coefficient_dic[x]['Band_id']
                     if bd == band_id:
-                        self.radio_coefficient_dic[x]['Offset'] = v
+                        self.rad_radio_coefficient_dic[x]['Offset'] = v
 
             # Reflectance coefficient exclusively for ls8 products
 
@@ -330,7 +331,7 @@ class LandsatMTL(BaseReader):
                     if bd == band_id_st:
                         radio_coefficient_dic[x]['Offset'] = v
 
-            self.rho_radio_coefficient_dic = radio_coefficient_dic
+            self.radio_coefficient_dic = radio_coefficient_dic
 
             # End of Reflectance coefficient exclusively for ls8 products
 
@@ -478,6 +479,11 @@ class LandsatMTL(BaseReader):
             log.debug(f'Read SCL: {self.scene_classif_band}')
             scl = S2L_ImageFile(self.scene_classif_band)
             scl_array = scl.array
+            res = 30
+            if scl.xRes != res:
+                shape = (int(scl_array.shape[0] * - scl.yRes / res), int(scl_array.shape[1] * scl.xRes / res))
+                log.debug(shape)
+                scl_array = skit_resize(scl_array, shape, order=0, preserve_range=True).astype(np.uint8)
 
             valid_px_mask = np.zeros(scl_array.shape, np.uint8)
             # Consider as valid pixels :

@@ -103,9 +103,9 @@ class STACWriter:
         eo_item.properties["Instrument"] = product.mtl.sensor
         eo_item.properties["Sun azimuth"] = f"{float(product.mtl.sun_azimuth_angle):.3f}\u00b0"
         eo_item.properties["Sun elevation"] = f"{float(product.mtl.sun_zenith_angle):.3f}\u00b0"
-        eo_item.properties["Processing level"] = ref_image.split('_')[0]
+        eo_item.properties["Processing level"] = os.path.basename(ref_image).split('_')[0]
         eo_item.properties[
-            "Cloud cover"] = f"{float(product.mtl.cloud_cover):.2}%" if product.mtl.cloud_cover is not None else None
+            "Cloud cover"] = f"{float(product.mtl.cloud_cover):.2f}%" if product.mtl.cloud_cover is not None else None
         return eo_item
 
     def write_product(self, product, output_dir, bands, ql_name, granule_compact_name):

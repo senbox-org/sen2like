@@ -12,12 +12,14 @@ from os.path import join, basename, dirname
 
 import numpy as np
 from skimage.transform import resize as skit_resize
+from skimage.measure import block_reduce
 
 from core import S2L_config
 from core.image_file import S2L_ImageFile
 from core.products.hls_product import S2L_HLS_Product
 from grids import mgrs_framing
 from s2l_processes.S2L_Process import S2L_Process
+from core.S2L_tools import out_stat
 
 log = logging.getLogger("Sen2Like")
 BINDIR = dirname(os.path.abspath(__file__))
@@ -181,11 +183,37 @@ class S2L_Fusion(S2L_Process):
         # fusion L8/S2
         mask_filename = product.mtl.nodata_mask_filename
         array_out = self._fusion(image, array_L2H_predict, array_L2F_predict, mask_filename).astype(np.float32)
-        image = self._save_as_image_file(image_file_L2F, array_out, product, band, '_FUSION_L2H_PREDICT.TIF')
+        image_out = self._save_as_image_file(image_file_L2F, array_out, product, band, '_FUSION_L2H_PREDICT.TIF')
+
+        # fusion auto check
+        if band == S2L_config.config.get('fusion_auto_check_band'):
+            nodata_value = 150
+            proportion_diff, proportion_diff_mask = self.proportion_fusion_diff(
+                image, image_out, S2L_ImageFile(mask_filename), nodata_value=nodata_value)
+            log.debug('Fusion auto check proportional difference of L2F from L2H')
+            out_stat(proportion_diff * proportion_diff_mask, log, 'proportional diff')
+            if S2L_config.config.getboolean('generate_intermediate_products'):
+                proportion_diff_img = image.duplicate(
+                    filepath=os.path.join(
+                        S2L_config.config.get('wd'), product.name, f'fusion_auto_check_proportion_diff_{band}.TIF'),
+                    array=proportion_diff)
+                proportion_diff_img.write(creation_options=['COMPRESS=LZW'], DCmode=True, nodata_value=nodata_value)
+
+            abs_proportion_diff = np.abs(proportion_diff * proportion_diff_mask)
+            threshold_msk = np.zeros(abs_proportion_diff.shape, dtype=np.uint16)
+            threshold_msk[abs_proportion_diff < S2L_config.config.getfloat('fusion_auto_check_threshold')] = 1
+            threshold_msk[proportion_diff_mask == 0] = 0
+            threshold_msk = image.duplicate(
+                filepath=os.path.join(
+                    S2L_config.config.get('wd'), product.name, f'fusion_auto_check_threshold_msk_{band}.TIF'),
+                array=threshold_msk)
+            threshold_msk.write(creation_options=['COMPRESS=LZW'])
+            product.fusion_auto_check_threshold_msk_file = threshold_msk.filepath
+
 
         log.info('End')
 
-        return image
+        return image_out
 
     def _save_as_image_file(self, image_template, array, product, band, extension):
         path = os.path.join(S2L_config.config.get('wd'), product.name, product.get_band_file(band).rootname + extension)
@@ -365,3 +393,24 @@ class S2L_Fusion(S2L_Process):
             L8_HLS_plus_FUSION_img[msk == 0] = 0
 
         return L8_HLS_plus_FUSION_img
+
+    @staticmethod
+    def proportion_fusion_diff(l2h_image, l2f_image, nodata_mask, nodata_value=2):
+        """Compute proportion diff introduce by l2f on l2h"""
+        # Reshape L2F
+        res_facteur = int(l2h_image.xRes / l2f_image.xRes)
+        l2f_array_resize = l2f_image.array.copy()
+        if res_facteur != 1:
+            l2f_array_resize = block_reduce(
+                l2f_array_resize, block_size=(res_facteur, res_facteur), func=np.mean)
+        l2h_array = l2h_image.array
+
+        # compute percent_diff
+        proportion_diff = (np.clip(l2h_array, 0.0001, 1.5) - np.clip(l2f_array_resize, 0.0001, 1.5)) / np.clip(l2h_array, 0.0001, 1.5)
+        proportion_diff = np.clip(proportion_diff, -1., 1.)
+        proportion_diff[nodata_mask.array == 0.] = np.nan
+        proportion_diff_mask = np.ones(proportion_diff.shape)
+        # compute mask of valid percentage
+        proportion_diff_mask[np.isnan(proportion_diff)] = 0
+        proportion_diff = np.nan_to_num(proportion_diff, nodata_value)
+        return proportion_diff, proportion_diff_mask

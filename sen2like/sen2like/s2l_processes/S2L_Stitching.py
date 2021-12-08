@@ -3,6 +3,7 @@ import os
 
 import gdal
 import numpy as np
+import shutil
 
 from core import S2L_config
 from core.product_archive.product_archive import InputProductArchive
@@ -153,6 +154,7 @@ class S2L_Stitching(S2L_Process):
         product_validity_masks = []
         product_nodata_masks = []
         product_angles = []
+        product_ndvi = []
         for _product in [product, self.new_product.reader(self.new_product.path)]:
             is_mask_valid = True
             # Validity mask
@@ -166,8 +168,17 @@ class S2L_Stitching(S2L_Process):
             if _product.mtl.angles_file is None:
                 _product.mtl.get_angle_images(os.path.join(S2L_config.config.get("wd"), _product.name, 'tie_points.tif'))
             filepath_out = os.path.join(S2L_config.config.get('wd'), _product.name, 'tie_points_PREREFRAMED.TIF')
-            mgrs_framing.reframeMulti(_product.mtl.angles_file, self.tile, filepath_out=filepath_out, order=0)
-            product_angles.append(filepath_out)
+            if product.sensor != 'S2':
+                mgrs_framing.reframeMulti(_product.mtl.angles_file, self.tile, filepath_out=filepath_out, order=0)
+                product_angles.append(filepath_out)
+            else:
+                shutil.copyfile(_product.mtl.angles_file, filepath_out)
+                product_angles.append(filepath_out)
+            # NDVI
+            if S2L_config.config.get('nbar_methode') == 'VJB':
+                if _product.ndvi_filename is None:
+                    _product.get_ndvi_image(os.path.join(S2L_config.config.get("wd"), _product.name, 'ndvi.tif'))
+                product_ndvi.append(self.reframe(S2L_ImageFile(_product.ndvi_filename), _product))
 
         if None not in product_validity_masks:
             stitched_mask = self.stitch(product, product_validity_masks[0], product_validity_masks[1])
@@ -178,6 +189,11 @@ class S2L_Stitching(S2L_Process):
             stitched_mask = self.stitch(product, product_nodata_masks[0], product_nodata_masks[1])
             stitched_mask.write(creation_options=['COMPRESS=LZW'])
             product.mtl.nodata_mask_filename = stitched_mask.filepath
+
+        if len(product_ndvi) > 0 and None not in product_ndvi:
+            stitched_ndvi = self.stitch(product, product_ndvi[0], product_ndvi[1])
+            stitched_ndvi.write(DCmode=True, creation_options=['COMPRESS=LZW'])
+            product.ndvi_filename = stitched_ndvi.filepath
 
         stitched_angles = self.stitch_multi(product, product_angles[0], product_angles[1])
         product.mtl.angles_file = stitched_angles

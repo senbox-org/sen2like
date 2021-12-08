@@ -10,6 +10,7 @@ from xml.dom import minidom
 import numpy as np
 from osgeo import gdal
 from skimage.transform import resize as skit_resize
+import mgrs
 
 from atmcor import get_s2_angles as s2_angles
 from core.image_file import S2L_ImageFile
@@ -63,9 +64,9 @@ class Sentinel2MTL(BaseReader):
             self.granule_id = product_path
 
         if is_compact:
-            self.mgrs = self.granule_id.split('_')[1]
+            self.mgrs = self.granule_id.split('_')[1][-5:]
         else:
-            self.mgrs = self.granule_id.split('_')[-2]
+            self.mgrs = self.granule_id.split('_')[-2][-5:]
 
         try:
             mtl_file_name = glob.glob(os.path.join(self.product_path, '*MTD*.xml'))[0]
@@ -113,7 +114,7 @@ class Sentinel2MTL(BaseReader):
             self.file_date = node_value(dom, 'GENERATION_TIME')
             self.processing_sw = node_value(dom, 'PROCESSING_BASELINE')
             self.mission = node_value(dom, 'SPACECRAFT_NAME')
-            self.sensor = 'MSI'
+            self.sensor = self.product_type[-5:-2]  # Need sensor is always 3 character
             self.relative_orbit = node_value(dom, 'SENSING_ORBIT_NUMBER')
             if not datastrip_metadata:
                 self.dt_sensing_start = str(node_value(dom, 'PRODUCT_START_TIME'))
@@ -132,6 +133,7 @@ class Sentinel2MTL(BaseReader):
 
             self.scene_classif_band = None
             self.bands = {}
+            self.band_names = []  # Band names ordered in order to use integer band ids
             file_path = None
             self.file_extension = '.jp2'
             for node in node1:
@@ -152,6 +154,7 @@ class Sentinel2MTL(BaseReader):
                                                      file_path + self.file_extension)
                         log.debug(f'{band_id} {file_path}')
                         self.bands[band_id] = file_path
+                        self.band_names.append(band_id)
 
             if 'SCL_20m' in self.bands.keys():
                 self.scene_classif_band = self.bands['SCL_20m']
@@ -159,11 +162,18 @@ class Sentinel2MTL(BaseReader):
             # Collection not applicable for Landsat
             self.collection = ' '
             self.radio_coefficient_dic = {}
+            self.radiometric_offset_dic = {}
             # RESCALING GAIN And OFFSET :
             try:
                 self.quantification_value = node_value(dom, 'QUANTIFICATION_VALUE')
             except IndexError:
                 self.quantification_value = node_value(dom, 'BOA_QUANTIFICATION_VALUE')
+            if self.processing_sw >= '04.00':
+                nodes = dom.getElementsByTagName('RADIO_ADD_OFFSET')
+                for _, node in enumerate(nodes):
+                    band_id = node.attributes['band_id'].value
+                    radio_add_offset = node.childNodes[0].data
+                    self.radiometric_offset_dic[int(band_id)] = radio_add_offset
             self.dE_S = node_value(dom, 'U')
 
             nodes = dom.getElementsByTagName('SOLAR_IRRADIANCE')
@@ -341,27 +351,34 @@ class Sentinel2MTL(BaseReader):
             log.debug(f'Read SCL: {self.scene_classif_band}')
             scl = S2L_ImageFile(self.scene_classif_band)
             scl_array = scl.array
+            if scl.xRes != res:
+                shape = (int(scl_array.shape[0] * - scl.yRes / res), int(scl_array.shape[1] * scl.xRes / res))
+                log.debug(shape)
+                scl_array = skit_resize(scl_array, shape, order=0, preserve_range=True).astype(np.uint8)
 
             valid_px_mask = np.zeros(scl_array.shape, np.uint8)
             # Consider as valid pixels :
-            #                VEGETATION et NOT_VEGETATED (valeurs 4 et 5)
-            #                UNCLASSIFIED (7) et SNOW (11) -
+            #                VEGETATION and NOT_VEGETATED (valeurs 4 et 5)
+            #                UNCLASSIFIED (7)
+            #                SNOW (11) - EXCLUDED
             valid_px_mask[scl_array == 4] = 1
             valid_px_mask[scl_array == 5] = 1
             valid_px_mask[scl_array == 7] = 1
-            valid_px_mask[scl_array == 11] = 1
+            #valid_px_mask[scl_array == 11] = 1
 
-            mask = scl.duplicate(mask_filename, array=valid_px_mask)
+            mask = scl.duplicate(mask_filename, array=valid_px_mask, res=res)
             mask.write(creation_options=['COMPRESS=LZW'])
             self.mask_filename = mask_filename
+            log.info('Written: {}'.format(mask_filename))
 
             # nodata mask
             mask_filename = os.path.join(os.path.dirname(mask_filename), 'nodata_pixel_mask.tif')
             nodata = np.ones(scl_array.shape, np.uint8)
             nodata[scl_array == 0] = 0
-            mask = scl.duplicate(mask_filename, array=nodata)
+            mask = scl.duplicate(mask_filename, array=nodata, res=res)
             mask.write(creation_options=['COMPRESS=LZW'])
             self.nodata_mask_filename = mask_filename
+            log.info('Written: {}'.format(mask_filename))
 
             return True
 
@@ -463,9 +480,9 @@ class Sentinel2MTL(BaseReader):
         gdal.Translate(out_tif_file, out_vrt_file, format="GTiff")
 
         self.angles_file = out_vrt_file
-        log.info('SAT_AZ , SAT_ZENITH, SUN_AZ, SUN_ZENITH ')
-        log.info('UNIT = DEGREES (scale: x100) :')
-        log.info('             ' + out_tif_file)
+        log.info('SAT_AZIMUTH, SAT_ZENITH, SUN_AZIMUTH, SUN_ZENITH')
+        log.info('UNIT = DEGREES (scale: x100)')
+        log.info('Angles file: ' + out_tif_file)
         self.angles_file = out_tif_file
 
     @staticmethod
@@ -474,3 +491,8 @@ class Sentinel2MTL(BaseReader):
         S2L_structure_check = os.path.isdir(os.path.join(product_name, 'GRANULE')) and \
                               ('L2F_' in name or 'LS8_' in name or 'LS9_' in name)
         return name.startswith('S2') or (name.startswith('L2F') and '_S2' in name) or S2L_structure_check
+
+    def get_scene_center_coordinates(self):
+        m = mgrs.MGRS()
+        lat, lon = m.toLatLon(self.mgrs + '5490045100')
+        return lon, lat
