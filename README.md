@@ -36,13 +36,13 @@ It is therefore possible, to cover large geographic extent with a __seamless ima
 It is worth noting that the overall accuracy of your final ARD product strongly depends on the accuracy of sen2like auxiliary data. Two categories of auxiliary data are important: the raster reference for geometric corrections and the meteorological data for atmospheric corrections. Regarding atmospheric corrections, one possibility is to use data from the Copernicus Atmosphere Monitoring Service [9]. The Sen2Like team prepared a dedicated CAMS monthly dataset for the Year 2020, available from [here](http://185.178.85.51/CAMS/). Please refer to this short [description](http://185.178.85.51/CAMS/Readme_CAMS2020.txt) for additional information.
 
 For further details on the format specification of the harmonized products or the functionalities of the Sen2Like software, please 
-refer to the [Product Format Specification](https://github.com/senbox-org/sen2like/blob/master/sen2like/docs/source/S2-PDGS-MPC-L2HF-PFS-v1.0.pdf), and the [User Manual](https://github.com/senbox-org/sen2like/blob/master/sen2like/docs/source/S2-SEN2LIKE-UM-V1.2_OUT.pdf).
+refer to the [Product Format Specification](https://github.com/senbox-org/sen2like/blob/master/sen2like/docs/source/S2-PDGS-MPC-L2HF-PFS-v1.0.pdf), and the [User Manual](https://github.com/senbox-org/sen2like/blob/master/sen2like/docs/source/S2-SEN2LIKE-UM-V1.4.pdf).
 
 ## Publications and Contacts
 **Yearning to know more ? Check out**
 *	poster [Sen2Like, a tool to generate Sentinel-2 Harmonised Surface Reflectance Products, First Results With Landsat-8, 3rd S2 Validation Team Meeting](https://www.researchgate.net/publication/332428332_Sen2like_a_Tool_to_Generate_Sentinel-2_Harmonised_Surface_Reflectance_Products_-_First_Results_With_Landsat-8)
 *	A [Sen2Like Relaxing Video](https://youtu.be/KBSYYBShyos) prepared for [ESA EO PHI-WEEK 2020](https://www.youtube.com/playlist?list=PLvT7fd9OiI9XELZXcljYTftUtJ_NFWRrY)
-*	*	A [Sen2Like Time Lapse including NDVI graphic](https://youtu.be/yEObvI1KQBg) prepared for QWG#12
+*	A [Sen2Like Time Lapse including NDVI graphic](https://youtu.be/yEObvI1KQBg) prepared for QWG#12
 
 And the following research papers :
  + [1] S. Saunier, J. Louis, V. Debaecker et al., "Sen2like, A Tool To Generate Sentinel-2 Harmonised Surface Reflectance Products - First Results with Landsat-8," IGARSS 2019 - 2019 IEEE International Geoscience and Remote Sensing Symposium, Yokohama, Japan, 2019, pp. 5650-5653, doi: 10.1109/IGARSS.2019.8899213.
