@@ -1,5 +1,5 @@
 
-Tutorial / Example case for sen2like
+Sen2Like - how to start
 ==============================
 
 
@@ -83,48 +83,3 @@ For more information on execution, you can print more logs and save intermediate
 ```
 python sen2like/sen2like/sen2like.py single-tile-mode 31TFJ --wd wd --config ./config.ini --start-date 2017-01-01 --end-date 2017-02-01 --debug --intermediate-products
 ```
-
-#### Reference map
-
-You can give the tile reference image (for geometry) in command line:
-```
-python sen2like/sen2like/sen2like.py single-tile-mode 31TFJ --wd wd --config ./config.ini --refImage /data/References/31TFJ/L2F_31TFJ_20170103_S2A_R008/L2F_31TFJ_20170103_S2A_R008_B04_10m.TIF --start-date 2017-01-01 --end-date 2017-02-01 --no-run
-```
-
-You can also set a reference map using the config parameter `references_map`. In that case, the reference map is a json file that indicates the reference file location for each tile. For instance:
-
-```json
-{
-  "12SVB": "/data/References/GRI/S2A_OPER_MSI_L1C_TL_SGS__20160420T214215_A004328_T12SVB_N02.01/IMG_DATA/S2A_OPER_MSI_L1C_TL_SGS__20160420T214215_A004328_T12SVB_B04.jp2",
-  "32TQM": "/data/References/GRI/S2A_OPER_MSI_L1C_TL_MPS__20161018T120000_A000122_T32TQM_N01.01/IMG_DATA/S2A_OPER_MSI_L1C_TL_MPS__20161018T120000_A000122_T32TQM_B04.jp2",
-  "35WMQ": "/data/References/GRI/S2A_OPER_MSI_L1C_TL_MPS__20161018T120000_A000022_T35WMQ_N01.01/IMG_DATA/S2A_OPER_MSI_L1C_TL_MPS__20161018T120000_A000022_T35WMQ_B04.jp2",
-  "31TCJ": "/data/References/GRI/S2A_OPER_MSI_L1C_TL_MPS__20161018T120000_A000051_T31TCJ_N01.01/IMG_DATA/S2A_OPER_MSI_L1C_TL_MPS__20161018T120000_A000051_T31TCJ_B04.jp2",
-  "31TFJ": "/data/References/GRI/S2A_OPER_MSI_L1C_TL_MPS__20161018T120000_A000008_T31TFJ_N01.01/IMG_DATA/S2A_OPER_MSI_L1C_TL_MPS__20161018T120000_A000008_T31TFJ_B04.jp2",
-  "34TCR": "/data/References/GRI/S2A_OPER_MSI_L1C_TL_MPS__20161018T120000_A000036_T34TCR_N01.01/IMG_DATA/S2A_OPER_MSI_L1C_TL_MPS__20161018T120000_A000036_T34TCR_B04.jp2"
-}
-```
-
-#### Overwrite config parameters
-
-You can overwrite some config parameters using `--confParams`:
-```
-python sen2like/sen2like/sen2like.py single-tile-mode 31TFJ --wd wd --config ./config.ini --start-date 2017-01-01 --end-date 2017-02-01 --confParams archive_dir=/data/S2L,coverage=0.5
-```
-
-#### L2A products
-
-You can run sen2like directly on L2A product (it skips the atmospheric correction step):
-```
-python sen2like/sen2like/sen2like.py single-tile-mode 31TFJ --wd wd --config ./config.ini --start-date 2017-01-01 --end-date 2017-02-01 --l2a
-```
-
-#### Multi-tiles mode
-
-In multi-tiles mode, in place of a tile identifier, a geojson file needs to be provided via comand line in order to define a Region Of Interest (ROI).
-
-List the products on all tiles covered by /data/ROI/4_tiles.geojson between 2017-01-01 and 2017-02-01:
-```
-python sen2like/sen2like/sen2like.py single-tile-mode /data/ROI/4_tiles.geojson --wd wd --config ./config.ini --start-date 2017-01-01 --end-date 2017-02-01 --no-run
-```
-
-
