@@ -57,7 +57,7 @@ And the following research papers :
  
  
 
-**Learn how to use Sen2Like**, have a look at the [User Manual](https://github.com/senbox-org/sen2like/blob/master/sen2like/docs/source/S2-SEN2LIKE-UM-V1.2_OUT.pdf).
+**Learn how to use Sen2Like**, have a look at the [User Manual](https://github.com/senbox-org/sen2like/blob/master/sen2like/docs/source/S2-SEN2LIKE-UM-V1.5_delivered.pdf).
 
 **Get help**, contact us at sen2like@telespazio.com.
 
