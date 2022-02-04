@@ -19,21 +19,21 @@ scl_array = scl_band.ReadAsArray()
 
 # Consider as valid pixels :
 #                VEGETATION et NOT_VEGETATED (valeurs 4 et 5)
-#                UNCLASSIFIED (7) et SNOW (11) -
-#                UNCLASSIFIED (7) et SNOW (11) -
+#                UNCLASSIFIED (7)
+#                excluded SNOW (11)
 valid_px_mask = np.zeros(scl_array.shape, np.uint8)
 valid_px_mask[scl_array == 0] = 0  # NO_DATA
 valid_px_mask[scl_array == 1] = 0  # SATURATED OR DEFECTIVE
-valid_px_mask[scl_array == 2] = 1  # DARK AREA -> should evolve to topographic shadows
+valid_px_mask[scl_array == 2] = 0  # DARK AREA -> should evolve to topographic shadows
 valid_px_mask[scl_array == 3] = 0  # CLOUD SHADOWS
 valid_px_mask[scl_array == 4] = 1  # VEGETATION
 valid_px_mask[scl_array == 5] = 1  # NOT VEGETATED
-valid_px_mask[scl_array == 6] = 1  # WATER
+valid_px_mask[scl_array == 6] = 0  # WATER
 valid_px_mask[scl_array == 7] = 1  # UNCLASSIFIED can be border of clouds but also interesting pixels.
 valid_px_mask[scl_array == 8] = 0  # MEDIUM PROBA CLOUDS
 valid_px_mask[scl_array == 9] = 0  # HIGH PROBA CLOUDS
 valid_px_mask[scl_array == 10] = 0  # THIN CIRRUS
-valid_px_mask[scl_array == 11] = 1
+valid_px_mask[scl_array == 11] = 0  # SNOW ICE
 
 
 # Soft dilatation of Cloud mask (120 m dilatation) 60m processing

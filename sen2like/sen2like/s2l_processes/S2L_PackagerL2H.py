@@ -7,7 +7,9 @@ import glob
 import logging
 import os
 import shutil
+import numpy as np
 from xml.etree import ElementTree
+from skimage.transform import resize as skit_resize
 
 import core.QI_MTD.S2_structure
 from core import S2L_config
@@ -109,6 +111,8 @@ class S2L_PackagerL2H(S2L_Process):
 
         # TODO : add production date?
 
+        log.info('Start process')
+
         # /data/HLS_DATA/Archive/Site_Name/TILE_ID/S2L_DATEACQ_DATEPROD_SENSOR/S2L_DATEACQ_DATEPROD_SENSOR
         res = image.xRes
         product_name, granule_compact_name, tilecode, datatake_sensing_start = self.base_path_S2L(pd)
@@ -133,7 +137,19 @@ class S2L_PackagerL2H(S2L_Process):
         creation_options = []
         if output_format in ('COG', 'GTIFF'):
             creation_options.append('COMPRESS=LZW')
-        image.write(creation_options=creation_options, filepath=newpath, output_format=output_format, band=band)
+        nodata_mask = S2L_ImageFile(pd.mtl.nodata_mask_filename).array
+        if nodata_mask.shape != image.array.shape:
+            nodata_mask = skit_resize(
+                nodata_mask.clip(min=-1.0, max=1.0), image.array.shape, order=0, preserve_range=True
+            ).astype(np.uint8)
+        image.write(
+            creation_options=creation_options,
+            filepath=newpath,
+            output_format=output_format,
+            band=band,
+            nodata_value=0,
+            no_data_mask=nodata_mask
+        )
         metadata.mtd.get('bands_path_H').append(newpath)
 
         # declare output internally
@@ -141,6 +157,8 @@ class S2L_PackagerL2H(S2L_Process):
         # declare output in config file
         S2L_config.config.set('imageout_dir', image.dirpath)
         S2L_config.config.set('imageout_' + band, image.filename)
+
+        log.info('End process')
 
         return image
 
@@ -151,6 +169,7 @@ class S2L_PackagerL2H(S2L_Process):
         :param pd: instance of S2L_Product class
         """
 
+        log.info('Start postprocess')
         # output directory
         product_name, granule_compact_name, tilecode, datatake_sensing_start = self.base_path_S2L(pd)
 
@@ -244,15 +263,9 @@ class S2L_PackagerL2H(S2L_Process):
         # Write QI report as XML
         bb_QI_path = metadata.hardcoded_values.get('bb_QIH_path')
         out_QI_path = os.path.join(qi_dir, 'L2H_QI_Report.xml')
-        in_QI_path = glob.glob(os.path.join(pd.path, 'GRANULE', '*', 'QI_DATA', 'L2A_QI_Report.xml'))
-        log.info('QI report for input product found : {} (searched at {})'.format(len(in_QI_path) != 0,
-                                                                                  os.path.join(pd.path, 'GRANULE', '*',
-                                                                                               'QI_DATA',
-                                                                                               'L2A_QI_Report.xml')))
-
-        in_QI_path = in_QI_path[0] if len(in_QI_path) != 0 else None
-
-        Qi_Writer = QiWriter(bb_QI_path, outfile=out_QI_path, init_QI_path=in_QI_path, H_F='H')
+        if pd.mtl.l2a_qi_report_path is not None:
+            log.info(f'QI report for input product found here : {pd.mtl.l2a_qi_report_path}')
+        Qi_Writer = QiWriter(bb_QI_path, outfile=out_QI_path, init_QI_path=pd.mtl.l2a_qi_report_path, H_F='H')
         Qi_Writer.manual_replaces(pd)
         Qi_Writer.write(pretty_print=True, json_print=False)
         # TODO UNCOMMENT BELOW FOR XSD CHECK
@@ -291,3 +304,5 @@ class S2L_PackagerL2H(S2L_Process):
         stac_writer = STACWriter()
         stac_writer.write_product(pd, os.path.join(tsdir, product_name), metadata.mtd['bands_path_H'],
                                   f"{metadata.mtd['band_rootName_H']}_QL_B432.jpg", granule_compact_name)
+
+        log.info('End postprocess')

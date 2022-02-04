@@ -87,6 +87,8 @@ class S2L_Sbaf(S2L_Process):
             # skip for S2A
             metadata.qi['SBAF_COEFFICIENT_{}'.format(band)] = 1
             metadata.qi['SBAF_OFFSET_{}'.format(band)] = 0
+            log.info('Skip for Sentinel-2A')
+            log.info("End")
             return image
 
         elif product.mtl.mission == "Sentinel-2B":
@@ -96,11 +98,13 @@ class S2L_Sbaf(S2L_Process):
             band_sbaf1 = band
             band_sbaf2 = Landsat8Product.get_band_from_s2(band)
             if band_sbaf1 in adj_coef1 and band_sbaf2 in adj_coef2:
+                log.info(f'Sbaf coefficient find to {band}')
                 slope1, offset1 = adj_coef1[band_sbaf1]['coef']
                 slope2, offset2 = adj_coef2[band_sbaf2]['coef']
                 # merging coefficients
                 slope = slope2 * slope1
                 offset = slope2 * offset1 + offset2
+                log.info(f'slop = {slope}, offset = {offset}')
             else:
                 log.info("No Sbaf coefficient defined for {}".format(band))
 
@@ -109,7 +113,9 @@ class S2L_Sbaf(S2L_Process):
             band_sbaf = band
             adj_coef = self.getSen2likeCoef("LANDSAT_8")
             if band_sbaf in adj_coef:
+                log.info(f'Sbaf coefficient find to {band}')
                 slope, offset = adj_coef[band_sbaf]['coef']
+                log.info(f'slop = {slope}, offset = {offset}')
             else:
                 metadata.qi['SBAF_COEFFICIENT_{}'.format(band)] = 1
                 metadata.qi['SBAF_OFFSET_{}'.format(band)] = 0

@@ -9,8 +9,8 @@ import urllib.request
 import zipfile
 from urllib.error import HTTPError
 
-import gdal
-import ogr
+from osgeo import gdal
+from osgeo import ogr
 
 from core.S2L_config import S2L_Config
 from product_archive import InputProductArchive

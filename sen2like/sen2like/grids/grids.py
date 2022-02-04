@@ -3,14 +3,15 @@
 # V. Debaecker (TPZ-F) 2018
 
 import os
+from os.path import dirname, abspath
 import sqlite3
 
 import pandas as pd
+import mgrs
 from osgeo import ogr, osr
 
-BINDIR = os.path.dirname(__file__)
-
-DB_file = os.path.join(BINDIR, 's2grid.db')
+sen2like_dir = abspath(dirname(dirname(__file__)))
+DB_file = os.path.join(sen2like_dir, 'core/product_archive/data/s2tiles.db')
 
 
 class GridsConverter:
@@ -24,7 +25,9 @@ class GridsConverter:
 
     def _get_roi(self, tilecode):
         # search tilecode in "s2tiles" and return row as a pandas dataframe
-        return pd.read_sql_query('SELECT * FROM s2tiles WHERE TILE_ID="{}"'.format(tilecode), self.conn)
+        return pd.read_sql_query(
+            'SELECT TILE_ID, EPSG, UTM_WKT, MGRS_REF, LL_WKT FROM s2tiles WHERE TILE_ID="{}"'.format(tilecode),
+            self.conn)
 
     def close(self):
         self.conn.close()
@@ -38,6 +41,15 @@ class GridsConverter:
 
         # return as dict
         return roi.to_dict(orient='list')
+
+    def get_mgrs_center(self, tilecode, utm=False):
+        if tilecode.startswith('T'):
+            tilecode = tilecode[1:]
+        centercode = tilecode + '5490045100'
+        m = mgrs.MGRS()
+        if utm:
+            return m.MGRSToUTM(centercode)
+        return m.toLatLon(centercode)
 
     # Don't know why but with this method the SRS code is not added in the geojson
     # if the GDAL_DATA variable is set in the environment. However we need

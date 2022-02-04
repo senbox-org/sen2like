@@ -3,11 +3,13 @@
 import logging
 import os
 import urllib
+import shutil
+import glob
 
 import pystac
 import rasterio
 import rasterio.warp
-from pystac.extensions.eo import Band
+from pystac.extensions.eo import Band, EOExtension
 from shapely.geometry import Polygon, mapping
 
 log = logging.getLogger("Sen2Like")
@@ -97,8 +99,9 @@ class STACWriter:
                               properties={},
                               href=os.path.normpath(output_name))
 
-        eo_item.ext.enable(pystac.Extensions.EO)
-        eo_item.ext.eo.apply(bands=self.s2_bands)
+        EOExtension.add_to(eo_item)
+        eo_ext = EOExtension.ext(eo_item)
+        eo_ext.apply(bands=self.s2_bands)
         eo_item.properties["Platform"] = product.sensor
         eo_item.properties["Instrument"] = product.mtl.sensor
         eo_item.properties["Sun azimuth"] = f"{float(product.mtl.sun_azimuth_angle):.3f}\u00b0"
@@ -122,7 +125,7 @@ class STACWriter:
                                  media_type=pystac.MediaType.COG if self.cog else (
                                      pystac.MediaType.GEOTIFF if image.endswith(
                                          ".TIF") else pystac.MediaType.JPEG2000),
-                                 properties={
+                                 extra_fields={
                                      'eo:bands': [self.s2_index.index(band)] if band in self.s2_index else []})
             item.add_asset(band, asset)
 
@@ -167,3 +170,130 @@ class STACReader:
 
     def get__(self):
         pass
+
+
+class S2LSTACCatalog(pystac.Catalog):
+
+    def __init__(self, sid="Sen2Like_catalog", title="Sen2Like Catalog"):
+        super().__init__(
+            id=sid,
+            title=title,
+            description="Catalog containing Sen2Like generated products",
+        )
+
+    def write_catalog(self, outdir, outdir_url):
+        """
+        :param outdir: The directory where catalago is save
+        :param outdir_url: The url to accesse at the outdir
+        """
+        self.normalize_hrefs(outdir_url)
+        # Remove collection file (due to dest_href that create dict with same path)
+        for col in self.get_collections():
+            colfile = os.path.join(outdir, col.id, 'collection.json')
+            if os.path.isfile(colfile):
+                os.remove(colfile)
+            for item in col.get_all_items():
+                itempath = os.path.join(outdir, col.id, item.id)
+                if os.path.isdir(itempath):
+                    shutil.rmtree(itempath)
+
+        self.save(catalog_type=pystac.CatalogType.ABSOLUTE_PUBLISHED, dest_href=outdir)
+
+        # Fix collection save dir, dest_href don't work properly
+        for col in self.get_collections():
+            colpath = os.path.join(outdir, col.id)
+            badpath = os.path.join(colpath, 'collection_badpath')
+            shutil.move(os.path.join(colpath, 'collection.json'), badpath)
+            contents = glob.glob(os.path.join(badpath, '*'))
+            for path in contents:
+                shutil.move(path, colpath)
+            shutil.rmtree(badpath)
+
+
+class S2LSTACCatalog_Tile(pystac.Collection):
+
+    bbox = [180, -56, 180, 83]
+
+    def __init__(self, sid, title):
+        super().__init__(
+            id=sid,
+            title=title,
+            description="Catalog containing Sen2Like generated products",
+            extent=pystac.Extent(pystac.SpatialExtent(self.bbox), pystac.TemporalExtent([None, None]))
+        )
+
+
+class S2LSTACCatalog_Product(pystac.Item):
+
+    s2_bands = [
+        Band.create(name="B01", description="", common_name="Coastal aerosol", center_wavelength=0.443),
+        Band.create(name="B02", description="", common_name="Blue", center_wavelength=0.49),
+        Band.create(name="B03", description="", common_name="Green", center_wavelength=0.56),
+        Band.create(name="B04", description="", common_name="Red", center_wavelength=0.665),
+        Band.create(name="B05", description="", common_name="Red Edge 1", center_wavelength=0.705),
+        Band.create(name="B06", description="", common_name="Red Edge 2", center_wavelength=0.740),
+        Band.create(name="B07", description="", common_name="Red Edge 3", center_wavelength=0.783),
+        Band.create(name="B08", description="", common_name="NIR", center_wavelength=0.842),
+        Band.create(name="B8A", description="", common_name="Narrow NIR", center_wavelength=0.865),
+        Band.create(name="B9", description="", common_name="Water", center_wavelength=0.945),
+        Band.create(name="B10", description="", common_name="SWIR - Cirrus", center_wavelength=1.373),
+        Band.create(name="B11", description="", common_name="SWIR 1", center_wavelength=1.61),
+        Band.create(name="B12", description="", common_name="SWIR 2", center_wavelength=2.190),
+    ]
+    s2_index = [band.name for band in s2_bands]
+
+    def __init__(self, product, product_url, ref_band, cog=False):
+        product_id = product.name.split('.')[0]
+        ref_image = self._fix_image_particule(product.mtl.bands[ref_band])
+        bbox, footprint = get_bbox_and_footprint(ref_image)
+        super().__init__(
+            id=product_id,
+            geometry=footprint,
+            properties={},
+            bbox=bbox,
+            datetime=product.acqdate
+        )
+
+        EOExtension.add_to(self)
+        eo_ext = EOExtension.ext(self)
+        eo_ext.apply(bands=self.s2_bands)
+        self.properties["Platform"] = product.sensor
+        self.properties["Instrument"] = product.mtl.sensor
+        self.properties["Sun azimuth"] = f"{float(product.mtl.sun_azimuth_angle):.3f}\u00b0"
+        self.properties["Sun elevation"] = f"{float(product.mtl.sun_zenith_angle):.3f}\u00b0"
+        self.properties["Processing level"] = os.path.basename(ref_image).split('_')[0]
+        self.properties[
+            "Cloud cover"] = f"{float(product.mtl.cloud_cover):.2f}%" if product.mtl.cloud_cover is not None else None
+
+        self.cog = cog
+        self.product = product
+        self.product_url = product_url
+
+    @staticmethod
+    def _fix_image_particule(image):
+        if not os.path.exists(image) and image.endswith('.jp2'):
+            log.warning("Overwrite .jp2 extension from metadata -> image file is a TIF !!!!!")
+            return f"{image[:-4]}.TIF"
+        return image
+
+    def add_product_bands_asset(self):
+        for band, image in self.product.mtl.bands.items():
+            image = self._fix_image_particule(image)
+            rel_path = os.path.relpath(image, self.product.path)
+            url = self.product_url + '/' + rel_path
+
+            asset = pystac.Asset(href=url,
+                                 media_type=pystac.MediaType.COG if self.cog else (
+                                     pystac.MediaType.GEOTIFF if image.endswith(
+                                         ".TIF") else pystac.MediaType.JPEG2000),
+                                 extra_fields={
+                                     'eo:bands': [self.s2_index.index(band)] if band in self.s2_index else []})
+            self.add_asset(band, asset)
+
+    def add_quicklook_asset(self, granule_compact_name, ql_name):
+        # granule_compact_name and ql_name are not necessary in product object (i.e. landsat)
+        rel_path = os.path.join('GRANULE', granule_compact_name, 'QI_DATA', ql_name)
+        url = self.product_url + '/' + rel_path
+        ql_asset = pystac.Asset(href=url,
+                                media_type=pystac.MediaType.JPEG)
+        self.add_asset("thumbnail", ql_asset)

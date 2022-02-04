@@ -58,7 +58,7 @@ class S2L_InterCalibration(S2L_Process):
             return image
 
         if offset is not None and slope is not None:
-            log.debug("Applying InterCalibration")
+            log.debug(f"Applying InterCalibration : slope = {slope}, offset{offset}")
             new = image.array
             np.multiply(new, slope, out=new)
             np.add(new, offset, out=new)

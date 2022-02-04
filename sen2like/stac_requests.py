@@ -1,7 +1,7 @@
 import argparse
 import datetime
 
-import ogr
+from osgeo import ogr
 import pystac
 
 from sen2like.core.product_archive.product_archive import InputProductArchive

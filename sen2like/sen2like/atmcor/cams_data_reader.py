@@ -5,7 +5,7 @@ import os
 from datetime import timedelta
 from math import floor, ceil
 
-import gdal
+from osgeo import gdal
 import numpy as np
 from netCDF4 import Dataset
 

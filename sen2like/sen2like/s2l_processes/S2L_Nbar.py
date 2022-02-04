@@ -169,7 +169,7 @@ class ROYBRDFCoefficient(BRDFCoefficient):
 
 class VJBMatriceBRDFCoefficient(BRDFCoefficient):
     vr_file_glob_path = '*_BRDFinputs.nc'
-    mtd = 'VJB'  # TODO : put the reference article
+    mtd = 'Vermote, E., C.O. Justice, et F.-M. Breon. 2009'
 
     def __init__(self, product, image, band, vr_matrice_file):
         super().__init__(product, image, band)
@@ -195,24 +195,36 @@ class VJBMatriceBRDFCoefficient(BRDFCoefficient):
         # Load datas
         if not self.check():
             return None
-        V0 = self.vr_matrice['V0_tendency_' + self.band_names[self.band]]
-        V1 = self.vr_matrice['V1_tendency_' + self.band_names[self.band]]
-        R0 = self.vr_matrice['R0_tendency_' + self.band_names[self.band]]
-        R1 = self.vr_matrice['R1_tendency_' + self.band_names[self.band]]
+        V0 = self.vr_matrice['V0_tendency_' + self.band_names[self.band]] / 10000.0
+        V1 = self.vr_matrice['V1_tendency_' + self.band_names[self.band]] / 10000.0
+        R0 = self.vr_matrice['R0_tendency_' + self.band_names[self.band]] / 10000.0
+        R1 = self.vr_matrice['R1_tendency_' + self.band_names[self.band]] / 10000.0
         ndvi_img = S2L_ImageFile(self.product.ndvi_filename)
 
-        # Resizing
+        #  Resizing
         img_res = int(self.image.xRes)
         ndvi = _resize(ndvi_img.array, img_res / int(ndvi_img.xRes))
+        log.debug(f'{img_res} {self.vr_matrice_resolution}')
         V0 = _resize(V0.data, img_res / self.vr_matrice_resolution)
         V1 = _resize(V1.data, img_res / self.vr_matrice_resolution)
         R0 = _resize(R0.data, img_res / self.vr_matrice_resolution)
         R1 = _resize(R1.data, img_res / self.vr_matrice_resolution)
-        ndvi_min = _resize(self.vr_matrice.ndvi_min.data, img_res / self.vr_matrice_resolution)
-        ndvi_max = _resize(self.vr_matrice.ndvi_max.data, img_res / self.vr_matrice_resolution)
+        ndvi_min = _resize(self.vr_matrice.ndvi_min.data, img_res / self.vr_matrice_resolution) / 10000.0
+        ndvi_max = _resize(self.vr_matrice.ndvi_max.data, img_res / self.vr_matrice_resolution) / 10000.0
+        
+        #Clip a tester:
+        ndvi = np.where(ndvi < ndvi_min, ndvi_min,ndvi)
+        ndvi = np.where(ndvi > ndvi_max, ndvi_max,ndvi)
 
-        ndvi = np.clip(ndvi, ndvi_min, ndvi_max)
-        ndvi = ndvi - ndvi_min
+        #regarde definition de np.clip sur la doc. & tester 
+
+        #ndvi = np.clip(ndvi, ndvi_min, ndvi_max)
+
+
+        out_stat(ndvi_min,log,'BRDF AUX - minimum ndvi')
+        out_stat(ndvi_max,log,'BRDF AUX - maximum ndvi')
+        out_stat(ndvi,log,'NDVI of input products')
+
         if S2L_config.config.getboolean('generate_intermediate_products'):
             ndvi_clip_img_path = os.path.join(S2L_config.config.get("wd"), self.product.name, 'ndvi_clipped.tif')
             if not os.path.isfile(ndvi_clip_img_path):
@@ -224,9 +236,8 @@ class VJBMatriceBRDFCoefficient(BRDFCoefficient):
                 ndvi_clip_img.write(DCmode=True, creation_options=['COMPRESS=LZW'])
 
         # Compute coefficiant
-        c_vol = V1 + V0 * ndvi  # c_geo = f_geo/f_iso
-        c_geo = R1 + R0 * ndvi  # c_vol = f_vol/f_iso
-        # TODO remove nan directli on V and R reading
+        c_vol = V0 + V1 * ndvi  # c_geo = f_geo/f_iso
+        c_geo = R0 + R1 * ndvi  # c_vol = f_vol/f_iso
         log.debug(f"c_geo have {np.isnan(c_geo).sum()} NaN")
         log.debug(f"c_vol have {np.isnan(c_vol).sum()} NaN")
         np.nan_to_num(c_geo, copy=False)
@@ -240,7 +251,7 @@ class VJBMatriceBRDFCoefficient(BRDFCoefficient):
             c_geo_image.write(DCmode=True, creation_options=['COMPRESS=LZW'])
             c_vol_image = self.image.duplicate(
                 filepath=os.path.join(S2L_config.config.get("wd"), self.product.name, f'c_vol_{self.band}.tif'),
-                array=c_geo,
+                array=c_vol,
                 res=img_res
             )
             c_vol_image.write(DCmode=True, creation_options=['COMPRESS=LZW'])
@@ -257,10 +268,13 @@ class VJBMatriceBRDFCoefficient(BRDFCoefficient):
     def compute_Kvol(self, theta_s, theta_v, phi):
         """Compute Kvol with Maignan methode
         Improvement of the Ross Thick Kernel accounting for Hot Spot
+
         Bidirectional reflectance of Earth targets: Evaluation of analytical models
         using a large set of spaceborne measurements with emphasis on the
         Hot Spot
-        F. Maignana, F.-M. Bre ́ona,*, R. Lacazeb Remote Sensing of Environment 90 (2004) 210–220
+
+        F. Maignana, F.-M. Breon, R. Lacaze Remote Sensing of Environment 90 (2004) 210–220
+        (Equation 12)
         """
         ct = np.float(np.pi / 180.0)
         # Convert to radiance
@@ -272,7 +286,7 @@ class VJBMatriceBRDFCoefficient(BRDFCoefficient):
         zetha_0 = ct * 1.5
         numerator = (np.pi / 2.0 - zetha) * np.cos(zetha) + np.sin(zetha)
         denominator = np.cos(theta_v_r) + np.cos(theta_s_r)
-        hot_spot_factor = (1 + (1 + (zetha/zetha_0)**-1))
+        hot_spot_factor = (1 + (1 + (zetha/zetha_0))**-1) 
         #    Kvol = ( numerator / denominator ) - np.pi / 4.0
         Kvol = (4.0 / (3.0 * np.pi)) * (numerator / denominator) * hot_spot_factor - (1.0 / 3.0)
 
@@ -323,16 +337,9 @@ class S2L_Nbar(S2L_Process):
             image_out = image
         else:
             if isinstance(self.brdf_coeff, VJBMatriceBRDFCoefficient):
-                log.debug(f"Use VJB coefficient matrices in : {self.brdf_coeff.vr_matrice_file}")
-                # # Save the r2 of vr matrice coefficients in order to estimate error
-                # r_r2_file = os.path.join(S2L_config.config.get("wd"), product.name, f'R_r2_{self.brdf_coeff.tile}.nc')
-                # v_r2_file = os.path.join(S2L_config.config.get("wd"), product.name, f'V_r2_{self.brdf_coeff.tile}.nc')
-                # if not os.path.isfile(r_r2_file):
-                #     self.brdf_coeff.vr_matrice[['V', 'R']].sel({'stat': 'r2'}).to_netcdf(r_r2_file)
-                # if not os.path.isfile(v_r2_file):
-                #     self.brdf_coeff.vr_matrice[['V', 'R']].sel({'stat': 'r2'}).to_netcdf(v_r2_file)
+                log.info(f"Use VJB coefficient matrices in : {self.brdf_coeff.vr_matrice_file}")
             else:
-                log.debug("Use ROY coefficients")
+                log.info("Use ROY coefficients")
 
             # Compute Kernels
             self._computeKernels(product, band)
@@ -435,11 +442,18 @@ class S2L_Nbar(S2L_Process):
 
         IM = CMATRIX_full
         U = IM >= 0
-        if S2L_config.config.getboolean('debug'):
-            log.debug('---- IMAGE after correction ---')
-            out_stat(IM[U], log)
 
         OUT = CMATRIX_full * IM1
+        #CORRECTION NBAR Limite a 20%
+        PDIFF = np.divide((IM1-OUT)*100,IM1)
+        #Difference Exceed + 20%  :
+        OUT = np.where( PDIFF > 20,  IM1 + 0.2*IM1,OUT)
+        OUT = np.where( PDIFF < -20, IM1 - 0.2*IM1,OUT)
+
+        if S2L_config.config.getboolean('debug'):
+            log.debug('---- IMAGE after correction ( before removing negative values ---')
+            out_stat(OUT, log)
+
         OUT[IM1 <= 0] = 0
 
         return OUT

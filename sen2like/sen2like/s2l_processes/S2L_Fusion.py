@@ -20,6 +20,7 @@ from core.products.hls_product import S2L_HLS_Product
 from grids import mgrs_framing
 from s2l_processes.S2L_Process import S2L_Process
 from core.S2L_tools import out_stat
+from core.QI_MTD.mtd import metadata
 
 log = logging.getLogger("Sen2Like")
 BINDIR = dirname(os.path.abspath(__file__))
@@ -153,6 +154,7 @@ class S2L_Fusion(S2L_Process):
 
         # method: prediction (from the 2 most recent S2 products)
         if predict_method == 'predict':
+            metadata.qi['PREDICTED_METHODE'] = 'predict'
             # Use QA (product selection) to apply Composting :
             qa_mask = self._get_qa_band(output_shape)
 
@@ -167,6 +169,7 @@ class S2L_Fusion(S2L_Process):
 
         # method: composite (most recent valid pixels from N products)
         elif predict_method == 'composite':
+            metadata.qi['PREDICTED_METHODE'] = 'composite'
             # composite
             array_L2H_predict, array_L2F_predict = self._composite(product, band_s2, output_shape)
 

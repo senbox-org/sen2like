@@ -15,6 +15,20 @@ from core.products import get_product
 
 logger = logging.getLogger("Sen2Like")
 
+select_not_on_180th_meridian = (
+    "SELECT *, "
+    "st_x(st_pointn(ST_ExteriorRing({geo_col}), 1)) as p1, "
+    "st_x(st_pointn(ST_ExteriorRing({geo_col}), 2)) as p2, "
+    "st_x(st_pointn(ST_ExteriorRing({geo_col}), 3)) as p3, "
+    "st_x(st_pointn(ST_ExteriorRing({geo_col}), 4)) as p4, "
+    "st_x(st_pointn(ST_ExteriorRing({geo_col}), 5)) as p5 "
+    "FROM {table} "
+    "WHERE p1 between -100 and 100 "
+    "OR p1 <= 100 and p2 < 0 and p3 < 0 and p4 < 0 and p5 < 0 "
+    "OR p1 >= 100 and p2 > 0 and p3 > 0 and p4 > 0 and p5 > 0 "
+)
+
+
 class InputProduct:
     def __init__(self, path=None, tile_coverage=None, date=None, reader=None):
         self.path = path
@@ -49,10 +63,7 @@ def read_polygon_from_json(json_file):
 
 
 def database_path(database_name):
-    if database_name == 's2grid.db':
-        return os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))), "grids", database_name)
-    else:
-        return os.path.join(os.path.dirname(__file__), "data", database_name)
+    return os.path.join(os.path.dirname(__file__), "data", database_name)
 
 
 def is_spatialite_supported():
@@ -67,6 +78,25 @@ def is_spatialite_supported():
         except sqlite3.OperationalError:
             return False
     return True
+
+
+def select_on_attache_db(databases, request, parameters=[]):
+    """ Attache all database on one memory database and execute request on them
+    :param databases: dict of {'data base name use in request': 'path to database'}
+    :param request: the sql_request
+    :param parameters: sqlite3 request parameters
+    """
+    with sqlite3.connect(":memory:") as conn:
+        conn.enable_load_extension(True)
+        conn.load_extension("mod_spatialite")
+        cur = conn.cursor()
+        for name, filepath in databases.items():
+            attache = f'ATTACH DATABASE "{filepath}" AS "{name}"'
+            cur.execute(attache)
+        conn.commit()
+        cur = conn.execute(request, parameters)
+        res = cur.fetchall()
+    return res
 
 
 class InputProductArchive:
@@ -103,15 +133,31 @@ class InputProductArchive:
         else:
             logging.debug("Using {:.0%} coverage.".format(coverage))
         # Open db
-        with sqlite3.connect(database_path("l8_s2_coverage.db")) as connection:
-            logging.debug(mgrs_tile)
-            cur = connection.execute(
-                "SELECT TILE_ID, WRS_ID, Coverage from l8_s2_coverage WHERE TILE_ID = ? and Coverage >= ?",
-                (mgrs_tile, coverage * 100))
-            data = cur.fetchall()
-            # Sort by coverage
-            data = sorted(data, key=lambda t: t[2], reverse=True)
-            result = [([int(i) for i in entry[1].split('_')], entry[2]) for entry in data]
+        select_l8tile_not_on_180th_meridian = select_not_on_180th_meridian.format(
+            geo_col='geometry', table='l8tiles.l8tiles')
+        select_s2tile_not_on_180th_meridian = select_not_on_180th_meridian.format(
+            geo_col='geometry', table='s2tiles.s2tiles')
+
+        sql_request = (
+            f"SELECT "
+            f"  s2.TILE_ID, "
+            f"  l8.PATH_ROW, "
+            f"  (st_area(st_intersection(l8.geometry, s2.geometry)) / st_area(s2.geometry)) as Coverage "
+            f"FROM ({select_l8tile_not_on_180th_meridian}) as l8,"
+            f"({select_s2tile_not_on_180th_meridian}) as s2 "
+            f"WHERE s2.TILE_ID == ? "
+            f"AND Coverage >= ? "
+            f"AND Coverage is not NULL "
+            f"AND cast(SUBSTR(s2.TILE_ID, 1, 2) as INTEGER ) == l8.UTM "
+        )
+        data = select_on_attache_db(
+            {'l8tiles': database_path('l8tiles.db'), 's2tiles': database_path('s2tiles.db')},
+            sql_request,
+            [mgrs_tile, coverage]
+        )
+        # Sort by coverage
+        data = sorted(data, key=lambda t: t[2], reverse=True)
+        result = [([int(i) for i in entry[1].split('_')], entry[2]) for entry in data]
         return result
 
     @staticmethod
@@ -123,29 +169,59 @@ class InputProductArchive:
         else:
             logging.debug("Using {:.0%} coverage.".format(coverage))
         # Open db
-        with sqlite3.connect(database_path("l8_s2_coverage.db")) as connection:
-            logging.debug(wrs_path)
-            cur = connection.execute(
-                "SELECT TILE_ID, WRS_ID, Coverage from l8_s2_coverage WHERE WRS_ID = ? and Coverage >= ?",
-                ("{}_{}".format(*wrs_path), coverage * 100))
-            data = cur.fetchall()
-            # Sort by coverage
-            data = sorted(data, key=lambda t: t[2], reverse=True)
-            result = [entry[0] for entry in data]
+        select_l8tile_not_on_180th_meridian = select_not_on_180th_meridian.format(
+            geo_col='geometry', table='l8tiles.l8tiles')
+        select_s2tile_not_on_180th_meridian = select_not_on_180th_meridian.format(
+            geo_col='geometry', table='s2tiles.s2tiles')
+
+        sql_request = (
+            f"SELECT "
+            f"  s2.TILE_ID, "
+            f"  l8.PATH_ROW, "
+            f"  (st_area(st_intersection(l8.geometry, s2.geometry)) / st_area(s2.geometry)) as Coverage "
+            f"FROM ({select_l8tile_not_on_180th_meridian}) as l8,"
+            f"({select_s2tile_not_on_180th_meridian}) as s2 "
+            f"WHERE l8.PATH_ROW == ? "
+            f"AND Coverage >= ? "
+            f"AND Coverage is not NULL "
+            f"AND cast(SUBSTR(s2.TILE_ID, 1, 2) as INTEGER ) == l8.UTM "
+        )
+        data = select_on_attache_db(
+            {'l8tiles': database_path('l8tiles.db'), 's2tiles': database_path('s2tiles.db')},
+            sql_request,
+            ["{}_{}".format(*wrs_path), coverage]
+        )
+        # Sort by coverage
+        data = sorted(data, key=lambda t: t[2], reverse=True)
+        result = [entry[0] for entry in data]
         return result
 
     @staticmethod
     def get_coverage(wrs_path, mgrs_tile):
         # Open db
         coverage = 0
-        with sqlite3.connect(database_path("l8_s2_coverage.db")) as connection:
-            logging.debug((wrs_path, mgrs_tile))
-            cur = connection.execute(
-                "SELECT Coverage from l8_s2_coverage WHERE WRS_ID = ? and TILE_ID = ?",
-                ("{}_{}".format(*wrs_path), mgrs_tile))
-            data = cur.fetchall()
-            if len(data) > 0:
-                coverage = data[0][0]
+        select_l8tile_not_on_180th_meridian = select_not_on_180th_meridian.format(
+            geo_col='geometry', table='l8tiles.l8tiles')
+        select_s2tile_not_on_180th_meridian = select_not_on_180th_meridian.format(
+            geo_col='geometry', table='s2tiles.s2tiles')
+
+        sql_request = (
+            f"SELECT "
+            f"  (st_area(st_intersection(l8.geometry, s2.geometry)) / st_area(s2.geometry)) as Coverage "
+            f"FROM ({select_l8tile_not_on_180th_meridian}) as l8,"
+            f"({select_s2tile_not_on_180th_meridian}) as s2 "
+            f"WHERE s2.TILE_ID == ? "
+            f"AND l8.PATH_ROW == ? "
+            f"AND Coverage is not NULL "
+            f"AND cast(SUBSTR(s2.TILE_ID, 1, 2) as INTEGER ) == l8.UTM "
+        )
+        data = select_on_attache_db(
+            {'l8tiles': database_path('l8tiles.db'), 's2tiles': database_path('s2tiles.db')},
+            sql_request,
+            [mgrs_tile, "{}_{}".format(*wrs_path)]
+        )
+        if len(data) > 0:
+            coverage = data[0][0]
         return coverage
 
     @staticmethod
@@ -181,9 +257,9 @@ class InputProductArchive:
 
     @staticmethod
     def wrs_to_wkt(wrs_id):
-        with sqlite3.connect(database_path("s2grid.db")) as connection:
+        with sqlite3.connect(database_path("l8tiles.db")) as connection:
             logging.debug("WRS: {}".format(wrs_id))
-            sql = f"select LL_WKT from l8tiles where WRS_ID='{wrs_id}'"
+            sql = f"select LL_WKT from l8tiles where PATH_ROW='{wrs_id}'"
             logging.debug("SQL request: {}".format(sql))
             cur = connection.execute(sql)
             wkt = cur.fetchall()[0][0]

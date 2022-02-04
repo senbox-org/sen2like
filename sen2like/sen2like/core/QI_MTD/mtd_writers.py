@@ -8,7 +8,7 @@ import math
 import os
 import re
 
-import gdal
+from osgeo import gdal
 import numpy as np
 from shapely.wkt import loads
 

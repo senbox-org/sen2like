@@ -36,6 +36,7 @@ class BaseReader(ABC):
         self.file_date = None # Product date
         self.tile_metadata = None
         self.scene_center_time = None
+        self.l2a_qi_report_path = None
 
     def get_scene_center_coordinates(self):
         lon = np.divide(np.sum(np.double(self.scene_boundary_lon)), 4)

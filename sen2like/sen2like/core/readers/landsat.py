@@ -364,6 +364,12 @@ class LandsatMTL(BaseReader):
                          re.search(r'\.tif$', filename, re.IGNORECASE)]
             self.tif_image_list = [rec for rec in tif_files if p2.match(rec) or p3.match(rec) or p4.match(rec)]
 
+            # Sen2Cor L2A processing for Landsat-8/9. Get the path of L2A_QUALITY.xml
+            if self.data_type == 'L2TP':
+                self.l2a_qi_report_path = os.path.join(product_path, 'L2A_QUALITY.xml')
+                if not os.path.isfile(self.l2a_qi_report_path):
+                    self.l2a_qi_report_path = None
+
             if self.data_type == 'L2A':
                 self.surf_image_list = self.set_image_file_name('surf')
                 self.reflective_band_list = self.surf_image_list
@@ -488,11 +494,12 @@ class LandsatMTL(BaseReader):
             valid_px_mask = np.zeros(scl_array.shape, np.uint8)
             # Consider as valid pixels :
             #                VEGETATION et NOT_VEGETATED (valeurs 4 et 5)
-            #                UNCLASSIFIED (7) et SNOW (11) -
+            #                UNCLASSIFIED (7)
+            #                excluded SNOW (11) -
             valid_px_mask[scl_array == 4] = 1
             valid_px_mask[scl_array == 5] = 1
             valid_px_mask[scl_array == 7] = 1
-            valid_px_mask[scl_array == 11] = 1
+            valid_px_mask[scl_array == 11] = 0
 
             mask = scl.duplicate(mask_filename, array=valid_px_mask)
             mask.write(creation_options=['COMPRESS=LZW'])

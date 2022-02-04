@@ -8,6 +8,7 @@ from collections import namedtuple
 from math import ceil
 
 import numpy as np
+import affine
 from osgeo import gdal, osr
 from shapely.wkt import loads
 from skimage.measure import block_reduce
@@ -49,6 +50,28 @@ def resample(imagein, res, filepath_out):
     imageout = imagein.duplicate(filepath_out, array=data, res=res)
 
     return imageout
+
+
+def pixel_center(image, tilecode):
+    # get center from mgrs tilecode
+    converter = grids.GridsConverter()
+    utm, orientation, easting, northing = converter.get_mgrs_center(tilecode, utm=True)
+    # UTM South vs. UTM North ?
+    inSR = osr.SpatialReference()
+    inSR.ImportFromEPSG(int('32' + ('6' if orientation == 'N' else '7') + str(utm)))
+    outSR = osr.SpatialReference(wkt=image.projection)
+    utm_offset = 0
+    if not inSR.IsSame(outSR):
+        transformater = osr.CoordinateTransformation(inSR, outSR)
+        northing, easting = transformater.TransformPoint((northing, easting))
+
+    # northin = y = latitude, easting = x = longitude
+    tr = affine.Affine(
+        image.yRes, 0, image.yMax,
+        0, image.xRes, image.xMin
+    )
+    y, x = (northing, easting) * (~ tr)
+    return int(y), int(x)
 
 
 def reframe(image, tilecode, filepath_out, dx=0., dy=0., order=3, dtype=None, margin=0, compute_offsets=False):

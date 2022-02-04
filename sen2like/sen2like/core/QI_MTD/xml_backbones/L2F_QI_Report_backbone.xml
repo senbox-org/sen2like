@@ -26,16 +26,18 @@
 		<report gippVersion="1.0" globalStatus="PASSED" date="2001-12-17T09:30:47Z">
 			<checkList>
 				<parentID>L2A_SC</parentID>
-				<name>L2A_SceneClass</name>
+				<name>SCENE_CLASS_QUALITY</name>
 				<version>2.10</version>
 				<item class="http://www.esa.int/s2#pdi_level_2a_tile_container"
 					  className="PDI Level 2A Tile Folder"
-					  name="L2A_T15TVF_A021559_20190808T172223"
-					  url="S2A_MSIL2A_20190808T170901_N9999_R112_T15TVF_20200624T111134.SAFE/GRANULE/L2A_T15TVF_A021559_20190808T172223/QI_DATA"
+					  name="NONE"
+					  url="NONE"
 				/>
 				<check>
 					<message contentType="text/plain">"Percentage of classified pixels"</message>
 					<extraValues>
+						<value name="CLOUDY_PIXEL_PERCENTAGE">NONE</value>
+						<value name="CLOUDY_PIXEL_OVER_LAND_PERCENTAGE">NONE</value>
 						<value name="DEGRADED_MSI_DATA_PERCENTAGE">NONE</value>
 						<value name="NODATA_PIXEL_PERCENTAGE">NONE</value>
 						<value name="SATURATED_DEFECTIVE_PIXEL_PERCENTAGE">NONE</value>
@@ -45,18 +47,16 @@
 						<value name="NOT_VEGETATED_PERCENTAGE">NONE</value>
 						<value name="WATER_PERCENTAGE">NONE</value>
 						<value name="UNCLASSIFIED_PERCENTAGE">NONE</value>
-						<value name="MEDIUM_PROBABILITY_CLOUDS_PERCENTAGE">NONE</value>
-						<value name="HIGH_PROBABILITY_CLOUDS_PERCENTAGE">NONE</value>
+						<value name="MEDIUM_PROBA_CLOUDS_PERCENTAGE">NONE</value>
+						<value name="HIGH_PROBA_CLOUDS_PERCENTAGE">NONE</value>
 						<value name="THIN_CIRRUS_PERCENTAGE">NONE</value>
-						<value name="TOTAL_CLOUDY_PIXEL_PERCENTAGE">NONE</value>
-						<value name="CLOUDS_OVER_LAND_PERCENTAGE">NONE</value>
 						<value name="SNOW_ICE_PERCENTAGE">NONE</value>
 					</extraValues>
 				</check>
 			</checkList>
 			<checkList>
 				<parentID>L2A_AC</parentID>
-				<name>L2A_AtmCorr</name>
+				<name>ATMOSPHERIC_CORRECTION_QUALITY</name>
 				<version>2.10</version>
 				<item class="http://www.esa.int/s2#pdi_level_2a_tile_container"
 					  className="PDI Level 2A Tile Folder"
@@ -64,22 +64,16 @@
 					  url="NONE"
 				/>
 				<check>
-					<message contentType="text/plain">AC derived quality values</message>
+					<message contentType="text/plain">Atmospheric correction quality values</message>
 					<extraValues>
-						<value name="RADIATIVE_TRANSFER_ACCURACY">NONE</value>
-						<value name="AOD_RETRIEVAL_METHOD">NONE</value>
-						<value name="AOD_RETRIEVAL_SOURCE">NONE</value>
-						<value name="AVERAGE_GRANULE_AOD">NONE</value>
-						<value name="AOD_RETRIEVAL_ACCURACY">NONE</value>
+						<value name="AOT_RETRIEVAL_ACCURACY">NONE</value>
+						<value name="GRANULE_MEAN_AOT">NONE</value>
+						<value name="WV_RETRIEVAL_ACCURACY">NONE</value>
+						<value name="GRANULE_MEAN_WV">NONE</value>
+						<value name="OZONE_VALUE">NONE</value>
 						<value name="START_VISIBILITY_KM">NONE</value>
 						<value name="VISIBILITY_FROM_DDV_KM">NONE</value>
 						<value name="FINAL_VISIBILITY_KM">NONE</value>
-						<value name="OZONE_SOURCE">NONE</value>
-						<value name="AVERAGE_OZONE">NONE</value>
-						<value name="WV_RETRIEVAL_METHOD">NONE</value>
-						<value name="WV_RETRIEVAL_SOURCE">NONE</value>
-						<value name="AVERAGE_GRANULE_WV">NONE</value>
-						<value name="WV_RETRIEVAL_ACCURACY">NONE</value>
 						<value name="AVERAGE_SOLAR_ZENITH_ANGLE">NONE</value>
 						<value name="DDV_PIXEL_PERCENTAGE">NONE</value>
 						<value name="DDV_REFLECTANCE_RANGE">NONE</value>
@@ -87,28 +81,42 @@
 					</extraValues>
 				</check>
 				<check>
-					<message contentType="text/plain">AC quality control</message>
+					<message contentType="text/plain">Atmospheric correction quality control</message>
 					<extraValues>
-						<value name="GROUND_ELEVATION_ABOVE_3KM">NONE</value>
-						<value name="VISIBILITY_LESS_THAN_5KM">NONE</value>
-						<value name="SOLAR_ZENITH_ANGLE_ABOVE_70DEG">NONE</value>
-						<value name="AOD_VALUE_ABOVE_XX">NONE</value>
-						<value name="AVERAGE_GRANULE_WV_ABOVE_5CM">NONE</value>
+						<!-- WV_RETRIEVAL_METHOD: SEN2COR_APDA -->
+						<value name="WV_RETRIEVAL_METHOD">NONE</value>
+						<!-- AOT_RETRIEVAL_METHOD: SEN2COR_DDV | CAMS | DEFAULT -->
+						<value name="AOT_RETRIEVAL_METHOD">NONE</value>
+						<value name="VISIBILITY_LESS_THAN_5_KM">NONE</value>
+						<value name="AOT_ABOVE_1">NONE</value>
+						<value name="GRANULE_WV_ABOVE_5_CM">NONE</value>
 					</extraValues>
 				</check>
 				<check>
-					<message contentType="text/plain">Requested look up tables</message>
+					<message contentType="text/plain">Percentage of negative BOA pixels</message>
 					<extraValues>
-						<value name="h99000_wv04_rura.atm">Available</value>
-						<value name="h99000_wv10_rura.atm">Available</value>
-						<value name="h99000_wv10_rura.atm">Available</value>
-						<value name="h99000_wv10_rura.atm">Available</value>
+						<value name="B01">NONE</value>
+						<value name="B02">NONE</value>
+						<value name="B03">NONE</value>
+						<value name="B04">NONE</value>
+						<value name="B06">NONE</value>
+						<value name="B07">NONE</value>
+						<value name="B08">NONE</value>
+						<value name="B8A">NONE</value>
+						<value name="B11">NONE</value>
+						<value name="B12">NONE</value>
+					</extraValues>
+				</check>
+				<check>
+					<message contentType="text/plain">Look up table file list</message>
+					<extraValues>
+						<value name="LUT_DATA_FILES">NONE</value>
 					</extraValues>
 				</check>
 			</checkList>
 			<checkList>
-				<parentID>L2AAUX</parentID>
-				<name>Auxiliary_Data</name>
+				<parentID>L2A_AUX</parentID>
+				<name>AUX_DATA_QUALITY</name>
 				<version>2.10</version>
 				<item class="http://www.esa.int/s2#pdi_level_2a_tile_container"
 					  className="PDI Level 2A Tile Folder"
@@ -116,28 +124,22 @@
 					  url="NONE"
 				/>
 				<check>
-					<message contentType="text/plain">AUX data quality values</message>
+					<message contentType="text/plain">AUX related parameters</message>
 					<extraValues>
-						<!-- DEM_TYPE: SRTM_90, DTED_90, CopernicusDEM_90 -->
+						<!-- DEM_TYPE: SRTM_90 | DTED_90 | COPERNICUS_90 -->
 						<value name="DEM_TYPE">NONE</value>
 						<value name="DEM_MEAN_ALTITUDE_KM">NONE</value>
 						<value name="DEM_MEAN_SLOPE">NONE</value>
-						<!-- AVERAGE_DEM_PROFILE: FLAT, MIDDLE, MOUNTAINOUS -->
-						<value name="AVERAGE_DEM_PROFILE">NONE</value>
-						<!-- AVERAGE_DEM_SLOPE: FLAT, GENTLE, STEEP -->
-						<value name="AVERAGE_DEM_SLOPE">NONE</value>
-						<value name="TBD: Identify here other Parameters for CAMS">TBD</value>
+						<value name="GROUND_ELEVATION_ABOVE_3_KM">NONE</value>
+						<value name="SOLAR_ZENITH_ANGLE_ABOVE_70_DEG">NONE</value>
+						<!-- OZONE_SOURCE: AUX_ECMWFT | CONFIG | OTHER -->
+						<value name="OZONE_SOURCE">NONE</value>
 					</extraValues>
 				</check>
 				<check>
-					<message contentType="text/plain">Requested AUX files</message>
+					<message contentType="text/plain">AUX data file list</message>
 					<extraValues>
-						<value name="e020_n68.dt1">Available</value>
-						<value name="e021_n68.dt1">Available</value>
-						<value name="e022_n68.dt1">Missing</value>
-						<value name="ESACCI-LC-L4-LCCS-Map-300m-P1Y-2015-v2.0.7.tif">Available</value>
-						<value name="TBC">Available</value>
-						<value name="TBC">Missing</value>
+						<value name="AUX_DATA_FILES">NONE</value>
 					</extraValues>
 				</check>
 			</checkList>
@@ -229,6 +231,7 @@
 					<extraValues>
 						<value name="REFERENCE_DOI">Sen2like ATBD</value>
 						<value name="PREDICTED_PIXELS_STATISTICS">TBW</value>
+						<value name="PREDICTED_METHODE">TBW</value>
 						<value name="OVERALL_STATISTICS">TBW</value>
 					</extraValues>
 				</check>

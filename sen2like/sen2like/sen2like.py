@@ -20,6 +20,7 @@ from multiprocessing import Pool
 from core import S2L_config, log
 from core.QI_MTD import mtd
 from core.S2L_config import config
+from core.sen2cor_client.sen2cor_client import Sen2corClient, Sen2corError
 
 try:
     from sen2like import BINDIR
@@ -124,7 +125,8 @@ def generic_process_band(blockname, pd, image, band):
 
 
 def process_band(pd, band, list_of_blocks, _config, _metadata, _processus=None):
-    """Function for running all the blocks over one band."""
+    """Function for running all the blocks over one band.""";
+    logger.info(f'--- Process band {band} ---')
     if S2L_config.config.parser is None:
         S2L_config.config = _config
         globals()['config'] = _config
@@ -273,7 +275,7 @@ def filter_product(product):
 def start_process(tile, products, args, start_date, end_date):
     update_configuration(args, tile)
     config.set('tile', tile)
-    logger.debug("Processing tile {}".format(tile))
+    logger.info("Processing tile {}".format(tile))
     downloader = InputProductArchive(config)
     _products = downloader.get_products_from_urls(products, start_date, end_date,
                                                   product_mode=args.operational_mode == 'product-mode')
@@ -290,32 +292,29 @@ def start_process(tile, products, args, start_date, end_date):
         return
 
     for product in _products:
-        _product = None
+        _product = product.reader(product.path)
+        atmcor = config.get('doAtmcor')
+        stitch = config.get('doStitching')
+        intercalibration = config.get('doInterCalibration')
 
-        if config.getboolean('use_sen2cor'):
+        use_sen2cor = config.getboolean('use_sen2cor')
+        # only landsat collection 1
+        if 'L8' in _product.sensor:
+            if not _product.mtl.collection_number.isdigit() or int(_product.collection_number) > 1:
+                use_sen2cor = False
+                logger.info("For landsat 8, apply sen2cor only on collection 01 products")
+        if use_sen2cor:
             # Disable Atmospheric correction
             config.overload('doAtmcor=False')
+            config.overload('doStitching=False')
+            config.overload('doInterCalibration=False')
 
-            # Run sen2core
-            logger.debug("<<< RUNNING SEN2CORE... >>>")
-            sen2cor_command = os.path.abspath(config.get('sen2cor_path'))
-            sen2cor_output_dir = os.path.join(config.get('wd'), 'sen2cor', os.path.basename(product.path))
-            if not os.path.exists(sen2cor_output_dir):
-                os.makedirs(sen2cor_output_dir)
+            sen2cor = Sen2corClient(os.path.abspath(config.get('sen2cor_path')), tile)
+
             try:
-                subprocess.run(['python', sen2cor_command, product.path, "--output_dir", sen2cor_output_dir,
-                                "--work_dir", sen2cor_output_dir,
-                                "--sc_only"], check=True)
-            except subprocess.CalledProcessError as run_error:
-                logger.error("An error occurred during the run of sen2cor")
-                logger.error(run_error)
+                _product = product.reader(sen2cor.run(_product))
+            except Sen2corError:
                 continue
-            # Read output product
-            generated_product = next(os.walk(sen2cor_output_dir))[1]
-            if len(generated_product) != 1:
-                logger.error("Sen2Cor error: Cannot get output product")
-                continue
-            _product = product.reader(os.path.join(sen2cor_output_dir, generated_product[0]))
 
         if _product is None:
             _product = product.reader(product.path)
@@ -333,11 +332,11 @@ def start_process(tile, products, args, start_date, end_date):
         config.set('none_S2_product_for_fusion', False)
 
         # Disable Atmospheric correction for Level-2A products
-        atmcor = config.get('doAtmcor')
         if _product.mtl.data_type in ('Level-2A', 'L2TP', 'L2A'):
             config.overload('s2_processing_level=LEVEL2A')
             logger.info("Processing Level-2A product: Atmospheric correction is disabled.")
             config.overload('doAtmcor=False')
+            config.overload('doInterCalibration=False')
         else:
             config.overload('s2_processing_level=LEVEL1C')
 
@@ -345,6 +344,8 @@ def start_process(tile, products, args, start_date, end_date):
 
         # Restore atmcor status
         config.overload(f'doAtmcor={atmcor}')
+        config.overload(f'doStitching={stitch}')
+        config.overload(f'doInterCalibration={intercalibration}')
         del _product
     if len(_products) == 0:
         logger.error('No product for tile %s' % tile)
@@ -358,7 +359,8 @@ def process(product, args):
         os.makedirs(os.path.join(config.get("wd"), product.name))
 
     # displays
-    logger.debug("{} {}".format(product.sensor, product.path))
+    logger.info('='*50)
+    logger.info("Process : {} {}".format(product.sensor, product.path))
 
     # list of the blocks that are available
     list_of_blocks = tuple(S2L_config.PROC_BLOCKS.keys())

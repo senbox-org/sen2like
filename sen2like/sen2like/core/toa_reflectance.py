@@ -31,7 +31,10 @@ def convert_to_reflectance_from_reflectance_cal_product(mtl, data_in, band):
                 offset = str(x['Offset'])
                 log.info('Band Id : {} Gain : {} / Offset : {}'.format(x['Band_id'], gain, offset))
         if gain is not None and offset is not None:
-            reflectance_data = (np.float32(data_in) * np.float32(gain) + np.float32(offset)) / np.sin(
+            if 'L2' in mtl.data_type:  # Level-2 product surface reflectance is independent from sun_elevation_angle
+                reflectance_data = (np.float32(data_in) * np.float32(gain) + np.float32(offset))
+            else:
+                reflectance_data = (np.float32(data_in) * np.float32(gain) + np.float32(offset)) / np.sin(
                 sun_elevation_angle * np.pi / 180.)
             mask = (data_in <= 0)
             reflectance_data[mask] = 0
@@ -43,13 +46,11 @@ def convert_to_reflectance_from_reflectance_cal_product(mtl, data_in, band):
             reflectance_data[mask] = 0
 
     elif mtl.sensor == 'MSI':
-        # apply quantification value
-        reflectance_data = np.float32(data_in) / float(mtl.quantification_value)
-        # TODO: set radiometric offset for product that have him
-        # if mtl.processing_sw < '04.00':
-        #     reflectance_data = np.float32(data_in) / float(mtl.quantification_value)
-        # else:
-        #     radio_add_offset = mtl.radiometric_offset_dic[mtl.band_names.index(band)]
-        #     reflectance_data = (np.float32(data_in) + np.float32(radio_add_offset)) / float(mtl.quantification_value)
+
+        if mtl.radiometric_offset_dic is not None:
+            radio_add_offset = mtl.radiometric_offset_dic[mtl.band_names.index(band)]
+            reflectance_data = (np.float32(data_in) + np.float32(radio_add_offset)) / float(mtl.quantification_value)
+        else:
+            reflectance_data = np.float32(data_in) / float(mtl.quantification_value)
 
     return reflectance_data

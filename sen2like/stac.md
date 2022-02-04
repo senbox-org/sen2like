@@ -14,29 +14,28 @@ The script ```sen2like/generate_stac_files.py``` generates a catalog for a given
 
 ```
 >>> python generate_stac_files.py --help
-usage: generate_stac_files.py [-h] [--is-tile] [--catalog-path CATALOG_PATH]
-                              [--dry-run] [--cog]
-                              path
+usage: generate_stac_files.py [-h] [--dry-run] [--cog]
+                              catalog_dir catalog_dir_url s2l_out s2l_out_url
 
 positional arguments:
-  path                  Path where to search for products
+  catalog_dir      Path to catalog output directory
+  catalog_dir_url  The base url call by stac client to get catalog directory
+                   (exemple: if calalog url is
+                   http://sen2like.com/stac/catalog.json, the base url is
+                   http://sen2like.com/stac)
+  s2l_out          The sen2like output directory
+  s2l_out_url      The base url to accesse to the sen2like output directory
 
 optional arguments:
-  -h, --help            show this help message and exit
-  --is-tile             Indicates if the path is a tile path
-  --catalog-path CATALOG_PATH, -c CATALOG_PATH
-                        Catalog path. If path does not exist it will be
-                        created
-  --dry-run             Only list products. Do not generate files.
-  --cog                 Set image assets type to COG
+  -h, --help       show this help message and exit
+  --dry-run        Only list products. Do not generate files.
+  --cog            Set image assets type to COG
 ```
 
-Exemple for generating the catalog /data/S2L/sen2like_catalog.json for all products in /data/S2L:
-```python generate_stac_files.py /data/S2L/ -c /data/S2L/sen2like_catalog.json```
+Exemple for generating the catalog /var/www/html/stac/catalog.json for all products in /var/www/html/stac/S2L/ 
+, in order to access it with apache server:
 
-Exemple for listing all products in /data/S2L/31TFJ
-
-```python generate_stac_files.py /data/S2L/31TFJ --is-tile --dry-run```
+```python generate_stac_files.py /var/www/html/stac/ http://45.130.29.32/stac /var/www/html/stac/S2L/ http://45.130.29.32/stac/S2L```
 
 ## STAC requests
 

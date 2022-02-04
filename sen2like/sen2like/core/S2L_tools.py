@@ -36,18 +36,33 @@ def quicklook(pd, images, bands, qlpath, quality=95, xRes=30, yRes=30, format='J
     if not os.path.exists(qldir):
         os.makedirs(qldir)
 
+    # Grayscale or RGB
+    if len(bands) == 1:
+        band_list = [1]
+    else:
+        band_list = [1, 2, 3]
+
     # create single vrt with B4 B3 B2
     vrtpath = qlpath + '.vrt'
 
     gdal.BuildVRT(vrtpath, imagefiles, separate=True)
     log.debug("save in : " + vrtpath)
 
+    # Remove nodata attribut
+    vrt = gdal.Open(vrtpath, gdal.GA_Update)
+    for i in band_list:
+        vrt.GetRasterBand(i).DeleteNoDataValue()
+    del vrt
     # convert to JPEG (with scaling)
     # TODO: DN depend on the mission, the level of processing...
 
     # default
-    src_min = 0.
+    src_min = 0
+    #src_min = 1
     src_max = 2500
+    dst_min = 0
+    #dst_min = 1
+    dst_max = 255
     if bands == ["B12", "B11", "B8A"]:
         src_max = 4000
 
@@ -56,13 +71,8 @@ def quicklook(pd, images, bands, qlpath, quality=95, xRes=30, yRes=30, format='J
         src_max = 4000
         if bands == ["B12", "B11", "B8A"]:
             src_max = 10000
-    scale = [[src_min, src_max]]
 
-    # Grayscale or RGB
-    if len(bands) == 1:
-        band_list = [1]
-    else:
-        band_list = [1, 2, 3]
+    scale = [[src_min, src_max, dst_min, dst_max]]
 
     # do gdal...
     if format == 'GTIFF':
@@ -71,8 +81,24 @@ def quicklook(pd, images, bands, qlpath, quality=95, xRes=30, yRes=30, format='J
         co = [f'QUALITY={quality}'] if creationOptions is None else [f'QUALITY={quality}'] + creationOptions
     gdal.Translate(qlpath, vrtpath, xRes=xRes, yRes=yRes, resampleAlg='bilinear', bandList=band_list,
                    outputType=gdal.GDT_Byte, format=format, creationOptions=co,
-                   noData=0, scaleParams=scale)
+                   scaleParams=scale)
     log.info("save in : {}".format(qlpath))
+
+    quantification_value = 10000.
+    scaling = (src_max - src_min) / quantification_value / (dst_max - dst_min)
+    offset = 0
+
+    try:
+        dataset = gdal.Open(qlpath)
+        for i in band_list:
+            dataset.GetRasterBand(i).SetScale(scaling)
+            dataset.GetRasterBand(i).SetOffset(offset)
+            dataset.GetRasterBand(i).DeleteNoDataValue()
+        log.info("scale and offset information added to the metadata of the quicklook image")
+
+    except Exception as e:
+        log.warning(e, exc_info=True)
+        log.warning('error updating the metadata of quicklook image')
 
     # clean
     os.remove(vrtpath)

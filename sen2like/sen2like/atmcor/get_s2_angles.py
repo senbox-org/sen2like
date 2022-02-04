@@ -73,8 +73,8 @@ def reduce_angle_matrix(x_size, y_size, a_dict):
     #                if i == 2 and j == 6 :
     #                    print str(M[i][j])+' '+str(A[i][j])
 
-    # N = np.divide(M, CPT)
-    N = M / CPT
+    N = np.divide(M, CPT, where=(CPT != 0))
+    N[N == 0] = np.nan
     return N
 
 

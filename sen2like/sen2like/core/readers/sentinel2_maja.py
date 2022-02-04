@@ -6,7 +6,7 @@ import xml.etree.ElementTree as ElementTree
 from xml import parsers as pars
 
 import numpy as np
-import osr
+from osgeo import osr
 from osgeo import gdal
 import mgrs
 
@@ -212,6 +212,13 @@ class Sentinel2MajaMTL(BaseReader):
         # Absolute orbit is contained in the granule ID as _A00000_
         # absolute_orbit = re.compile(r'A\d{6}_').search(self.granule_id)
         self.relative_orbit = '000000'  # FIXME: no relative orbit ?
+
+        # L2A QI report file
+        if self.data_type == "Level-2A":
+            self.l2a_qi_report_path = os.path.join(
+                product_path, 'GRANULE', self.granule_id, 'QI_DATA', 'L2A_QUALITY.xml')
+            if not os.path.isfile(self.l2a_qi_report_path):
+                self.l2a_qi_report_path = None
 
     def get_valid_pixel_mask(self, mask_filename, res=20):
         """

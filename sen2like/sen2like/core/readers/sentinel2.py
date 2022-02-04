@@ -133,7 +133,7 @@ class Sentinel2MTL(BaseReader):
 
             self.scene_classif_band = None
             self.bands = {}
-            self.band_names = []  # Band names ordered in order to use integer band ids
+
             file_path = None
             self.file_extension = '.jp2'
             for node in node1:
@@ -154,7 +154,13 @@ class Sentinel2MTL(BaseReader):
                                                      file_path + self.file_extension)
                         log.debug(f'{band_id} {file_path}')
                         self.bands[band_id] = file_path
-                        self.band_names.append(band_id)
+            # Band name ordered by their integer id in datastrip (base on spectral information)
+            spectral_information = dom.getElementsByTagName('Spectral_Information')
+            self.band_names = [''] * len(spectral_information)
+            for _, node in enumerate(spectral_information):
+                indice = int(node.attributes['bandId'].value)
+                band_name = node.attributes['physicalBand'].value
+                self.band_names[indice] = self.set_zero_in_band_name(band_name)
 
             if 'SCL_20m' in self.bands.keys():
                 self.scene_classif_band = self.bands['SCL_20m']
@@ -162,15 +168,17 @@ class Sentinel2MTL(BaseReader):
             # Collection not applicable for Landsat
             self.collection = ' '
             self.radio_coefficient_dic = {}
-            self.radiometric_offset_dic = {}
+            self.radiometric_offset_dic = None
             # RESCALING GAIN And OFFSET :
             try:
                 self.quantification_value = node_value(dom, 'QUANTIFICATION_VALUE')
             except IndexError:
                 self.quantification_value = node_value(dom, 'BOA_QUANTIFICATION_VALUE')
-            if self.processing_sw >= '04.00':
-                nodes = dom.getElementsByTagName('RADIO_ADD_OFFSET')
-                for _, node in enumerate(nodes):
+            radio_add_offset_list = dom.getElementsByTagName('RADIO_ADD_OFFSET')
+            if len(radio_add_offset_list) > 0:
+                log.debug('Radiometric offsets are finded.')
+                self.radiometric_offset_dic = {}
+                for _, node in enumerate(radio_add_offset_list):
                     band_id = node.attributes['band_id'].value
                     radio_add_offset = node.childNodes[0].data
                     self.radiometric_offset_dic[int(band_id)] = radio_add_offset
@@ -339,6 +347,13 @@ class Sentinel2MTL(BaseReader):
         absolute_orbit = re.compile(r'A\d{6}_').search(self.granule_id)
         self.absolute_orbit = '000000' if absolute_orbit is None else absolute_orbit.group()[1:-1]
 
+        # L2A QI report file
+        if self.data_type == "Level-2A":
+            self.l2a_qi_report_path = os.path.join(
+                product_path, 'GRANULE', self.granule_id, 'QI_DATA', 'L2A_QUALITY.xml')
+            if not os.path.isfile(self.l2a_qi_report_path):
+                self.l2a_qi_report_path = None
+
     def get_valid_pixel_mask(self, mask_filename, res=20):
         """
         :param res:
@@ -496,3 +511,9 @@ class Sentinel2MTL(BaseReader):
         m = mgrs.MGRS()
         lat, lon = m.toLatLon(self.mgrs + '5490045100')
         return lon, lat
+
+    def set_zero_in_band_name(self, band):
+        """ Set 0 in band name (ex: B1 -> B01)"""
+        if len(band) == 2:
+            band = band[0] + '0' + band[1]
+        return band

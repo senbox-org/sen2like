@@ -64,7 +64,7 @@ class QiWriter(MtdWriter):
         url_aux = os.path.join(metadata.mtd.get('product_{}_name'.format(self.H_F)), 'GRANULE',
                                metadata.mtd.get('granule_{}_name'.format(self.H_F)), 'AUX_DATA')
         change_elm(self.root_out, rpath='./Data_Block/report/checkList/item', attr_to_change='url', new_value=urls)
-        change_elm(self.root_out, rpath='./Data_Block/report/checkList[parentID="L2AAUX"]/item', attr_to_change='url',
+        change_elm(self.root_out, rpath='./Data_Block/report/checkList[parentID="L2A_AUX"]/item', attr_to_change='url',
                    new_value=url_aux)
         change_elm(self.root_out, rpath='./Data_Block/report/checkList/item', attr_to_change='name',
                    new_value=metadata.mtd.get('granule_{}_name'.format(self.H_F)))

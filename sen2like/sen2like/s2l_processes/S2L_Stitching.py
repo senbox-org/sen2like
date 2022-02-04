@@ -1,7 +1,7 @@
 import logging
 import os
 
-import gdal
+from osgeo import gdal
 import numpy as np
 import shutil
 
@@ -207,6 +207,8 @@ class S2L_Stitching(S2L_Process):
     def process(self, product, image, band):
         log.info('Start')
         if self.new_product is None:
+            log.info("None product found for stitching.")
+            log.info('End')
             return image
 
         # Reframe products

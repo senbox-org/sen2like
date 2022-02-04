@@ -194,8 +194,8 @@ class S2L_ImageFile:
 
         return newInstance
 
-    def write(self, creation_options=None, DCmode=False, filepath=None, nodata_value=0, output_format: str = 'GTIFF',
-              band: str = None):
+    def write(self, creation_options=None, DCmode=False, filepath=None, nodata_value=None, output_format: str = 'GTIFF',
+              band: str = None, no_data_mask=None):
         """
         write to file
         :param creation_options: gdal create options
@@ -205,6 +205,9 @@ class S2L_ImageFile:
         :param output_format: writed file format ('GTIFF' for geotiff, 'COG' for COG and 'JPEG2000' for jpeg2000)
         :param band : provide information about the band, to set the overviews downsampling algorithm.
                       band can be 'MASK', 'QA', or None for all others
+        :param no_data_mask: (array with same shape than image) If image type is float,  and no DCmode
+                            set to nodata_value all mask value, and increase by 1 all other value equal with
+                            nodata_value.
         """
         if creation_options is None:
             creation_options = []
@@ -254,13 +257,17 @@ class S2L_ImageFile:
             # float to UInt16 with scaling factor of 10000
             offset = float(S2L_config.config.get('offset'))
             gain = float(S2L_config.config.get('gain'))
-            dst_ds.GetRasterBand(1).WriteArray(((offset + self.array).clip(min=0) * gain).astype(np.uint16))
+            array_out = ((offset + self.array).clip(min=0) * gain).astype(np.uint16)
+            if no_data_mask is not None:
+                array_out[array_out == nodata_value] += 1
+                array_out[no_data_mask == 0] = nodata_value
+            dst_ds.GetRasterBand(1).WriteArray(array_out)
             # set GTiff metadata
             dst_ds.GetRasterBand(1).SetScale(1 / gain)
             dst_ds.GetRasterBand(1).SetOffset(offset)
         else:
             dst_ds.GetRasterBand(1).WriteArray(self.array)
-        if nodata_value:
+        if nodata_value is not None:
             dst_ds.GetRasterBand(1).SetNoDataValue(nodata_value)
 
         if output_format == 'JPEG2000':
