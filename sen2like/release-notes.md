@@ -1,5 +1,12 @@
 # Sen2Like Release Notes
 
+
+## v4.0.1
+
+### Fix
+
+* Bad access to landsat collection number.
+
 ## v4.0.0
 
 ### New features

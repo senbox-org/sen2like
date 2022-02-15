@@ -300,7 +300,7 @@ def start_process(tile, products, args, start_date, end_date):
         use_sen2cor = config.getboolean('use_sen2cor')
         # only landsat collection 1
         if 'L8' in _product.sensor:
-            if not _product.mtl.collection_number.isdigit() or int(_product.collection_number) > 1:
+            if not _product.mtl.collection_number.isdigit() or int(_product.mtl.collection_number) > 1:
                 use_sen2cor = False
                 logger.info("For landsat 8, apply sen2cor only on collection 01 products")
         if use_sen2cor:
