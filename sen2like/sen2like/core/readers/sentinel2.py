@@ -322,21 +322,32 @@ class Sentinel2MTL(BaseReader):
                     if is_compact:
                         # new S2 format
                         maskpath = os.path.join(product_path, maskpath)
+                        log.debug('compact s2 format')
                     else:
                         # old S2 format
+                        log.debug('old s2 format')
+
                         maskpath = os.path.join(product_path, 'GRANULE', self.granule_id, 'QI_DATA', maskpath)
 
+                    log.debug(f'mask path: {maskpath}')
+                    log.debug(f'mask type: {node.getAttribute("type")}')
                     if node.getAttribute('type') == 'MSK_CLOUDS':
                         self.cloudmask = maskpath
+                    elif node.getAttribute('type') == 'MSK_CLASSI':
+                        self.cloudmask = maskpath
                     elif node.getAttribute('type') == 'MSK_NODATA':
+                        band = os.path.splitext(maskpath)[0][-3:]
+                        self.nodata_mask[band] = maskpath
+                    elif node.getAttribute('type') == 'MSK_QUALIT':
                         band = os.path.splitext(maskpath)[0][-3:]
                         self.nodata_mask[band] = maskpath
                     elif node.getAttribute('type') == 'MSK_DETFOO':
                         band = os.path.splitext(maskpath)[0][-3:]
                         self.detfoo_mask[band] = maskpath
-                log.debug(self.cloudmask)
-                log.debug(self.nodata_mask)
-                log.debug(self.detfoo_mask)
+
+                log.debug(f'Cloud Mask: {self.cloudmask}')
+                log.debug(f'No data mask: {self.nodata_mask}')
+                log.debug(f'Defective detector: {self.detfoo_mask}')
             except IndexError:
                 sys.exit(' TILE MTL Parsing Issue ')
         else:
@@ -361,6 +372,7 @@ class Sentinel2MTL(BaseReader):
         :return:
         """
 
+        log.debug('get valid pixel mask')
         if self.scene_classif_band:
             log.info('Generating validity and nodata masks from SCL band')
             log.debug(f'Read SCL: {self.scene_classif_band}')
@@ -399,11 +411,12 @@ class Sentinel2MTL(BaseReader):
 
         # L1C case for instance -> No SCL, but NODATA and CLD mask
         else:
+            log.debug('L1C Case')
             # Nodata Mask
             nodata_ref_band = 'B01'
             band_path = self.bands[nodata_ref_band]
             log.info(f'Generating nodata mask from band {nodata_ref_band}')
-            log.debug(f'Read cloud mask: {band_path}')
+            log.debug(f'Read band file: {band_path}')
             image = S2L_ImageFile(band_path)
             array = image.array
             nodata_mask_filename = os.path.join(os.path.dirname(mask_filename),
@@ -454,6 +467,33 @@ class Sentinel2MTL(BaseReader):
                         shutil.copy(self.nodata_mask_filename, mask_filename)
                     log.info('Written: {}'.format(mask_filename))
                     self.mask_filename = mask_filename
+
+                elif ext =='.jp2':
+                    log.info('Generating validity mask from cloud mask, baseline 4.0')
+                    log.debug(f'no data mask: {self.nodata_mask_filename}')
+                    log.debug(f'mask filename: {mask_filename}')
+
+                    log.debug(f'Read cloud mask: {self.cloudmask}')
+                    dataset = gdal.Open(self.cloudmask, gdal.GA_ReadOnly)
+                    clm_1 = dataset.GetRasterBand(1).ReadAsArray()
+                    clm_2 = dataset.GetRasterBand(2).ReadAsArray()
+                    clm_3 = dataset.GetRasterBand(3).ReadAsArray()
+                    tot = clm_1 + clm_2 + clm_3
+                    valid_px_mask = np.zeros(clm_1.shape, np.uint8)
+                    valid_px_mask[tot == 0] = 1
+                    # resize valid_px  to output res:
+                    shape = (int(valid_px_mask.shape[0] * - image.yRes / res), int(valid_px_mask.shape[1] * image.xRes / res))
+                    valid_px_mask = skit_resize(valid_px_mask, shape, order=0, preserve_range=True).astype(np.uint8)
+                    #Applied no data mask:
+                    valid_px_mask[nodata == 0] = 0
+
+                    # save to image
+                    mask = image.duplicate(mask_filename, array=valid_px_mask, res=res)
+                    mask.write(creation_options=['COMPRESS=LZW'], nodata_value=None)
+                    log.info('Written: {}'.format(mask_filename))
+                    self.mask_filename = mask_filename
+
+                    dataset = None
 
             return True
 

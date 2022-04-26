@@ -458,6 +458,10 @@ class LandsatMTL(BaseReader):
             else:
                 th = 20480
 
+            #TODO: Check th, 20480  not good for C-2
+            if self.collection_number == '02':
+                th = 21824
+
             valid_px_mask = np.zeros(bqa_array.shape, np.uint8)
             valid_px_mask[bqa_array <= th] = 1
             valid_px_mask[bqa_array == 1] = 0  # Remove background
@@ -467,7 +471,7 @@ class LandsatMTL(BaseReader):
             mask.write(creation_options=['COMPRESS=LZW'], nodata_value=None)
             self.mask_filename = mask_filename
 
-            # nodata mask (not good when taking it from BQA, getting from B01)
+            # nodata mask (not good when taking it from BQA, getting from B01):
             mask_filename = os.path.join(os.path.dirname(mask_filename), 'nodata_pixel_mask.tif')
             if self.data_type == 'L2A':
                 image_filename = self.surf_image_list[0]

@@ -252,6 +252,7 @@ In addition these parameters are defined in the tool and can be used in brackets
 * `cloud_cover`: Maximum cloud cover in percent [0, 100]
 * `url_parameters_pattern_Sentinel2`: Describe storage path for Sentinel 2 products
 * `url_parameters_pattern_Landsat8`: Describe storage path for Landsat 8 products
+* `url_parameters_pattern_Landsat9`: Describe storage path for Landsat 9 products
 
 For a Sentinel 2 product on tile 31TFJ:
 

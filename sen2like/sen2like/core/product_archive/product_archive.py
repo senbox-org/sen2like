@@ -341,9 +341,15 @@ class InputProductArchive:
                     logger.info("WRS %s_%s does not intersect given ROI. Skip wrs tile." % (path, row))
                     add_url = False
             if add_url:
-                urls.append((
-                    self.construct_url("Landsat8", tile, start_date=start_date, end_date=end_date, path=path, row=row),
-                    tile_coverage))
+                for mission in ['Landsat8', 'Landsat9']:
+                    parameter = self.configuration.get(f'url_parameters_pattern_{mission}')
+                    if parameter is None:
+                        parameter = self.configuration.get(f'location_{mission}')
+                    if parameter is not None:
+                        urls.append((
+                            self.construct_url(mission, tile, start_date=start_date, end_date=end_date, path=path, row=row),
+                            tile_coverage))
+
         if not urls:
             logger.warning(
                 "No product found for tile {} during period {} - {}".format(tile, start_date, end_date))
@@ -373,7 +379,7 @@ class InputProductArchive:
                             [InputProduct(path=os.path.join(url, _dir), tile_coverage=tile_coverage) for _dir in
                              os.listdir(url)])
                 else:
-                    logger.error("Invalid product path: %s does not exist" % url)
+                    logger.warning("Missing product path: %s does not exist" % url)
             else:
                 products_urls.extend(self.read_products_from_url(url, tile_coverage=tile_coverage))
 

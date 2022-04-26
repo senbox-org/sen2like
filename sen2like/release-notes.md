@@ -1,5 +1,15 @@
 # Sen2Like Release Notes
 
+## v4.0.2
+
+### Fix
+
+* Landsat: collection 2 support: fix BQA extraction (threshold)
+
+### New features
+
+* Sentinel-2: support of processing baseline 4.0 (L1 cloud mask as a raster)
+* Landsat-9: Add support of local product archive
 
 ## v4.0.1
 

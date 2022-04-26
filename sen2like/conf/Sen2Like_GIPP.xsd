@@ -39,9 +39,11 @@
                 <xs:sequence>
                     <xs:element type="xs:string" name="url_parameters_pattern_Sentinel2"/>
                     <xs:element type="xs:string" name="url_parameters_pattern_Landsat8"/>
+                    <xs:element type="xs:string" name="url_parameters_pattern_Landsat9"/>
                 </xs:sequence>
                 <xs:sequence>
                     <xs:element type="xs:string" name="location_Landsat8"/>
+                    <xs:element type="xs:string" name="location_Landsat9"/>
                     <xs:element type="xs:string" name="location_Sentinel2"/>
                     <xs:element type="xs:string" name="url_parameters_pattern"/>
                     <xs:element type="xs:string" name="thumbnail_property"/>
