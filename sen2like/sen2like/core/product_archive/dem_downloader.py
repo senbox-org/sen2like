@@ -237,7 +237,26 @@ class DemDownloader:
                 elif local_dem.endswith('.tar'):
                     LOGGER.info('Untarring file...')
                     with tarfile.open(local_dem) as tar_file:
-                        tar_file.extractall(path=output_dir, members=dem_file_from_tar(tar_file))
+                        def is_within_directory(directory, target):
+                            
+                            abs_directory = os.path.abspath(directory)
+                            abs_target = os.path.abspath(target)
+                        
+                            prefix = os.path.commonprefix([abs_directory, abs_target])
+                            
+                            return prefix == abs_directory
+                        
+                        def safe_extract(tar, path=".", members=None, *, numeric_owner=False):
+                        
+                            for member in tar.getmembers():
+                                member_path = os.path.join(path, member.name)
+                                if not is_within_directory(path, member_path):
+                                    raise Exception("Attempted Path Traversal in Tar File")
+                        
+                            tar.extractall(path, members, numeric_owner=numeric_owner) 
+                            
+                        
+                        safe_extract(tar_file, path=output_dir, members=dem_file_from_tar(tar_file))
                 else:
                     LOGGER.error("Unknown archive format: %s".format(output_file))
 
