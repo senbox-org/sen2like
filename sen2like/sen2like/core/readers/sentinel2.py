@@ -2,18 +2,13 @@ import glob
 import logging
 import os
 import re
-import shutil
 import sys
 from xml import parsers as pars
 from xml.dom import minidom
 
 import numpy as np
-from osgeo import gdal
-from skimage.transform import resize as skit_resize
 import mgrs
 
-from atmcor import get_s2_angles as s2_angles
-from core.image_file import S2L_ImageFile
 from core.metadata_extraction import from_date_to_doy
 from core.readers.reader import BaseReader
 
@@ -32,8 +27,7 @@ def node_value(dom, node_name):
 
 
 class Sentinel2MTL(BaseReader):
-
-    # Object for metadata extraction
+    """Object for S2 product metadata extraction"""
 
     def __init__(self, product_path, mtd_file=None):
         super().__init__(product_path)
@@ -77,12 +71,10 @@ class Sentinel2MTL(BaseReader):
             dom = minidom.parse(mtl_file_name)
         except pars.expat.ExpatError as err:
             self.isValid = False
-            logging.error("Error during parsing of MTD product file: %s" % mtl_file_name)
-            logging.error(err)
+            log.error("Error during parsing of MTD product file: %s", mtl_file_name)
+            log.error(err)
             sys.exit(-1)
 
-        self.mask_filename = None
-        self.nodata_mask_filename = None
         self.aerosol_band = None
         self.aerosol_value = None
 
@@ -152,7 +144,7 @@ class Sentinel2MTL(BaseReader):
                         else:
                             file_path = os.path.join(self.product_path, 'GRANULE', self.granule_id, 'IMG_DATA',
                                                      file_path + self.file_extension)
-                        log.debug(f'{band_id} {file_path}')
+                        log.debug('%s %s', band_id, file_path)
                         self.bands[band_id] = file_path
             # Band name ordered by their integer id in datastrip (base on spectral information)
             spectral_information = dom.getElementsByTagName('Spectral_Information')
@@ -167,24 +159,23 @@ class Sentinel2MTL(BaseReader):
 
             # Collection not applicable for Landsat
             self.collection = ' '
-            self.radio_coefficient_dic = {}
-            self.radiometric_offset_dic = None
+
             # RESCALING GAIN And OFFSET :
-            try:
-                self.quantification_value = node_value(dom, 'QUANTIFICATION_VALUE')
-            except IndexError:
-                self.quantification_value = node_value(dom, 'BOA_QUANTIFICATION_VALUE')
-            radio_add_offset_list = dom.getElementsByTagName('RADIO_ADD_OFFSET')
-            if len(radio_add_offset_list) > 0:
-                log.debug('Radiometric offsets are finded.')
-                self.radiometric_offset_dic = {}
-                for _, node in enumerate(radio_add_offset_list):
-                    band_id = node.attributes['band_id'].value
-                    radio_add_offset = node.childNodes[0].data
-                    self.radiometric_offset_dic[int(band_id)] = radio_add_offset
+            for quantification_node_name in [
+                    'QUANTIFICATION_VALUE', 'BOA_QUANTIFICATION_VALUE', 'L2A_BOA_QUANTIFICATION_VALUE']:
+                try:
+                    self.quantification_value = node_value(
+                        dom, quantification_node_name)
+                    break
+                except IndexError:
+                    pass
+
+            self._set_radiometric_offset_dic(dom)
+
             self.dE_S = node_value(dom, 'U')
 
             nodes = dom.getElementsByTagName('SOLAR_IRRADIANCE')
+            self.radio_coefficient_dic = {}
             self.band_sequence = []
             for cpt, node in enumerate(nodes):
                 band_id = node.attributes['bandId']
@@ -194,12 +185,13 @@ class Sentinel2MTL(BaseReader):
                                                         "Gain": 0.00001, "Offset": 0.0,
                                                         "Solar_irradiance": solar_irradiance
                                                         }
-            self.band_sequence = [np.int(rec) + 1 for rec in self.band_sequence]
+            self.band_sequence = [int(rec) + 1 for rec in self.band_sequence]
             self.rescaling_gain = [0.00001] * len(self.band_sequence)
             self.rescaling_offset = [0] * len(self.band_sequence)
 
             tab = [self.radio_coefficient_dic[x]["Solar_irradiance"] for x in self.radio_coefficient_dic]
             self.solar_irradiance = [np.double(rec) for rec in tab]
+
             try:
                 self.cloud_cover = node_value(dom, 'Cloud_Coverage_Assessment')
             except IndexError:
@@ -210,10 +202,10 @@ class Sentinel2MTL(BaseReader):
             scene_boundary_lat = [rec for j, rec in enumerate(pos_list) if j % 2 == 0]
             scene_boundary_lon = [rec for j, rec in enumerate(pos_list) if j % 2 == 1]
             self.scene_pos_list = pos_list
-            arr1 = np.asarray(scene_boundary_lat, np.float)
+            arr1 = np.asarray(scene_boundary_lat, float)
             arr1_r = np.roll(arr1, -1)
             # Retour d index
-            arr2 = np.asarray(scene_boundary_lon, np.float)
+            arr2 = np.asarray(scene_boundary_lon, float)
             arr2_r = np.roll(arr2, -1)
             x = arr1_r - arr1  # Vecteur X - latitude
             y = arr2_r - arr2  # Vecteur Y - longitude
@@ -241,7 +233,7 @@ class Sentinel2MTL(BaseReader):
         except IndexError:
             # if not md_list:
             file_path = None
-            log.error(' -- Warning - no MTL file found')
+            log.error(' -- Warning - error with MTD', exc_info=1)
             log.error(' -- Procedure aborted')
             self.mtl_file_name = ''
         # Observation date of the GRANULE
@@ -268,7 +260,6 @@ class Sentinel2MTL(BaseReader):
 
             try:
                 self.doy = 0
-                self.angles_file = None
                 sun_node = dom.getElementsByTagName('Mean_Sun_Angle')[0]
                 self.sun_zenith_angle = node_value(sun_node, 'ZENITH_ANGLE')
                 self.sun_azimuth_angle = node_value(sun_node, 'AZIMUTH_ANGLE')
@@ -287,7 +278,7 @@ class Sentinel2MTL(BaseReader):
                                                            }
 
                 # TO USE </Viewing_Incidence_Angles_Grids> to set the angle files
-                self.angles_file = None
+                # self.angles_file = None
 
                 node = dom.getElementsByTagName('Tile_Geocoding')[0]
                 self.utm = node_value(node, 'HORIZONTAL_CS_NAME')
@@ -329,25 +320,22 @@ class Sentinel2MTL(BaseReader):
 
                         maskpath = os.path.join(product_path, 'GRANULE', self.granule_id, 'QI_DATA', maskpath)
 
-                    log.debug(f'mask path: {maskpath}')
-                    log.debug(f'mask type: {node.getAttribute("type")}')
-                    if node.getAttribute('type') == 'MSK_CLOUDS':
+                    log.debug('mask path: %s', maskpath)
+                    log.debug('mask type: %s', node.getAttribute("type"))
+
+                    _type = node.getAttribute('type')
+                    if _type in ['MSK_CLOUDS', 'MSK_CLASSI']:
                         self.cloudmask = maskpath
-                    elif node.getAttribute('type') == 'MSK_CLASSI':
-                        self.cloudmask = maskpath
-                    elif node.getAttribute('type') == 'MSK_NODATA':
+                    elif _type in ['MSK_NODATA', 'MSK_QUALIT']:
                         band = os.path.splitext(maskpath)[0][-3:]
                         self.nodata_mask[band] = maskpath
-                    elif node.getAttribute('type') == 'MSK_QUALIT':
-                        band = os.path.splitext(maskpath)[0][-3:]
-                        self.nodata_mask[band] = maskpath
-                    elif node.getAttribute('type') == 'MSK_DETFOO':
+                    elif _type == 'MSK_DETFOO':
                         band = os.path.splitext(maskpath)[0][-3:]
                         self.detfoo_mask[band] = maskpath
 
-                log.debug(f'Cloud Mask: {self.cloudmask}')
-                log.debug(f'No data mask: {self.nodata_mask}')
-                log.debug(f'Defective detector: {self.detfoo_mask}')
+                log.debug('Cloud Mask: %s', self.cloudmask)
+                log.debug('No data mask: %s', self.nodata_mask)
+                log.debug('Defective detector: %s', self.detfoo_mask)
             except IndexError:
                 sys.exit(' TILE MTL Parsing Issue ')
         else:
@@ -364,181 +352,6 @@ class Sentinel2MTL(BaseReader):
                 product_path, 'GRANULE', self.granule_id, 'QI_DATA', 'L2A_QUALITY.xml')
             if not os.path.isfile(self.l2a_qi_report_path):
                 self.l2a_qi_report_path = None
-
-    def get_valid_pixel_mask(self, mask_filename, res=20):
-        """
-        :param res:
-        :param mask_filename:
-        :return:
-        """
-
-        log.debug('get valid pixel mask')
-        if self.scene_classif_band:
-            log.info('Generating validity and nodata masks from SCL band')
-            log.debug(f'Read SCL: {self.scene_classif_band}')
-            scl = S2L_ImageFile(self.scene_classif_band)
-            scl_array = scl.array
-            if scl.xRes != res:
-                shape = (int(scl_array.shape[0] * - scl.yRes / res), int(scl_array.shape[1] * scl.xRes / res))
-                log.debug(shape)
-                scl_array = skit_resize(scl_array, shape, order=0, preserve_range=True).astype(np.uint8)
-
-            valid_px_mask = np.zeros(scl_array.shape, np.uint8)
-            # Consider as valid pixels :
-            #                VEGETATION and NOT_VEGETATED (valeurs 4 et 5)
-            #                UNCLASSIFIED (7)
-            #                SNOW (11) - EXCLUDED
-            valid_px_mask[scl_array == 4] = 1
-            valid_px_mask[scl_array == 5] = 1
-            valid_px_mask[scl_array == 7] = 1
-            #valid_px_mask[scl_array == 11] = 1
-
-            mask = scl.duplicate(mask_filename, array=valid_px_mask, res=res)
-            mask.write(creation_options=['COMPRESS=LZW'])
-            self.mask_filename = mask_filename
-            log.info('Written: {}'.format(mask_filename))
-
-            # nodata mask
-            mask_filename = os.path.join(os.path.dirname(mask_filename), 'nodata_pixel_mask.tif')
-            nodata = np.ones(scl_array.shape, np.uint8)
-            nodata[scl_array == 0] = 0
-            mask = scl.duplicate(mask_filename, array=nodata, res=res)
-            mask.write(creation_options=['COMPRESS=LZW'])
-            self.nodata_mask_filename = mask_filename
-            log.info('Written: {}'.format(mask_filename))
-
-            return True
-
-        # L1C case for instance -> No SCL, but NODATA and CLD mask
-        else:
-            log.debug('L1C Case')
-            # Nodata Mask
-            nodata_ref_band = 'B01'
-            band_path = self.bands[nodata_ref_band]
-            log.info(f'Generating nodata mask from band {nodata_ref_band}')
-            log.debug(f'Read band file: {band_path}')
-            image = S2L_ImageFile(band_path)
-            array = image.array
-            nodata_mask_filename = os.path.join(os.path.dirname(mask_filename),
-                                                f'nodata_pixel_mask_{nodata_ref_band}.tif')
-            nodata = np.ones(array.shape, np.uint8)
-            # shall be 0, but due to compression artefact, threshold increased to 4:
-            nodata[array <= 4] = 0
-
-            # resize nodata to output res
-            shape = (int(nodata.shape[0] * - image.yRes / res), int(nodata.shape[1] * image.xRes / res))
-            log.debug(shape)
-            nodata = skit_resize(nodata, shape, order=0, preserve_range=True).astype(np.uint8)
-
-            # save to image
-            mask = image.duplicate(nodata_mask_filename, array=nodata, res=res)
-            mask.write(creation_options=['COMPRESS=LZW'], nodata_value=None)
-            self.nodata_mask_filename = nodata_mask_filename
-
-            if self.cloudmask:
-                # Cloud mask
-                rname, ext = os.path.splitext(self.cloudmask)
-                if ext == '.gml':
-                    log.info('Generating validity mask from cloud mask')
-                    log.debug(f'Read cloud mask: {self.cloudmask}')
-                    # Check if any cloud feature in gml
-                    dom = minidom.parse(self.cloudmask)
-                    nClouds = len(dom.getElementsByTagName('eop:MaskFeature'))
-
-                    # rasterize
-                    # make byte mask 0/1, LZW compression
-                    if nClouds > 0:
-                        outputBounds = [self.ULX, self.LRY, self.LRX, self.ULY]
-                        if not os.path.exists(os.path.dirname(mask_filename)):
-                            os.makedirs(os.path.dirname(mask_filename))
-                        gdal.Rasterize(mask_filename, self.cloudmask, outputType=gdal.GDT_Byte,
-                                       creationOptions=['COMPRESS=LZW'],
-                                       burnValues=0, initValues=1, outputBounds=outputBounds, outputSRS=self.epsg,
-                                       xRes=res, yRes=res)
-
-                        # apply nodata to validity mask
-                        dataset = gdal.Open(mask_filename, gdal.GA_Update)
-                        array = dataset.GetRasterBand(1).ReadAsArray()
-                        array[nodata == 0] = 0
-                        dataset.GetRasterBand(1).WriteArray(array)
-                        dataset = None
-                    else:
-                        # no cloud mask, copy nodata mask
-                        shutil.copy(self.nodata_mask_filename, mask_filename)
-                    log.info('Written: {}'.format(mask_filename))
-                    self.mask_filename = mask_filename
-
-                elif ext =='.jp2':
-                    log.info('Generating validity mask from cloud mask, baseline 4.0')
-                    log.debug(f'no data mask: {self.nodata_mask_filename}')
-                    log.debug(f'mask filename: {mask_filename}')
-
-                    log.debug(f'Read cloud mask: {self.cloudmask}')
-                    dataset = gdal.Open(self.cloudmask, gdal.GA_ReadOnly)
-                    clm_1 = dataset.GetRasterBand(1).ReadAsArray()
-                    clm_2 = dataset.GetRasterBand(2).ReadAsArray()
-                    clm_3 = dataset.GetRasterBand(3).ReadAsArray()
-                    tot = clm_1 + clm_2 + clm_3
-                    valid_px_mask = np.zeros(clm_1.shape, np.uint8)
-                    valid_px_mask[tot == 0] = 1
-                    # resize valid_px  to output res:
-                    shape = (int(valid_px_mask.shape[0] * - image.yRes / res), int(valid_px_mask.shape[1] * image.xRes / res))
-                    valid_px_mask = skit_resize(valid_px_mask, shape, order=0, preserve_range=True).astype(np.uint8)
-                    #Applied no data mask:
-                    valid_px_mask[nodata == 0] = 0
-
-                    # save to image
-                    mask = image.duplicate(mask_filename, array=valid_px_mask, res=res)
-                    mask.write(creation_options=['COMPRESS=LZW'], nodata_value=None)
-                    log.info('Written: {}'.format(mask_filename))
-                    self.mask_filename = mask_filename
-
-                    dataset = None
-
-            return True
-
-    def get_angle_images(self, DST=None):
-        """
-        :param DST: OPptional name of the outptu tif containing all angle images
-        :return: set self.angles_file
-        Following band order : SAT_AZ , SAT_ZENITH, SUN_AZ, SUN_ZENITH ')
-        The unit is DEGREES
-        """
-        if DST is not None:
-            root_dir = os.path.dirname(DST)
-        else:
-            root_dir = os.path.dirname(self.tile_metadata)
-
-        # Viewing Angles (SAT_AZ / SAT_ZENITH)
-        dst_file = os.path.join(root_dir, 'VAA.tif')
-        out_file_list = s2_angles.extract_viewing_angle(self.tile_metadata, dst_file, 'Azimuth')
-
-        dst_file = os.path.join(root_dir, 'VZA.tif')
-        out_file_list.extend(s2_angles.extract_viewing_angle(self.tile_metadata, dst_file, 'Zenith'))
-
-        # Solar Angles (SUN_AZ, SUN_ZENITH)
-        dst_file = os.path.join(root_dir, 'SAA.tif')
-        s2_angles.extract_sun_angle(self.tile_metadata, dst_file, 'Azimuth')
-        out_file_list.append(dst_file)
-
-        dst_file = os.path.join(root_dir, 'SZA.tif')
-        s2_angles.extract_sun_angle(self.tile_metadata, dst_file, 'Zenith')
-        out_file_list.append(dst_file)
-
-        out_vrt_file = os.path.join(root_dir, 'tie_points.vrt')
-        gdal.BuildVRT(out_vrt_file, out_file_list, separate=True)
-
-        if DST is not None:
-            out_tif_file = DST
-        else:
-            out_tif_file = os.path.join(root_dir, 'tie_points.tif')
-        gdal.Translate(out_tif_file, out_vrt_file, format="GTiff")
-
-        self.angles_file = out_vrt_file
-        log.info('SAT_AZIMUTH, SAT_ZENITH, SUN_AZIMUTH, SUN_ZENITH')
-        log.info('UNIT = DEGREES (scale: x100)')
-        log.info('Angles file: ' + out_tif_file)
-        self.angles_file = out_tif_file
 
     @staticmethod
     def can_read(product_name):
@@ -557,3 +370,28 @@ class Sentinel2MTL(BaseReader):
         if len(band) == 2:
             band = band[0] + '0' + band[1]
         return band
+
+    def _set_radiometric_offset_dic(self, dom: minidom.Document):
+        """set radiometric_offset_dic attr with:
+        - RADIO_ADD_OFFSET is present in dom (L1)
+        - BOA_ADD_OFFSET_VALUES_LIST is present in dom (L2)
+        - otherwise to None
+
+        Args:
+            dom (minidom.Document): document of L1 or L2 S2 MTD
+        """
+
+        # try L2 case first, never present in L1
+        radio_add_offset_list = dom.getElementsByTagName('BOA_ADD_OFFSET_VALUES_LIST')
+        if len(radio_add_offset_list) == 0:
+            # L1 case, never present in L2
+            radio_add_offset_list = dom.getElementsByTagName('RADIO_ADD_OFFSET')
+
+        self.radiometric_offset_dic = None
+        if len(radio_add_offset_list) > 0:
+            log.debug('Radiometric offsets are finded.')
+            self.radiometric_offset_dic = {}
+            for _, node in enumerate(radio_add_offset_list):
+                band_id = node.attributes['band_id'].value
+                radio_add_offset = node.childNodes[0].data
+                self.radiometric_offset_dic[int(band_id)] = radio_add_offset

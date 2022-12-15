@@ -25,9 +25,10 @@ def get_reader(product_path):
     if len(readers) == 1:
         return readers[0]
     if len(readers) > 1:
-        log.error('Multiple readers compatible with %s' % product_path)
+        log.error('Multiple readers compatible with %s', product_path)
     else:
-        log.error("No reader compatible with %s" % product_path)
+        log.error("No reader compatible with %s", product_path)
+    return None
 
 
 # Loads readers

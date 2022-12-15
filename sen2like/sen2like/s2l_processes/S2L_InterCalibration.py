@@ -6,11 +6,25 @@ import logging
 import numpy as np
 
 from core import S2L_config
+from core.image_file import S2L_ImageFile
+from core.products.product import S2L_Product
 from s2l_processes.S2L_Process import S2L_Process
-from core.QI_MTD.mtd import metadata
 
 log = logging.getLogger("Sen2Like")
 
+COEFFICIENT = {
+    "Sentinel-2B": {
+        'B01': {'coef': [1.011, 0]},
+        'B02': {'coef': [1.011, 0]},
+        'B03': {'coef': [1.011, 0]},
+        'B04': {'coef': [1.011, 0]},
+        'B05': {'coef': [1.011, 0]},
+        'B06': {'coef': [1.011, 0]},
+        'B07': {'coef': [1.011, 0]},
+        'B08': {'coef': [1.011, 0]},
+        'B8A': {'coef': [1.011, 0]},
+    }
+}
 
 class S2L_InterCalibration(S2L_Process):
     """
@@ -30,35 +44,28 @@ class S2L_InterCalibration(S2L_Process):
     (It is the SPACECRAFT_NAME (for sentinel) or SPACECRAFT_ID (for landsats))
     """
 
-    def process(self, product, image, band):
+    def process(self, product: S2L_Product, image: S2L_ImageFile, band: str) -> S2L_ImageFile:
         log.info('Start')
-        coeff = {
-            "Sentinel-2B": {
-                'B01': {'coef': [1.011, 0]},
-                'B02': {'coef': [1.011, 0]},
-                'B03': {'coef': [1.011, 0]},
-                'B04': {'coef': [1.011, 0]},
-                'B05': {'coef': [1.011, 0]},
-                'B06': {'coef': [1.011, 0]},
-                'B07': {'coef': [1.011, 0]},
-                'B08': {'coef': [1.011, 0]},
-                'B8A': {'coef': [1.011, 0]},
-            }
-        }
-        if product.mtl.mission in coeff:
-            if band in coeff[product.mtl.mission]:
-                slope, offset = coeff[product.mtl.mission][band]['coef']
+
+        if product.mtl.mission in COEFFICIENT:
+            if float(product.mtl.processing_sw) < 4.0:
+                if band in COEFFICIENT[product.mtl.mission]:
+                    slope, offset = COEFFICIENT[product.mtl.mission][band]['coef']
+                else:
+                    log.info("No inter calibration coefficient defined for %s", band)
+                    log.info('End')
+                    return image
             else:
-                log.info("No inter calibration coefficient defined for {}".format(band))
+                log.info("No inter calibration performed for Sentinel-2B Collection-1 products (PB >= 04.00) ")
                 log.info('End')
                 return image
         else:
-            log.info("No inter calibration coefficient defined for {} mission".format(product.mtl.mission))
+            log.info("No inter calibration coefficient defined for %s mission", product.mtl.mission)
             log.info('End')
             return image
 
         if offset is not None and slope is not None:
-            log.debug(f"Applying InterCalibration : slope = {slope}, offset{offset}")
+            log.debug("Applying InterCalibration : slope = %s, offset = %s", slope, offset)
             new = image.array
             np.multiply(new, slope, out=new)
             np.add(new, offset, out=new)

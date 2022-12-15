@@ -33,21 +33,59 @@
     <xs:complexType name="DownloaderType">
         <xs:sequence>
             <xs:element type="xs:float" name="coverage"/>
-            <xs:element type="xs:string" name="base_url"/>
+<!--            <xs:element type="xs:string" name="base_url"/>-->
             <xs:element type="xs:integer" name="cloud_cover"/>
             <xs:choice>
+                <!-- all local or remote -->
                 <xs:sequence>
-                    <xs:element type="xs:string" name="url_parameters_pattern_Sentinel2"/>
-                    <xs:element type="xs:string" name="url_parameters_pattern_Landsat8"/>
-                    <xs:element type="xs:string" name="url_parameters_pattern_Landsat9"/>
+                    <xs:element type="xs:string" name="base_url"/>
+                    <xs:choice>
+                        <!-- all local -->
+                        <xs:sequence>
+                            <xs:element type="xs:string" name="url_parameters_pattern_Sentinel2"/>
+                            <xs:element type="xs:string" name="url_parameters_pattern_Landsat8"/>
+                            <xs:element type="xs:string" name="url_parameters_pattern_Landsat9"/>
+                        </xs:sequence>
+                        <!-- all remote remote -->
+                        <xs:sequence>
+                            <xs:element type="xs:string" name="location_Landsat8"/>
+                            <xs:element type="xs:string" name="location_Landsat9"/>
+                            <xs:element type="xs:string" name="location_Sentinel2"/>
+                            <xs:element type="xs:string" name="url_parameters_pattern"/>
+                            <xs:element type="xs:string" name="thumbnail_property"/>
+                            <xs:element type="xs:string" name="cloud_cover_property"/>
+                            <xs:element type="xs:string" name="gml_geometry_property"/>
+                        </xs:sequence>
+                    </xs:choice>
+
                 </xs:sequence>
+                <!-- mixed -->
                 <xs:sequence>
-                    <xs:element type="xs:string" name="location_Landsat8"/>
-                    <xs:element type="xs:string" name="location_Landsat9"/>
-                    <xs:element type="xs:string" name="location_Sentinel2"/>
+                    <xs:element type="xs:string" name="base_url_s2"/>
+                    <xs:element type="xs:string" name="base_url_landsat"/>
+                    <xs:choice>
+                        <!-- S2 remote, Landsat local -->
+                        <xs:sequence>
+                            <!-- S2 remote part -->
+                            <xs:element type="xs:string" name="location_Sentinel2"/>
+                            <!-- landsat local part -->
+                            <xs:element type="xs:string" name="url_parameters_pattern_Landsat8"/>
+                            <xs:element type="xs:string" name="url_parameters_pattern_Landsat9"/>
+                        </xs:sequence>
+                        <!-- S2 local, Landsat remote -->
+                        <xs:sequence>
+                            <!-- s2 local part -->
+                            <xs:element type="xs:string" name="url_parameters_pattern_Sentinel2"/>
+                            <!-- landsat remote part -->
+                            <xs:element type="xs:string" name="location_Landsat8"/>
+                            <xs:element type="xs:string" name="location_Landsat9"/>
+                        </xs:sequence>
+                    </xs:choice>
+                    <!-- common remote part-->
                     <xs:element type="xs:string" name="url_parameters_pattern"/>
                     <xs:element type="xs:string" name="thumbnail_property"/>
                     <xs:element type="xs:string" name="cloud_cover_property"/>
+                    <xs:element type="xs:string" name="gml_geometry_property"/>
                 </xs:sequence>
             </xs:choice>
         </xs:sequence>
@@ -129,6 +167,7 @@
             <xs:element type="xs:integer" name="dx"/>
             <xs:element type="xs:integer" name="dy"/>
             <xs:element type="xs:string" name="freeze_dx_dy"/>
+            <xs:element type="StringBoolType" name="use_smac"/>
         </xs:sequence>
     </xs:complexType>
     <xs:complexType name="Level-2A_Ground_Image_Processing_ParameterType">

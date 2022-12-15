@@ -4,19 +4,10 @@ import io
 import logging
 import os
 import re
-import subprocess
-import sys
 
-import numpy as np
-from fmask import config, landsatangles
-from osgeo import gdal
-from rios import fileinfo
-from skimage.transform import resize as skit_resize
-
-from core.image_file import S2L_ImageFile
-from core.metadata_extraction import reg_exp, compute_earth_solar_distance, get_in_band_solar_irrandiance_value
+from core.metadata_extraction import NOT_FOUND, reg_exp, compute_earth_solar_distance, get_in_band_solar_irrandiance_value
 from core.readers.reader import BaseReader
-from sen2like import BINDIR
+
 
 log = logging.getLogger('Sen2Like')
 
@@ -71,10 +62,9 @@ class LandsatMTL(BaseReader):
 
         try:
             mtl_file_name = md_list_1[0]
-            self.mask_filename = None
             self.product_directory_name = os.path.basename(self.product_path)
             self.mtl_file_name = mtl_file_name
-            with io.open(mtl_file_name, 'rU') as mtl_file:
+            with io.open(mtl_file_name, 'r') as mtl_file:
                 mtl_text = mtl_file.read()
             self.product_name = os.path.basename(
                 os.path.dirname(mtl_file_name))  # PRODUCT_NAME # VDE : linux compatible
@@ -88,7 +78,7 @@ class LandsatMTL(BaseReader):
                 self.landsat_scene_id = res[0].split('=')[1].replace('"', '').replace(' ', '')
             else:
                 self.landsat_scene_id = os.path.basename(mtl_file_name).split('_')[0].replace(" ", "")
-            log.info(' -- Landsat_id : ' + self.landsat_scene_id)
+            log.info(' -- Landsat_id : %s', self.landsat_scene_id)
 
             string_to_search = 'LANDSAT_PRODUCT_ID =.*'
             self.product_id = reg_exp(mtl_text, string_to_search)
@@ -110,13 +100,13 @@ class LandsatMTL(BaseReader):
             self.data_type = reg_exp(mtl_text, string_to_search)
             string_to_search = 'COLLECTION_CATEGORY =.*'
             self.collection = reg_exp(mtl_text, string_to_search)
-            if self.collection == 'not found':
+            if self.collection == NOT_FOUND:
                 self.collection = 'Pre Collection'
 
             # Les produits de niveau SR ne sont pas indiques dans le MTL (USGS)
             regex = 'L[O, M, T, C]0[1 - 8].*-SC.*'
             p0 = re.compile(regex)
-            log.debug('product name: ' + self.product_name)
+            log.debug('product name: %s', self.product_name)
             # For match the name of directory and not the path is to be provided
             # Conflict with radiometric processing - split required
             # In radiometric processing path with following type :
@@ -125,8 +115,6 @@ class LandsatMTL(BaseReader):
             for rec in test_name:
                 if p0.match(str(rec)):
                     self.data_type = 'L2A'
-
-            self.angles_file = None
 
             string_to_search = 'MODEL_FIT_TYPE =.*'
             # MODEL_FIT_TYPE = "L1T_SINGLESCENE_OPTIMAL"
@@ -194,7 +182,7 @@ class LandsatMTL(BaseReader):
 
             if self.processing_sw == "SLAP_03.04":
                 if self.data_type == "L1T":
-                    log.debug("GCP : ", self.gcp_filename)
+                    log.debug("GCP : %s", self.gcp_filename)
                     if self.gcp_filename != 'NotApplicable-geometricrefinementusingneighbouringscenes':
                         self.model_fit = "L1T_SINGLESCENE_OPTIMAL"
                     else:
@@ -221,7 +209,6 @@ class LandsatMTL(BaseReader):
             string_to_search = 'GROUND_CONTROL_POINT_RESIDUALS_KURTOSIS_Y =.*'
             self.gcp_res_kurt_y = reg_exp(mtl_text, string_to_search)
 
-            self.mask_filename = None
             # INFORMATION ON FILE NAMES :
             if self.collection_number == '02':
                 string_to_search = 'FILE_NAME_METADATA_ODL =.*'
@@ -244,7 +231,7 @@ class LandsatMTL(BaseReader):
             string_to_search = 'SUN_AZIMUTH =.*'
             self.sun_azimuth_angle = reg_exp(mtl_text, string_to_search)
             string_to_search = 'SUN_ELEVATION =.*'
-            self.sun_zenith_angle = 90.0 - np.float(reg_exp(mtl_text, string_to_search))
+            self.sun_zenith_angle = 90.0 - float(reg_exp(mtl_text, string_to_search))
             string_to_search = 'UTM_ZONE =.*'
             self.utm_zone = reg_exp(mtl_text, string_to_search)
             string_to_search = 'MAP_PROJECTION =.*'
@@ -267,14 +254,14 @@ class LandsatMTL(BaseReader):
             result = regex.findall(mtl_text)
             self.radiance_maximum = []
             for k in result:
-                v = np.float(k.split('=')[1].replace(' ', ''))
+                v = float(k.split('=')[1].replace(' ', ''))
                 self.radiance_maximum.append(v)
 
             regex = re.compile('RADIANCE_MINIMUM_.* =.*')
             result = regex.findall(mtl_text)
             self.radiance_minimum = []
             for k in result:
-                v = np.float(k.split('=')[1].replace(' ', ''))
+                v = float(k.split('=')[1].replace(' ', ''))
                 self.radiance_minimum.append(v)
 
             self.rad_radio_coefficient_dic = {}
@@ -282,17 +269,16 @@ class LandsatMTL(BaseReader):
             result = regex.findall(mtl_text)
             self.rescaling_gain = []
             for cpt, k in enumerate(result):
-                v = np.float(k.split('=')[1].replace(' ', ''))
+                v = float(k.split('=')[1].replace(' ', ''))
                 self.rescaling_gain.append(v)
                 band_id = k.split('_')[3].split('=')[0].replace(' ', '')
-                self.rad_radio_coefficient_dic[str(cpt)] = {"Band_id": str(band_id),
-                                                        "Gain": v, "Offset": "0"}
+                self.rad_radio_coefficient_dic[str(cpt)] = {"Band_id": str(band_id), "Gain": v, "Offset": "0"}
 
             regex = re.compile('RADIANCE_ADD_BAND_.* =.*')
             result = regex.findall(mtl_text)
             self.rescaling_offset = []
             for cpt, k in enumerate(result):
-                v = np.float((k.split('='))[1].replace(' ', ''))
+                v = float((k.split('='))[1].replace(' ', ''))
                 band_id = k.split('_')[3].split('=')[0].replace(' ', '')
                 for x in self.rad_radio_coefficient_dic:
                     bd = self.rad_radio_coefficient_dic[x]['Band_id']
@@ -306,9 +292,9 @@ class LandsatMTL(BaseReader):
             result = regex.findall(mtl_text)
             self.rho_rescaling_gain = []
             for cpt, k in enumerate(result):
-                v = np.float(k.split('=')[1].replace(' ', ''))
+                v = float(k.split('=')[1].replace(' ', ''))
                 self.rho_rescaling_gain.append(v)
-                band_id = np.int(k.split('_')[3].split('=')[0].replace(' ', ''))
+                band_id = int(k.split('_')[3].split('=')[0].replace(' ', ''))
                 if band_id < 10:
                     band_id_st = '0' + str(band_id)
                 else:
@@ -320,8 +306,8 @@ class LandsatMTL(BaseReader):
             result = (regex.findall(mtl_text))
             self.rho_rescaling_offset = []
             for cpt, k in enumerate(result):
-                v = np.float(k.split('=')[1].replace(' ', ''))
-                band_id = np.int(k.split('_')[3].split('=')[0].replace(' ', ''))
+                v = float(k.split('=')[1].replace(' ', ''))
+                band_id = int(k.split('_')[3].split('=')[0].replace(' ', ''))
                 if band_id < 10:
                     band_id_st = '0' + str(band_id)
                 else:
@@ -345,13 +331,19 @@ class LandsatMTL(BaseReader):
                 string_to_search = 'FILE_NAME_QUALITY_L1_PIXEL =.*'
             else:
                 string_to_search = 'FILE_NAME_BAND_QUALITY =.*'
-            self.bqa_filename = reg_exp(mtl_text, string_to_search)
+
+            self.bqa_filename = None
+            bqa_filename = reg_exp(mtl_text, string_to_search)
+            if bqa_filename != NOT_FOUND:
+                self.bqa_filename = os.path.join(self.product_path, bqa_filename)
 
             if self.collection_number == '02':
                 string_to_search = 'ANGLE_COEFFICIENT_FILE_NAME =.*'
             else:
                 string_to_search = 'FILE_NAME_ANGLE_COEFFICIENT =.*'
-            self.ang_filename = reg_exp(mtl_text, string_to_search)
+            ang_filename = reg_exp(mtl_text, string_to_search)
+            if ang_filename != NOT_FOUND:
+                self.ang_filename = os.path.join(self.product_path, ang_filename)
 
             self.scl, self.scene_classif_band = self.get_scl_band()
 
@@ -376,7 +368,7 @@ class LandsatMTL(BaseReader):
 
                 # Assume that for L2A image_file are present
                 self.missing_image_in_list = 'FALSE'
-                aerosol_file_list = fnmatch.fnmatch(os.listdir(self.product_path), '*sr_aerosol.tif')
+                aerosol_file_list = fnmatch.filter(os.listdir(self.product_path), '*sr_aerosol.tif')
                 if aerosol_file_list:
                     self.aerosol_band = os.path.join(self.product_path, aerosol_file_list[0])
                     log.info(' -- Aerosol image found ')
@@ -435,170 +427,6 @@ class LandsatMTL(BaseReader):
             log.error(' -- Procedure aborted')
             self.isValid = False
             self.mtl_file_name = ''
-
-    def get_valid_pixel_mask(self, mask_filename):
-        """
-        Depending on collection / processing level, provide the cloud / sea mask
-        Set self.mask_filename
-        """
-
-        # Open QA Image
-        if self.bqa_filename != 'not found':
-            self.bqa_filename = os.path.join(self.product_path, self.bqa_filename)
-            log.info('Generating validity and nodata masks from BQA band')
-            log.debug(f'Read cloud mask: {self.bqa_filename}')
-            bqa = S2L_ImageFile(self.bqa_filename)
-            bqa_array = bqa.array
-
-            # Process Pixel valid 'pre collection
-            # Process Land Water Mask 'collection 1
-            if self.collection != 'Pre Collection':
-                th = 2720  # No land sea mask given with Collection products
-                log.debug(th)
-            else:
-                th = 20480
-
-            #TODO: Check th, 20480  not good for C-2
-            if self.collection_number == '02':
-                th = 21824
-
-            valid_px_mask = np.zeros(bqa_array.shape, np.uint8)
-            valid_px_mask[bqa_array <= th] = 1
-            valid_px_mask[bqa_array == 1] = 0  # Remove background
-            valid_px_mask[bqa_array > th] = 0
-
-            mask = bqa.duplicate(mask_filename, array=valid_px_mask)
-            mask.write(creation_options=['COMPRESS=LZW'], nodata_value=None)
-            self.mask_filename = mask_filename
-
-            # nodata mask (not good when taking it from BQA, getting from B01):
-            mask_filename = os.path.join(os.path.dirname(mask_filename), 'nodata_pixel_mask.tif')
-            if self.data_type == 'L2A':
-                image_filename = self.surf_image_list[0]
-            else:
-                image_filename = self.dn_image_list[0]
-            image = S2L_ImageFile(image_filename)
-            array = image.array.clip(0, 1).astype(np.uint8)
-            mask = image.duplicate(mask_filename, array=array.astype(np.uint8))
-            mask.write(creation_options=['COMPRESS=LZW'], nodata_value=None)
-            self.nodata_mask_filename = mask_filename
-
-            return True
-        elif self.scl:
-            log.info('Generating validity and nodata masks from SCL band')
-            log.debug(f'Read SCL: {self.scene_classif_band}')
-            scl = S2L_ImageFile(self.scene_classif_band)
-            scl_array = scl.array
-            res = 30
-            if scl.xRes != res:
-                shape = (int(scl_array.shape[0] * - scl.yRes / res), int(scl_array.shape[1] * scl.xRes / res))
-                log.debug(shape)
-                scl_array = skit_resize(scl_array, shape, order=0, preserve_range=True).astype(np.uint8)
-
-            valid_px_mask = np.zeros(scl_array.shape, np.uint8)
-            # Consider as valid pixels :
-            #                VEGETATION et NOT_VEGETATED (valeurs 4 et 5)
-            #                UNCLASSIFIED (7)
-            #                excluded SNOW (11) -
-            valid_px_mask[scl_array == 4] = 1
-            valid_px_mask[scl_array == 5] = 1
-            valid_px_mask[scl_array == 7] = 1
-            valid_px_mask[scl_array == 11] = 0
-
-            mask = scl.duplicate(mask_filename, array=valid_px_mask)
-            mask.write(creation_options=['COMPRESS=LZW'])
-            self.mask_filename = mask_filename
-
-            # nodata mask
-            mask_filename = os.path.join(os.path.dirname(mask_filename), 'nodata_pixel_mask.tif')
-            nodata = np.ones(scl_array.shape, np.uint8)
-            nodata[scl_array == 0] = 0
-            mask = scl.duplicate(mask_filename, array=nodata)
-            mask.write(creation_options=['COMPRESS=LZW'])
-            self.nodata_mask_filename = mask_filename
-
-            return True
-        return False
-
-    def get_angle_images(self, DST=None):
-        """
-        :param DST: Optional name of the output tif containing all angles images
-        :return: set self.angles_file
-        Following band order : SAT_AZ , SAT_ZENITH, SUN_AZ, SUN_ZENITH ')
-        The unit is RADIANS
-        """
-
-        # downsample factor
-        F = 10
-
-        if DST is not None:
-            out_file = DST
-        else:
-            out_file = os.path.join(self.product_path, 'tie_points.tif')
-
-        if self.ang_filename != 'not found' and sys.platform == 'linux2':
-            self.ang_filename = os.path.join(self.product_path, self.ang_filename)
-            ls8_angles_exe = os.path.join(BINDIR, 'l8_angles', 'l8_angles')
-            args = [ls8_angles_exe, os.path.abspath(self.ang_filename), 'SATELLITE {} -b 1,2,3,4,5,6,7'.format(F)]
-            subprocess.check_call(' '.join(args), shell=True, cwd=os.path.dirname(out_file))
-            args = [ls8_angles_exe, os.path.abspath(self.ang_filename), 'SOLAR {} -b 1'.format(F)]
-            subprocess.check_call(' '.join(args), shell=True, cwd=os.path.dirname(out_file))
-
-        mtlInfo = config.readMTLFile(self.mtl_file_name)
-        image = self.reflective_band_list[0]
-
-        # downsample image for angle computation
-        dirname = os.path.dirname(out_file)
-        if not os.path.exists(dirname):
-            os.makedirs(dirname)
-        coarseResImage = os.path.join(dirname, 'tie_points_coarseResImage.tif')
-        gdal.Translate(coarseResImage, image, xRes=30 * F, yRes=30 * F)
-
-        imgInfo = fileinfo.ImageInfo(coarseResImage)
-        corners = landsatangles.findImgCorners(coarseResImage, imgInfo)
-        nadirLine = landsatangles.findNadirLine(corners)
-        extentSunAngles = landsatangles.sunAnglesForExtent(imgInfo, mtlInfo)
-        satAzimuth = landsatangles.satAzLeftRight(nadirLine)
-        # do not use fmask function but internal custom function
-        self.makeAnglesImage(coarseResImage, out_file,
-                             nadirLine, extentSunAngles, satAzimuth, imgInfo)
-        log.info('SAT_AZ , SAT_ZENITH, SUN_AZ, SUN_ZENITH ')
-        log.info('UNIT = DEGREES (scale: x100) :')
-        log.info('             ' + out_file)
-        self.angles_file = out_file
-
-    def makeAnglesImage(self, template_img, outfile, nadirLine, extentSunAngles, satAzimuth, imgInfo):
-        """
-        Make a single output image file of the sun and satellite angles for every
-        pixel in the template image.
-
-        """
-        imgInfo = fileinfo.ImageInfo(template_img)
-
-        infiles = landsatangles.applier.FilenameAssociations()
-        outfiles = landsatangles.applier.FilenameAssociations()
-        otherargs = landsatangles.applier.OtherInputs()
-        controls = landsatangles.applier.ApplierControls()
-
-        infiles.img = template_img
-        outfiles.angles = outfile
-
-        (ctrLat, ctrLong) = landsatangles.getCtrLatLong(imgInfo)
-        otherargs.R = landsatangles.localRadius(ctrLat)
-        otherargs.nadirLine = nadirLine
-        otherargs.xMin = imgInfo.xMin
-        otherargs.xMax = imgInfo.xMax
-        otherargs.yMin = imgInfo.yMin
-        otherargs.yMax = imgInfo.yMax
-        otherargs.extentSunAngles = extentSunAngles
-        otherargs.satAltitude = 705000  # Landsat nominal altitude in metres
-        otherargs.satAzimuth = satAzimuth
-        otherargs.radianScale = 100 * 180 / np.pi  # Store pixel values in degrees and scale factor of 100
-        controls.setStatsIgnore(500)
-        controls.setCalcStats(False)
-        controls.setOutputDriverName('GTiff')
-
-        landsatangles.applier.apply(landsatangles.makeAngles, infiles, outfiles, otherargs, controls=controls)
 
     def _get_band(self, regex):
         image_list = [filename for filename in os.listdir(self.product_path) if

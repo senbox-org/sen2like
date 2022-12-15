@@ -19,7 +19,7 @@ def is_product(item):
     return inspect.isclass(item) and issubclass(item, S2L_Product) and item.__name__ != S2L_Product.__name__
 
 
-def get_product_from_sensor_name(sensor):
+def get_s2l_product_class_from_sensor_name(sensor):
     """Get product corresponding to given sensor name.
 
     :param sensor: Product sensor name
@@ -28,10 +28,11 @@ def get_product_from_sensor_name(sensor):
     for current_product in PRODUCTS.values():
         if getattr(current_product, 'is_final', False) and sensor in getattr(current_product, 'supported_sensors', []):
             return current_product
+    return None
 
 
-def get_product(product_path):
-    """Get product corresponding to given product.
+def get_s2l_product_class(product_path):
+    """Get S2L_Product children class corresponding to given product.
 
     :param product_path: Path of the product file to read
     :return:
@@ -40,17 +41,18 @@ def get_product(product_path):
     if len(products) == 1:
         return products[0]
     if len(products) > 1:
-        log.error('Multiple products reader compatible with %s' % product_path)
+        log.error('Multiple products reader compatible with %s', product_path)
     else:
-        log.error("No product reader compatible with %s" % product_path)
+        log.error("No product reader compatible with %s", product_path)
+    return None
 
 
-def read_mapping(product_class):
+def read_mapping(product_class) -> OrderedDict:
     """Read bands mapping file for the given class."""
     directory = os.path.dirname(inspect.getfile(product_class))
     filename = os.path.join(directory, 'bands.csv')
     if not os.path.exists(filename):
-        log.error("Invalid mapping filename: %s" % filename)
+        log.error("Invalid mapping filename: %s", filename)
         return {}
     with open(filename, 'rt') as fp:
         csv_reader = csv.reader(fp)

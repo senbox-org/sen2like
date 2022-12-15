@@ -1,11 +1,11 @@
 from unittest import TestCase
 
-from core.products import get_product
+from core.products import get_s2l_product_class
 
 
 class TestLandsat8Product(TestCase):
     def get_best_product(self, products, reference):
-        reader = get_product(products[0])
+        reader = get_s2l_product_class(products[0])
         self.assertEqual([reference], reader.best_product(products))
 
     def test_best_product(self):

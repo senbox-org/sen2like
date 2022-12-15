@@ -1,5 +1,35 @@
 # Sen2Like Release Notes
 
+## v4.1.1
+
+### Fix
+
+* Fix QI report (L2H/F_QUALITY.xml files) not valid
+* Fix MEAN_DELTA_AZIMUTH calculation for QI report
+* Fix angles files extraction that leaded to random values in tie_points file and non reproducible results
+
+## v4.1.0
+
+### New features
+
+* Add ROI based mode
+* Sentinel-2 Collection-1 support
+* Generated product compliant with Collection-1 format
+* Possible mixed local/remote archive configuration
+* Use sen2like version as baseline and real production date time in product MTD and product name
+* Add some QI parameters
+* Support sen2like 3.0.2
+
+### Improvements
+
+* Refactor Packagers to remove some code duplication
+* Refactor Product MTD writer to remove some code duplication
+* Factorize diverse duplicated code
+* Move mask and angle file generation in a dedicated module (separation of concern)
+* Move some function related to the configuration in S2L_Config module
+* Code quality (WIP)
+* Reduce docker image size of approximately 46%
+
 ## v4.0.2
 
 ### Fix

@@ -43,9 +43,9 @@ def from_values_list_to_array(selected_node):
     y_size = len(values_list)
 
     # Create np array of  size (x_size,y_size) for sun zenith values :
-    arr = np.empty([x_size, y_size], np.float)
+    arr = np.empty([x_size, y_size], float)
     for j in range(0, y_size, 1):
-        a = np.asarray(values_list[j].childNodes[0].data.split(), np.float)
+        a = np.asarray(values_list[j].childNodes[0].data.split(), float)
         arr[j] = a
 
     return x_size, y_size, col_step, row_step, arr
@@ -60,9 +60,9 @@ def reduce_angle_matrix(x_size, y_size, a_dict):
     #       - x_size / y_size size of the matrix
     # Output :
     # ~      - the reduce matrix
-    M = np.zeros([x_size, y_size], np.float)
+    M = np.zeros([x_size, y_size], float)
     #   print('input M :' + str(M[2][6]))
-    CPT = np.zeros([x_size, y_size], np.float)
+    CPT = np.zeros([x_size, y_size], int)
     for k, u in list(a_dict.items()):
         for i in range(0, x_size, 1):
             for j in range(0, x_size, 1):
@@ -73,8 +73,14 @@ def reduce_angle_matrix(x_size, y_size, a_dict):
     #                if i == 2 and j == 6 :
     #                    print str(M[i][j])+' '+str(A[i][j])
 
-    N = np.divide(M, CPT, where=(CPT != 0))
-    N[N == 0] = np.nan
+    N = np.divide(M, CPT)
+
+    # keep it commented for history
+    # before, the division had a where clause CPT!=0
+    # but it was not working well so we remove it 
+    # and then the N matrix have the good final result
+    #N[N == 0] = np.nan
+
     return N
 
 
@@ -120,20 +126,22 @@ def extract_sun_angle(src_file, dst_file, angle_type):
         arr[arr > 180] = arr[arr > 180] - 360
 
     # Create gdal dataset
-    x_res = np.int(x_size)
-    y_res = np.int(y_size)
+    x_res = int(x_size)
+    y_res = int(y_size)
 
-    x_pixel_size = np.int(col_step)
-    y_pixel_size = np.int(row_step)
+    x_pixel_size = int(col_step)
+    y_pixel_size = int(row_step)
 
     log.debug(' Save in {}'.format(dst_file))
     target_ds = gdal.GetDriverByName('GTiff').Create(dst_file, x_res, y_res, 1, gdal.GDT_Int16)
-    target_ds.SetGeoTransform((np.int(ulx), x_pixel_size, 0, np.int(uly), 0, -y_pixel_size))
+    target_ds.SetGeoTransform((int(ulx), x_pixel_size, 0, int(uly), 0, -y_pixel_size))
     band = target_ds.GetRasterBand(1)
     band.SetNoDataValue(NoData_value)
     band.SetDescription('Solar_' + angle_type)
     band.WriteArray((arr * 100).astype(np.int16), 0, 0)  # int16 with scale factor 100
     target_ds.SetProjection(wkt)
+    band = None
+    target_ds = None
 
 
 def extract_viewing_angle(src_file, dst_file, angle_type):
@@ -172,13 +180,13 @@ def extract_viewing_angle(src_file, dst_file, angle_type):
         detector = viewing_angle_node[cpt].attributes["detectorId"].value
         selected_node = viewing_angle_node[cpt].getElementsByTagName(angle_type)[0]
         [x_size, y_size, col_step, row_step, arr] = from_values_list_to_array(selected_node)
-        v_dico.update({str(cpt): {"Band_id": str(band_id),
+        v_dico['_'.join([band_id, detector])] = {"Band_id": str(band_id),
                                   "Detector": str(detector),
-                                  "Values": arr}})
+                                  "Values": arr}
 
     for rec in range(0, 13, 1):
         dic = v_dico.copy()
-        a = {k: v for k, v in list(dic.items()) if v["Band_id"] == str(rec)}
+        a = {k: v for k, v in dic.items() if v["Band_id"] == str(rec)}
         arr = reduce_angle_matrix(x_size, y_size, a)
 
         # scale between -180 and 180 deg.
@@ -186,11 +194,11 @@ def extract_viewing_angle(src_file, dst_file, angle_type):
             arr[arr > 180] = arr[arr > 180] - 360
 
         # Create gdal dataset
-        x_res = np.int(x_size)
-        y_res = np.int(y_size)
+        x_res = int(x_size)
+        y_res = int(y_size)
 
-        x_pixel_size = np.int(col_step)
-        y_pixel_size = np.int(row_step)
+        x_pixel_size = int(col_step)
+        y_pixel_size = int(row_step)
 
         # Decoding of band number :
         # CF : https: // earth.esa.int / web / sentinel / user - guides / sentinel - 2 - msi / resolutions / radiometric
@@ -200,7 +208,7 @@ def extract_viewing_angle(src_file, dst_file, angle_type):
         out_list.append(dst_file_bd)
         log.debug(' Save in {}'.format(dst_file_bd))
         target_ds = gdal.GetDriverByName('GTiff').Create(dst_file_bd, x_res, y_res, 1, gdal.GDT_Int16)
-        target_ds.SetGeoTransform((np.int(ulx), x_pixel_size, 0, np.int(uly), 0, -y_pixel_size))
+        target_ds.SetGeoTransform((int(ulx), x_pixel_size, 0, int(uly), 0, -y_pixel_size))
         band = target_ds.GetRasterBand(1)
         band.SetNoDataValue(NoData_value)
         band.SetDescription('Viewing_' + angle_type + '_band_' + str(rec + 1))  # This sets the band name!

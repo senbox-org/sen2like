@@ -1,4 +1,3 @@
-import datetime
 import glob
 import logging
 import os
@@ -7,17 +6,12 @@ import sys
 from xml import parsers
 from xml.etree import ElementTree
 
-import numpy
 import numpy as np
 from osgeo import ogr
 import shapely
 import shapely.geometry
 import shapely.wkt
-from fmask import landsatangles
-from osgeo import gdal
-from rios import fileinfo
 
-from core.image_file import S2L_ImageFile
 from core.metadata_extraction import compute_earth_solar_distance, get_in_band_solar_irrandiance_value, from_date_to_doy
 from core.readers.reader import BaseReader
 
@@ -76,7 +70,7 @@ class LandsatMajaMTL(BaseReader):
             root = ElementTree.parse(mtl_file_name)
         except parsers.expat.ExpatError as err:
             self.isValid = False
-            logging.error("Error during parsing of MTD product file: %s" % mtl_file_name)
+            logging.error("Error during parsing of MTD product file: %s", mtl_file_name)
             logging.error(err)
             sys.exit(-1)
 
@@ -85,7 +79,7 @@ class LandsatMajaMTL(BaseReader):
         self.product_name = os.path.basename(os.path.dirname(mtl_file_name))  # PRODUCT_NAME # VDE : linux compatible
 
         self.landsat_scene_id = root.findtext('.//Dataset_Identification/IDENTIFIER')
-        log.info(' -- Landsat_id : ' + self.landsat_scene_id)
+        log.info(' -- Landsat_id : %s', self.landsat_scene_id)
 
         self.product_id = root.findtext('.//Product_Characteristics/PRODUCT_ID')
         self.file_date = root.findtext('.//Product_Characteristics/ACQUISITION_DATE')
@@ -97,8 +91,6 @@ class LandsatMajaMTL(BaseReader):
         if self.collection == 'not found':
             self.collection = 'Pre Collection'
 
-        self.angles_file = None
-
         self.spacecraft_id = root.findtext('.//Product_Characteristics/PLATFORM')
         self.mgrs = root.findtext('.//Dataset_Identification/GEOGRAPHICAL_ZONE')
         self.path = root.findtext('.//Product_Characteristics/ORBIT_NUMBER[@type="Path"]')
@@ -109,10 +101,6 @@ class LandsatMajaMTL(BaseReader):
         observation_date = root.findtext('.//Product_Characteristics/ACQUISITION_DATE')
         self.observation_date = observation_date.split('T')[0]
         self.scene_center_time = observation_date.split('T')[-1]
-
-        # Read masks
-        self.mask_filename = None
-        self.nodata_mask_filename = None
 
         masks_nodes = root.findall('.//Mask_List/Mask')
         for mask_node in masks_nodes:
@@ -135,7 +123,7 @@ class LandsatMajaMTL(BaseReader):
             self.map_projection = match.group(2)
             self.utm_zone = match.group(3)
         else:
-            log.warning('Cannot read Geographical zone : {}'.format(utm_zone))
+            log.warning('Cannot read Geographical zone : %s', utm_zone)
             self.datum = self.utm_zone = self.map_projection = None
 
         bands_files = []
@@ -215,155 +203,6 @@ class LandsatMajaMTL(BaseReader):
             self.l2a_qi_report_path = os.path.join(product_path, 'L2A_QUALITY.xml')
             if not os.path.isfile(self.l2a_qi_report_path):
                 self.l2a_qi_report_path = None
-
-    def get_valid_pixel_mask(self, mask_filename):
-        """
-        Depending on collection / processing level, provide the cloud / sea mask
-        Set self.mask_filename
-        """
-        log.info('Read validity and nodata masks')
-
-        # No data mask
-        edge = S2L_ImageFile(os.path.join(self.product_path, self.edge_mask))
-        edge_arr = edge.array
-
-        nodata = np.zeros(edge_arr.shape, np.uint8)
-        nodata[edge_arr == 1] = 1
-
-        del edge_arr
-
-        nodata_mask_filename = os.path.join(os.path.dirname(mask_filename), 'nodata_pixel_mask.tif')
-        mask = edge.duplicate(nodata_mask_filename, array=nodata)
-        mask.write(creation_options=['COMPRESS=LZW'])
-        self.nodata_mask_filename = mask_filename
-
-        # Validity mask
-        cloud = S2L_ImageFile(os.path.join(self.product_path, self.cloud_mask))
-        cloud_arr = cloud.array
-        saturation = S2L_ImageFile(os.path.join(self.product_path, self.saturation_mask))
-        saturation_arr = saturation.array
-
-        valid_px_mask = np.ones(cloud_arr.shape, np.uint8)
-        valid_px_mask[cloud_arr == 1] = 0
-        valid_px_mask[cloud_arr == 2] = 0
-        valid_px_mask[cloud_arr == 4] = 0
-        valid_px_mask[cloud_arr == 8] = 0
-        valid_px_mask[saturation_arr == 1] = 0
-        valid_px_mask[nodata == 1] = 0
-
-        mask = cloud.duplicate(mask_filename, array=valid_px_mask)
-        mask.write(creation_options=['COMPRESS=LZW'])
-        self.mask_filename = mask_filename
-        return True
-
-    def get_angle_images(self, out_file=None):
-        """
-        :param DST: Optional name of the output tif containing all angles images
-        :return: set self.angles_file
-        Following band order : SAT_AZ , SAT_ZENITH, SUN_AZ, SUN_ZENITH ')
-        The unit is RADIANS
-        """
-
-        # downsample factor
-        F = 10
-
-        if out_file is None:
-            out_file = os.path.join(self.product_path, 'tie_points.tif')
-
-        image = self.reflective_band_list[0]
-
-        # downsample image for angle computation
-        dirname = os.path.dirname(out_file)
-        if not os.path.exists(dirname):
-            os.makedirs(dirname)
-        coarse_res_image = os.path.join(dirname, 'tie_points_coarseResImage.tif')
-        gdal.Translate(coarse_res_image, image, xRes=30 * F, yRes=30 * F)
-
-        img_info = fileinfo.ImageInfo(coarse_res_image)
-        corners = landsatangles.findImgCorners(coarse_res_image, img_info)
-        nadir_line = landsatangles.findNadirLine(corners)
-        extent_sun_angles = self.sunAnglesForExtent(img_info)
-        sat_azimuth = landsatangles.satAzLeftRight(nadir_line)
-
-        # do not use fmask function but internal custom function
-        self.makeAnglesImage(coarse_res_image, out_file, nadir_line, extent_sun_angles, sat_azimuth, img_info)
-
-        log.info('SAT_AZ , SAT_ZENITH, SUN_AZ, SUN_ZENITH ')
-        log.info('UNIT = DEGREES (scale: x100) :')
-        log.info('             ' + out_file)
-        self.angles_file = out_file
-
-    def makeAnglesImage(self, template_img, outfile, nadirLine, extentSunAngles, satAzimuth, imgInfo):
-        """
-        Make a single output image file of the sun and satellite angles for every
-        pixel in the template image.
-
-        """
-        imgInfo = fileinfo.ImageInfo(template_img)
-
-        infiles = landsatangles.applier.FilenameAssociations()
-        outfiles = landsatangles.applier.FilenameAssociations()
-        otherargs = landsatangles.applier.OtherInputs()
-        controls = landsatangles.applier.ApplierControls()
-
-        infiles.img = template_img
-        outfiles.angles = outfile
-
-        (ctrLat, ctrLong) = landsatangles.getCtrLatLong(imgInfo)
-        otherargs.R = landsatangles.localRadius(ctrLat)
-        otherargs.nadirLine = nadirLine
-        otherargs.xMin = imgInfo.xMin
-        otherargs.xMax = imgInfo.xMax
-        otherargs.yMin = imgInfo.yMin
-        otherargs.yMax = imgInfo.yMax
-        otherargs.extentSunAngles = extentSunAngles
-        otherargs.satAltitude = 705000  # Landsat nominal altitude in metres
-        otherargs.satAzimuth = satAzimuth
-        otherargs.radianScale = 100 * 180 / np.pi  # Store pixel values in degrees and scale factor of 100
-        controls.setStatsIgnore(500)
-        controls.setCalcStats(False)
-        controls.setOutputDriverName('GTiff')
-
-        landsatangles.applier.apply(landsatangles.makeAngles, infiles, outfiles, otherargs, controls=controls)
-
-    def sunAnglesForExtent(self, imgInfo):
-        """
-        Return array of sun azimuth and zenith for each of the corners of the image
-        extent. Note that this is the raster extent, not the corners of the swathe.
-
-        The algorithm used here has been copied from the 6S possol() subroutine. The
-        Fortran code I copied it from was .... up to the usual standard in 6S. So, the
-        notation is not always clear.
-
-        """
-        cornerLatLong = imgInfo.getCorners(outEPSG=4326)
-        (ul_long, ul_lat, ur_long, ur_lat, lr_long, lr_lat, ll_long, ll_lat) = cornerLatLong
-        pts = numpy.array([
-            [ul_long, ul_lat],
-            [ur_long, ur_lat],
-            [ll_long, ll_lat],
-            [lr_long, lr_lat]
-        ])
-        longDeg = pts[:, 0]
-        latDeg = pts[:, 1]
-
-        # Date/time in UTC
-        dateStr = self.observation_date
-        timeStr = self.scene_center_time.replace('Z', '')
-        ymd = [int(i) for i in dateStr.split('-')]
-        dateObj = datetime.date(ymd[0], ymd[1], ymd[2])
-        julianDay = (dateObj - datetime.date(ymd[0], 1, 1)).days + 1
-        juldayYearEnd = (datetime.date(ymd[0], 12, 31) - datetime.date(ymd[0], 1, 1)).days + 1
-        # Julian day as a proportion of the year
-        jdp = julianDay / juldayYearEnd
-        # Hour in UTC
-        hms = [float(x) for x in timeStr.split(':')]
-        hourGMT = hms[0] + hms[1] / 60.0 + hms[2] / 3600.0
-
-        (sunAz, sunZen) = landsatangles.sunAnglesForPoints(latDeg, longDeg, hourGMT, jdp)
-
-        sunAngles = numpy.vstack((sunAz, sunZen)).T
-        return sunAngles
 
     @staticmethod
     def can_read(product_name):

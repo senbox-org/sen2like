@@ -1,178 +1,248 @@
-# Sen2Like
+# Sen2Like <!-- omit in toc -->
+
+## Table of content <!-- omit in toc -->
+
+TOC Generated with markdown all in one: https://github.com/yzhang-gh/vscode-markdown
+
+- [Retrieve sources of sen2like](#retrieve-sources-of-sen2like)
+- [Local install](#local-install)
+  - [Prerequisite](#prerequisite)
+    - [libGL](#libgl)
+    - [Conda](#conda)
+- [Docker](#docker)
+  - [Prerequisite](#prerequisite-1)
+  - [Build sen2like docker image](#build-sen2like-docker-image)
+  - [Docker store in repository](#docker-store-in-repository)
+- [Running the tool](#running-the-tool)
+  - [Local install](#local-install-1)
+  - [Docker](#docker-1)
+  - [sen2like usage](#sen2like-usage)
+  - [Configuration file](#configuration-file)
+    - [Processing](#processing)
+    - [Directories](#directories)
+    - [Downloader](#downloader)
+      - [Local](#local)
+      - [Creodias API](#creodias-api)
+    - [DemDownloader](#demdownloader)
+    - [Geometry](#geometry)
+    - [Atmcor](#atmcor)
+    - [Nbar](#nbar)
+    - [Fusion](#fusion)
+    - [Stitching](#stitching)
+    - [OutputFormat](#outputformat)
+    - [COGoptions](#cogoptions)
+    - [JPEG2000options](#jpeg2000options)
+    - [Multiprocessing](#multiprocessing)
+    - [Packager](#packager)
+    - [Runtime](#runtime)
+  - [Command line arguments](#command-line-arguments)
+    - [Product mode](#product-mode)
+    - [Single tile mode](#single-tile-mode)
+    - [Multi tile mode](#multi-tile-mode)
+    - [ROI based mode](#roi-based-mode)
+- [Release notes](#release-notes)
+- [License](#license)
+
+## Retrieve sources of sen2like
+
+* Using git :
+
+```bash
+git clone https://github.com/senbox-org/sen2like.git
+```
+
+* Or from a [downloaded archive](https://github.com/senbox-org/sen2like/archive/refs/heads/master.zip):
+
+```bash
+unzip sen2like.zip
+```
+
+* Enter sen2like root source folder: 
+
+```bash
+cd sen2like/sen2like
+```
 
 ## Local install
 
-### check installation of tools for install
+### Prerequisite
 
-`sudo apt-get install curl git`
+#### libGL
 
-#### Retrieve sources of Sen2Like code
+You will need `libGL` for linux, depending on your distribution it can be `libgl1-mesa-glx`, `mesa-libGL` or another. Install it if you don't have it yet.
 
-* Using git (restricted to telespazio):
+#### Conda
 
-`git clone git@gitlab.telespazio.fr:SEN2LIKE/poleeo.git`
+sen2like needs a [conda](https://docs.conda.io/en/latest/) env to work.
 
-* Or from a downloaded archive:
+We recommend to use miniconda.
 
-`unzip sen2like.zip`
+To install miniconda, please refer to the miniconda documentation : https://docs.conda.io/en/latest/miniconda.html#
 
-`cd sen2like`
+**Please note that you MUST use an installer compatible with your current python version**
 
-### Installation of Anaconda or Miniconda
+For example: if you have python 3.8 on Linux x86_64, choose the Python 3.8	Miniconda3 Linux 64-bit installer as illustrated bellow : 
 
-* Installing Anaconda:
+![miniconda](docs/resources/miniconda_version.png)
 
-`curl  https://repo.anaconda.com/archive/Anaconda3-2020.02-Linux-x86_64.sh --output  Anaconda3-2020.02-Linux-x86_64.sh`
+* Create a conda virtual environment with required packages
 
-`chmod +x Anaconda3-2020.02-Linux-x86_64.sh`
+Once you retrieved the code, go into `sen2like` root source folder and run the following command to create a conda env named `sen2like`:
 
-`./Anaconda3-2020.02-Linux-x86_64.sh`
+```bash
+conda create -n sen2like --file requirements.txt -c conda-forge
+```
 
-* or Miniconda:
+* Activate conda virtual environment
 
-`curl https://repo.anaconda.com/miniconda/Miniconda3-py37_4.8.2-Linux-x86_64.sh --output Miniconda3-py37_4.8.2-Linux-x86_64.sh`
+```bash
+conda activate sen2like
+```
 
-`chmod +x Miniconda3-py37_4.8.2-Linux-x86_64.sh`
+* Verify your sen2like installation with `python sen2like.py`, that should display sen2like CLI usage: 
 
-`./Miniconda3-py37_4.8.2-Linux-x86_64.sh`
+```bash
+python sen2like.py 
+[INFO    ] 2022-10-23 06:53:18 - sen2like             - Run Sen2like 4.1.0
+usage: sen2like.py [-h] [--version] [--refImage PATH] [--wd PATH]
+                   [--conf PATH] [--confParams STRLIST] [--bands STRLIST]
+                   [--no-run] [--intermediate-products] [--parallelize-bands]
+                   [--debug] [--no-log-date]
+                   {product-mode,single-tile-mode,multi-tile-mode,roi-based-mode}
+                   ...
+....
+```
 
-### Create a conda virtual environment with required packages
+*Note: output is deliberately truncated*
 
-`conda create -n sen2like --file requirements.txt -c conda-forge`
+## Docker
 
-### Activate conda virtual environment
+### Prerequisite
 
-`conda activate sen2like`
+You need docker engine in order to build and execute sen2like with docker.
 
-### Installation of dependencies
+Please refer to the docker documentation to install docker on your environnement : https://docs.docker.com/engine/install/
 
-`sudo apt-get install mesa-libGL`
+### Build sen2like docker image
 
-## Docker creation
+From the sen2like root directory (the one containing `Dockerfile`)
 
-### Docker environement install
+```bash
+docker build -t sen2like . && docker image prune --filter label=stage=sen2like_build -f
+```
 
-#### On Ubuntu
+The result is a docker image with tag `sen2like:latest`
 
-* Docker install method availlable for ubuntu when writing this file "2020-09" check for current date and os
-
-`sudo apt-get remove docker docker-engine docker.io containerd runc`
-
-`sudo apt-get install apt-transport-https ca-certificates curl software-properties-common`
-
-`curl -fsSL https://download.docker.com/linux/ubuntu/gpg | sudo apt-key add -`
-
-`sudo add-apt-repository "deb [arch=amd64] https://download.docker.com/linux/ubuntu $(lsb_release -cs) stable`
-
-`sudo apt-get update`
-
-`sudo apt-get install docker-ce`
-
-`sudo usermod -aG docker ${USER}`
-
-log out and log in to get changes applied
-
-#### On Centos 7
-
-`sudo yum install -y yum-utils`
-
-`sudo yum-config-manager \
---add-repo \
-https://download.docker.com/linux/centos/docker-ce.repo`
-
-`sudo yum install docker-ce docker-ce-cli containerd.io`
-
-`sudo usermod -aG docker ${USER}`
-
-log out and log in to get changes applied
-
-### Retrieve sources of Sen2Like code
-
-* Using git (restricted to telespazio):
-
-`git clone https://gitlab.telespazio.fr/SEN2LIKE/poleeo.git`
-
-* Or from a downloaded archive:
-
-`unzip sen2like.zip`
-
-`cd sen2like`
-
-### Docker build
-
-Build docker image from Dockerfile:
-
-`cd ./poleeo/HLS-project`
-
-`docker build -t sen2like .`
+*Note: In the previous command `docker image prune` instruction remove intermediate docker image created for the build.*
 
 ### Docker store in repository
 
-Tag the image so that is points to registry
+You might want to store the builded docker image on your internal docker registry.
 
-`docker image tag <IMAGE_NAME> <REGISTRY_URL>`
+for this purpose, tag the image so that is points to your registry
 
-sample
+```bash
+docker tag --help
 
-`docker image tag sen2like https://tpzf-ssa-docker-registry.telespazio.fr`
+Usage:  docker tag SOURCE_IMAGE[:TAG] TARGET_IMAGE[:TAG]
 
-Push the image on registry
+Create a tag TARGET_IMAGE that refers to SOURCE_IMAGE
+```
 
-`docker push <REGISTRY_URL><IMAGE_NAME>`
+Example
 
-sample
+```bash
+docker image tag sen2like my-internal-docker-registry-url/sen2like:4.1
+```
 
-`docker push https://tpzf-ssa-docker-registry.telespazio.fr/sen2like`
+Push the image on a registry with the command `docker push NAME[:TAG]`
 
-reminder to allow access to docker registry https://tpzf-ssa-docker-registry.telespazio.fr you should
+Example
 
-* have an account on the registry
-* update or add /etc/docker/daemon.json with { "insecure-registries" : ["https://tpz-ssa-docker-registry.telespazio.fr"]
-  }
-* restart docker daemon `systemctl restart docker`
+```bash
+docker push my-internal-docker-registry-url/sen2like:4.1
+```
 
 ## Running the tool
 
-### running on local install
+### Local install
 
 After install.
 
 Python script sen2like.py could be found in cloned git repository, or unzipped folder.
 
-For exemple if git cloned in home directory:
+For example if git cloned in home directory:
 
-`/opt/anaconda3/bin/python "$HOME/poleeo/HLS-project/sen2like/sen2like.py" single-tile-mode 31TFJ --conf "./config.ini" --start-date 2017-10-30 --end-date 2017-10-31 --wd "/data/production" --refImage "/data/References/GRI/S2A_OPER_MSI_L1C_TL_MPS__20161018T120000_A000008_T31TFJ_N01.01/IMG_DATA/S2A_OPER_MSI_L1C_TL_MPS__20161018T120000_A000008_T31TFJ_B04.jp2" --bands B04`
+```bash
+/opt/anaconda3/bin/python "$HOME/sen2like/sen2like/sen2like.py" single-tile-mode 31TFJ --conf "./config.ini" --start-date 2017-10-30 --end-date 2017-10-31 --wd "/data/production" --refImage "/data/References/GRI/S2A_OPER_MSI_L1C_TL_MPS__20161018T120000_A000008_T31TFJ_N01.01/IMG_DATA/S2A_OPER_MSI_L1C_TL_MPS__20161018T120000_A000008_T31TFJ_B04.jp2" --bands B04
+```
 
-### running in docker
+### Docker
 
-After pulling the docket from registry
+Build sen2like docker image or pull it from a registry with the command `docker pull NAME[:TAG]`
 
-`docker pull <REGISTRY_URL><IMAGE_NAME>`
+Example :
 
-sample
+```bash
+docker pull https://my-internal-docker-registry-url/sen2like:4.1
+```
 
-`docker pull https://tpz-ssa-docker-registry.telespazio.fr/sen2like`
+You can run it directly without entering into the container: 
 
-reminder to allow access to docker registry https://tpz-ssa-docker-registry.telespazio.fr you should
+```bash
+docker run --rm my-internal-docker-registry-url/sen2like/sen2like:4.1
 
-* have an account on the registry
-* update or add /etc/docker/daemon.json with { "insecure-registries" : ["https://tpz-ssa-docker-registry.telespazio.fr"]
-  }
-* restart docker daemon `systemctl restart docker`
+[INFO    ] 2022-10-23 04:37:47 - sen2like             - Run Sen2like 4.1.0
+usage: sen2like.py [-h] [--version] [--refImage PATH] [--wd PATH]
+                   [--conf PATH] [--confParams STRLIST] [--bands STRLIST]
+                   [--no-run] [--intermediate-products] [--parallelize-bands]
+                   [--debug] [--no-log-date]
+                   {product-mode,single-tile-mode,multi-tile-mode,roi-based-mode}
+                   ...
 
-Python script sen2like.py could be accessed from docker.
+positional arguments:
+....
+```
 
-* remark in this sample **local** folder `/data` is supposed to exist and contain sen2like config
-  file `/data/config.ini` a folder for working `/data/production` and the reference
-  image `/data/References/GRI/S2A_OPER_MSI_L1C_TL_MPS__20161018T120000_A000008_T31TFJ_N01.01/IMG_DATA/S2A_OPER_MSI_L1C_TL_MPS__20161018T120000_A000008_T31TFJ_B04.jp2`
+In the following examples **local** folder `/data` is supposed to exist and contains :
+- sen2like config file `/data/config.ini` 
+- a folder for working `/data/production` 
+- the reference image `/data/References/GRI/S2A_OPER_MSI_L1C_TL_MPS__20161018T120000_A000008_T31TFJ_N01.01/IMG_DATA/S2A_OPER_MSI_L1C_TL_MPS__20161018T120000_A000008_T31TFJ_B04.jp2`
 
-Launch the docker binding local /data folder to docker internal /data folder
 
-`docker run -it --mount type=bind,source="/data",target=/data tpzf-ssa-docker-registry.telespazio.fr/sen2like/sen2like:3.0`
+```bash
+docker run --rm \
+  --mount type=bind,source="/data",target=/data \
+  my-internal-docker-registry-url/sen2like/sen2like:4.1 \
+  single-tile-mode 31TFJ \
+  --conf "/data/config.ini" \
+  --start-date 2017-10-30 --end-date 2017-10-31 \
+  --wd "/data/production" \
+  --refImage "/data/References/GRI/S2A_OPER_MSI_L1C_TL_MPS__20161018T120000_A000008_T31TFJ_N01.01/IMG_DATA/S2A_OPER_MSI_L1C_TL_MPS__20161018T120000_A000008_T31TFJ_B04.jp2" \
+  --bands B04
+```
 
-In prompt activate sen2like env and execute ./sen2like.py
+Python script `sen2like.py` could be accessed from a docker container.
 
-`python ./sen2like.py single-tile-mode 31TFJ --conf "/data/config.ini" --start-date 2017-10-30 --end-date 2017-10-31 --wd "/data/production" --refImage "/data/References/GRI/S2A_OPER_MSI_L1C_TL_MPS__20161018T120000_A000008_T31TFJ_N01.01/IMG_DATA/S2A_OPER_MSI_L1C_TL_MPS__20161018T120000_A000008_T31TFJ_B04.jp2" --bands B04`
+Launch the docker binding **local** `/data` folder to the container `/data` folder, example: 
+
+```bash
+docker run --rm -it --mount type=bind,source="/data",target=/data --entrypoint=/bin/bash my-internal-docker-registry-url/sen2like/sen2like:4.1
+
+root@15a2f44ddd70:/usr/local/sen2like
+
+```
+
+In prompt execute ./sen2like.py as follow: 
+
+```bash
+./sen2like.py single-tile-mode 31TFJ \
+  --conf "/data/config.ini" \ 
+  --start-date 2017-10-30 --end-date 2017-10-31 \
+  --wd "/data/production" \
+  --refImage "/data/References/GRI/S2A_OPER_MSI_L1C_TL_MPS__20161018T120000_A000008_T31TFJ_N01.01/IMG_DATA/S2A_OPER_MSI_L1C_TL_MPS__20161018T120000_A000008_T31TFJ_B04.jp2" \
+  --bands B04
+```
 
 ### sen2like usage
 
@@ -180,9 +250,8 @@ Sen2like can be run in three different modes:
 
 * `product-mode`: Run the tool on a singe product
 * `single-tile-mode`: Run the tool on a MGRS tile. Corresponding products will be loaded.
-* `multi-tile-mode`: Run the tool on a ROI defined in a geojson. Corresponding MGRS tile will be inferred and products
-  will be loaded. It is equivalent to run a single-tile mode for each matching tile. In multi-tile mode, multiprocessing
-  can be used to speed-up computation time.
+* `multi-tile-mode`: Run the tool on a ROI defined in a geojson. Corresponding MGRS tile will be inferred and products will be loaded. It is equivalent to run a single-tile mode for each matching tile. In multi-tile mode, multiprocessing can be used to speed-up computation time.
+* `roi-based-mode`: Run the tool on a ROI defined in a geojson.
 
 The configuration of the tool is done by command-line arguments and by a configuration file. A default configuration
 file is provided in `conf/config.ini`.
@@ -203,26 +272,26 @@ Enable or disable a processing block based on value `(True, False)`:
 * `doStitching`: Run the stitching processing
 * `doGeometryKLT`: Run the geometric correction processing using KLT
 * `doToa`: Run the TOA correction
-* `doInterCalibration`: Run the Inter Calibration correction
-* `doAtmcor`: Run the Atmospheric correction
+* `doInterCalibration`: Run the Inter Calibration correction (S2B)
+* `doAtmcor`: Run the Atmospheric correction (SMAC or Sen2Cor)
 * `doNbar`: Run Nbar correction processing
 * `doSbaf`: Run the Sbaf correction processing
 * `doFusion`: Run the Fusion processing
 * `doPackager`: Run the packaging processing (legacy)
 * `doPackagerL2H`: Run the packaging processing for harmonized products
-* `doPackagerL2F`: Run the packaging processing
+* `doPackagerL2F`: Run the packaging processing for fused products
 
 #### Directories
 
 Indicates path for special directories:
 
-* `archive_dir`: Where to store resulting products
-* `cams_dir`: Where are located CAMS files
-* `cams_daily_dir`: Where are located CAMS daily files
-* `cams_hourly_dir`: Where are located CAMS hourly files
-* `cams_climatology_dir`: Where are located CAMS climatology files
-* `dem_dir`: Where are located DEM files
-* `scl_dir`: Where are located scl maps files
+* `archive_dir`: Where the L2H and L2F output products are generated
+* `cams_dir`: Where the CAMS files are located
+* `cams_daily_dir`: Where the CAMS daily files are located 
+* `cams_hourly_dir`: Where the CAMS hourly files are located 
+* `cams_climatology_dir`: Where the CAMS climatology files are located 
+* `dem_dir`: Where the DEM files are located 
+* `scl_dir`: Where the auxiliary scl maps files are located 
 
 #### Downloader
 
@@ -256,14 +325,16 @@ In addition these parameters are defined in the tool and can be used in brackets
 
 For a Sentinel 2 product on tile 31TFJ:
 
-```
+```ini
 base_url = /data/PRODUCTS
 url_parameters_pattern_Sentinel2 = {base_url}/{mission}/{tile}
 ```
 
 will be replaced by:
 
-```url_parameters_pattern_Sentinel2 = /data/PRODUCTS/Sentinel2/31TFJ```
+```ini
+url_parameters_pattern_Sentinel2 = /data/PRODUCTS/Sentinel2/31TFJ
+```
 
 ##### Creodias API
 
@@ -278,7 +349,7 @@ will be replaced by:
 
 #### DemDownloader
 
-This section presents configuration for DEM downloader. It is not yet integrated into the sen2like workflow but can be
+This section presents the configuration for the DEM downloader. It is not yet integrated into the sen2like workflow but can be
 used by itself.
 
 * `download_if_unavailable`: Download DEM at need if unavalaible (`True`or `False`)
@@ -289,39 +360,40 @@ used by itself.
 * `dem_product_name`: Name of the DEM product on server
 * `dem_server_url`: Server url where DEM are retrieved
 
+*Note: No compatible dem_server_url is available yet to the public.*
+
 #### Geometry
 
 Define parameters for geometric correction.
 
-* `reference_band`= The reference band to use for geometric correction
+* `reference_band`= The reference band to be used for geometric correction
 * `doMatchingCorrection`: Apply the matching correction (`True`, `False`)
 * `doAssessGeometry`: Assess geometry (Band list separated by comma.)
-* `references_map`: Path to the reference json file containing reference images for tiles
-* `force_geometry_correction`: Do geometry correction even if product is refined
+* `references_map`: Path to the reference json file containing the reference image for each tile
+* `force_geometry_correction`: Do geometry correction even if product is refined (S2 mission)
 
 #### Atmcor
 
-Atmospheric method to use.
+Atmospheric correction method to use.
 
 * `use_sen2cor`: Activate sen2cor for Atmospheric correction (SMAC otherwise)
-* `sen2cor_path`: Path to sen2cor tool
+* `sen2cor_path`: Path to sen2cor tool command (L2A_Process.py)
 
 #### Nbar
 
 Define parameters for Nbar processing.
 
-* `nbar_methode`: Methode to get BRDF coefficients. Nowadays, available methode are : ROY, VJB
-* `vjb_coeff_matrice_dir`: If choose VJB methode, coefficient netcdf file directory path
+* `nbar_methode`: Method to get BRDF coefficients. Currently, available methods are : ROY, VJB
+* `vjb_coeff_matrice_dir`: If VJB method is selected, directory path of the BRDF coefficients netcdf file
 
 #### Fusion
 
-Define parameters for fusion processing.
+Define parameters for Fusion processing.
 
-* `predict_method` : Predic method to use (predict or composite using most recent valid pixels)
+* `predict_method` : Predict method to be used (predict or composite using most recent valid pixels)
 * `predict_nb_products`: Number of products needed by predict method
-* `fusion_auto_check_band` : Band on witch apply fusion auto check
-* `fusion_auto_check_threshold` : (in [0,1]) Threshold of fusion auto check proportion diff. 
-  Use to compute threshold mask.
+* `fusion_auto_check_band` : Band on which the fusion auto check is performed
+* `fusion_auto_check_threshold` : (in [0,1]) Threshold on fusion auto check difference. Used to generate FCM mask.
 
 #### Stitching
 
@@ -331,23 +403,25 @@ Define parameters for stitching processing.
 
 #### OutputFormat
 
-Define modifier for written image file.
+Define output format, gain and offset for image files.
 
-* `gain`: Gain multplier for output image
-* `offset`: Offset to add to the output image
-* `output_format`: The format of the output image. Supported formats: COG, GTIFF (for geotiff), JPEG2000.
+* `gain`: DN Quantification value of output image (DN to reflectance conversion)
+* `offset`: DN Offset to substract from the output image (DN to reflectance conversion)
+* `output_format`: Format of the output image. Supported formats: COG, GTIFF (for geotiff), JPEG2000.
+
+*Note: DN to reflectance conversion: reflectance = (DN - offset) / gain *
 
 #### COGoptions
 
 * `interleave`: Interleave mode
 * `internal_tiling`: Internal tiling resolution
 * `internal_overviews`: Internal overviews sampling
-* `downsampling_levels_$RES$`: COG pyramides sampling level for $RES$ (ie: 10, 15...).  
+* `downsampling_levels_$RES$`: COG pyramids sampling level for $RES$ (ie: 10, 15...).  
   This keyword can be `present` several times for multiple resolutions.
 
 * `downsampling_levels`: Downsampling levels mode
-* `resampling_algo_MASK`: Resampling algorithm mask
-* `resampling_algo`: Resampling algorithm
+* `resampling_algo_MASK`: Resampling algorithm for masks
+* `resampling_algo`: Resampling algorithm for images
 * `compression`: Compression mode
 * `predictor`: Predicator value
 
@@ -365,51 +439,55 @@ Define parameters for multiprocessing in multi-tile-mode.
 
 Define packaging parameters.
 
-* `quicklook_jpeg_quality`: Quality for outputs quicklooks
+* `quicklook_jpeg_quality`: JPEG Quality for quicklooks
 * `json_metadata`: Indicates if metadata are also written as json (`True` or `False`)
 
 #### Runtime
 
-This section is overriden during runtime and contains backup of computed values. Modifying this section will have no
+This section is overridden during runtime and contains backup of computed values. Modifying this section will have no
 effect.
 
 ### Command line arguments
 
 The help of the tool can be displayed with the command:
-`python sen2like\sen2like.py --help`
+```
+python sen2like.py --help
+```
 
 ```
-usage: sen2like.py [-h] [-v] [--refImage PATH] [--wd PATH] [--conf PATH]
-                   [--confParams STRLIST] [--bands STRLIST]
+usage: sen2like.py [-h] [--version] [--refImage PATH] [--wd PATH]
+                   [--conf PATH] [--confParams STRLIST] [--bands STRLIST]
                    [--no-run] [--intermediate-products] [--parallelize-bands]
                    [--debug] [--no-log-date]
-                   {product-mode,single-tile-mode,multi-tile-mode} ...
+                   {product-mode,single-tile-mode,multi-tile-mode,roi-based-mode}
+                   ...
 
 positional arguments:
-  {product-mode,single-tile-mode,multi-tile-mode}
+  {product-mode,single-tile-mode,multi-tile-mode,roi-based-mode}
                         Operational mode
     product-mode        Process a single product
     single-tile-mode    Process all products on a MGRS tile
     multi-tile-mode     Process all products on a ROI
+    roi-based-mode      Process all products that fully contains an ROI. The
+                        ROI footprint must be FULLY INSIDE a MGRS tile.
 
 optional arguments:
   -h, --help            show this help message and exit
-  -v, --version         show program's version number and exit
+  --version, -v         show program's version number and exit
   --refImage PATH       Reference image (use as geometric reference)
   --wd PATH             Working directory (default : /data/production/wd)
   --conf PATH           S2L_configuration file (Default:
                         SEN2LIKE_DIR/conf/S2L_config.ini)
   --confParams STRLIST  Overload parameter values (Default: None). Given as a
-                        "key=value" comma-separated list.Example: --confParams
-                        "doNbar=False,doSbaf=False"
-  --bands STRLIST       Bands to process as coma separated list (Default: ALL
-                        bands)
+                        "key=value" comma-separated list. Example:
+                        --confParams "doNbar=False,doSbaf=False"
+  --bands STRLIST       S2 bands to process as coma separated list (Default:
+                        ALL bands)
   --no-run              Do not start process and only list products (default:
                         False)
   --intermediate-products
                         Generate intermediate products (default: False)
-  --parallelize-bands
-                        Process bands in parallel (default: False)
+  --parallelize-bands   Process bands in parallel (default: False)
 
 Debug arguments:
   --debug, -d           Enable Debug mode (default: False)
@@ -419,11 +497,13 @@ Debug arguments:
 
 #### Product mode
 
-In product mode, a product is specified an processed by the tool.
+In product mode, a product is specified and processed by the tool.
 
 The help of the product-mode can be displayed with the command:
 
-`python sen2like\sen2like.py product-mode --help`
+```bash
+python sen2like.py product-mode --help
+```
 
 ```
 usage: sen2like.py product-mode [-h] [-v] [--refImage PATH] [--wd PATH]
@@ -462,17 +542,19 @@ Debug arguments:
 
 Example of command line:
 
-`python sen2like.py product-mode /eodata/Sentinel-2/MSI/L1C/2017/01/03/S2A_MSIL1C_20170103T104432_N0204_R008_T31TFJ_20170103T104428.SAFE --wd
-~/wd --tile 31TFJ --bands B04
-`
+```bash
+python sen2like.py product-mode /eodata/Sentinel-2/MSI/L1C/2017/01/03/S2A_MSIL1C_20170103T104432_N0204_R008_T31TFJ_20170103T104428.SAFE --wd ~/wd --tile 31TFJ --bands B04
+```
 
 #### Single tile mode
 
-In single-tile mode, a MGRS tile is specified an processed by the tool.
+In single-tile mode, a MGRS tile is specified and processed by the tool.
 
 The help of the single-tile-mode can be displayed with the command:
 
-`python sen2like\sen2like.py single-tile-mode --help`
+```bash
+python sen2like.py single-tile-mode --help
+```
 
 ```
 usage: sen2like.py single-tile-mode [-h] [--start-date START_DATE]
@@ -516,18 +598,20 @@ Debug arguments:
 
 Example of command line:
 
-`python sen2like.py single-tile-mode 31TFJ --wd
-~/wd --refImage /data/HLS/31TFJ/L2F_31TFJ_20170103_S2A_R008/L2F_31TFJ_20170103_S2A_R008_B04_10m.TIF
-`
+```bash
+python sen2like.py single-tile-mode 31TFJ --wd ~/wd --refImage /data/HLS/31TFJ/L2F_31TFJ_20170103_S2A_R008/L2F_31TFJ_20170103_S2A_R008_B04_10m.TIF
+```
 
 #### Multi tile mode
 
-In multi-tile mode, a geojson file is specified an processed by the tool. An example of geojson file containing tile
+In multi-tile mode, a geojson file is specified and processed by the tool. An example of geojson file containing tile
 31TFJ is located in `conf/tile_mgrs_31TFJ.json`.
 
 The help of the multi-tile-mode can be displayed with the command:
 
-`python sen2like\sen2like.py multi-tile-mode --help`
+```bash
+python sen2like.py multi-tile-mode --help
+```
 
 ```
 usage: sen2like.py multi-tile-mode [-h] [--start-date START_DATE]
@@ -572,12 +656,65 @@ Debug arguments:
 
 Example of command line:
 
-`python sen2like.py multi-tile-mode ROI_FILE --wd
-~/wd --refImage /data/HLS/31TFJ/L2F_31TFJ_20170103_S2A_R008/L2F_31TFJ_20170103_S2A_R008_B04_10m.TIF
-`
+```bash
+python sen2like.py multi-tile-mode ROI_FILE --wd ~/wd --refImage /data/HLS/31TFJ/L2F_31TFJ_20170103_S2A_R008/L2F_31TFJ_20170103_S2A_R008_B04_10m.TIF
+```
 
-## [Release notes](release-notes.md)
+#### ROI based mode
+
+In roi-based-mode, a geojson file is specified and processed by the tool.
+
+The help of the roi-based-mode can be displayed with the command:
+
+```bash
+python sen2like.py roi-based-mode --help
+```
+
+```
+usage: sen2like.py roi-based-mode [-h] [--tile TILE] [--start-date START_DATE]
+                                  [--end-date END_DATE] [--l2a] [--version]
+                                  [--refImage PATH] [--wd PATH] [--conf PATH]
+                                  [--confParams STRLIST] [--bands STRLIST]
+                                  [--no-run] [--intermediate-products]
+                                  [--parallelize-bands] [--debug]
+                                  [--no-log-date]
+                                  roi
+
+positional arguments:
+  roi                   Json file containing the ROI to process
+
+optional arguments:
+  -h, --help            show this help message and exit
+  --tile TILE           MGRS Tile Code : Force Processing of a specific tile
+                        in case several MGRS tiles contain the ROI footprint
+  --start-date START_DATE
+                        Beginning of period (format YYYY-MM-DD)
+  --end-date END_DATE   End of period (format YYYY-MM-DD)
+  --l2a                 Processing level Level-2A for S2 products if set
+                        (default: L1C)
+  --version, -v         show program's version number and exit
+  --refImage PATH       Reference image (use as geometric reference)
+  --wd PATH             Working directory (default : /data/production/wd)
+  --conf PATH           S2L_configuration file (Default:
+                        SEN2LIKE_DIR/conf/S2L_config.ini)
+  --confParams STRLIST  Overload parameter values (Default: None). Given as a
+                        "key=value" comma-separated list. Example:
+                        --confParams "doNbar=False,doSbaf=False"
+  --bands STRLIST       S2 bands to process as coma separated list (Default:
+                        ALL bands)
+  --no-run              Do not start process and only list products (default:
+                        False)
+  --intermediate-products
+                        Generate intermediate products (default: False)
+  --parallelize-bands   Process bands in parallel (default: False)
+
+Debug arguments:
+  --debug, -d           Enable Debug mode (default: False)
+  --no-log-date         Do no store date in log (default: False)
+```
+
+## [Release notes](./release-notes.md)
 
 ## License
 
-[Apache License 2.0](LICENSE.txt)
+[Apache License 2.0](./LICENSE.txt)

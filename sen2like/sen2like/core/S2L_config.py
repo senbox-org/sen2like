@@ -3,12 +3,17 @@
 # V. Debaecker (TPZ-F) 2018
 
 import configparser
+import datetime
+import hashlib
+import json
 import logging
 import os
+import xmlschema
+
+from argparse import Namespace
 from collections import OrderedDict
 from xml.etree import ElementTree
 
-import xmlschema
 
 # INTERNAL CONFIGURATION (static)
 
@@ -134,7 +139,7 @@ class XmlParser:
                     element.text = str(value)
                     break
             else:
-                logger.warning("Can not overload parameter '{}' (not found)".format(option))
+                logger.warning("Can not overload parameter '%s' (not found)", option)
 
     def savetofile(self, config_file):
         """Save configuration file into ini format."""
@@ -239,7 +244,7 @@ class IniParser:
                     self.configObject.set(section, option, str(value))
                     break
             else:
-                logger.warning("Can not overload parameter '{}' (not found)".format(option))
+                logger.warning("Can not overload parameter '%s' (not found)", option)
 
     def savetofile(self, configfile):
         # check if dir exists
@@ -264,9 +269,9 @@ class S2L_Config:
 
     def initialize(self, config_file):
         if not os.path.exists(config_file):
-            logger.error("Configuration file does not exists: {}".format(config_file))
+            logger.error("Configuration file does not exists: %s", config_file)
             return False
-        logger.debug("Reading configuration file: {}".format(os.path.abspath(config_file)))
+        logger.info("Reading configuration file: %s", os.path.abspath(config_file))
         self.parser = self.parsers.get(os.path.splitext(config_file)[-1])
         if self.parser is None:
             logger.error("Unsupported configuration file format.")
@@ -277,7 +282,73 @@ class S2L_Config:
     def __getattr__(self, item):
         if item in ["display", "get", "getboolean", "getfloat", "set", "overload", "savetofile", "get_section"]:
             return getattr(self.parser, item)
-        raise AttributeError("'S2L_Config' object has no attribute '%s'" % item)
+        raise AttributeError(f"'S2L_Config' object has no attribute '{item}'")
+
+    def _compute_config_hash(self, args):
+        """Compute hash from arguments and configuration.
+
+        :param args: Tool arguments.
+        :param _config: Configuration
+        :return: Hexdigest of the hash.
+        """
+
+        # debug
+        import copy
+        exclude_list = ['parallelize_bands']
+        dc = copy.deepcopy(args.__dict__)
+        for exc in exclude_list:
+            dc.pop(exc)
+        dc = str(dc)
+
+        # Prod
+        # dc = str(args.__dict__)
+
+        # Configuration hash
+        if self.parser.config_file is not None:
+            with open(self.parser.config_file) as file:
+                file_content = file.read()
+        _hash = hashlib.md5(file_content.encode())
+        _hash.update(dc.encode())
+        return _hash.hexdigest()
+
+    def update_with_args(self, args: Namespace, tile=None):
+        """update config with the given arguments
+
+        Args:
+            args (Namespace): parsed program args
+            tile (str, optional): tile name. Defaults to None.
+        """
+        # init S2L_config and save to wd
+        if not self.initialize(args.S2L_configfile):
+            return
+
+        if args.confParams is not None:
+            self.overload(args.confParams)
+
+        # set working dir
+        date_now = datetime.datetime.utcnow().strftime('%Y%m%dT_%H%M%S')
+        output_folder = f'{"" if args.no_log_date else f"{date_now}_"}{self._compute_config_hash(args)}'
+        self.set('wd', os.path.join(args.wd, output_folder))
+
+        references_map_file = self.get('references_map')
+        if args.refImage:
+            self.set('refImage', args.refImage)
+        elif references_map_file and tile:
+            if os.path.isfile(references_map_file):
+                # load dataset
+                with open(references_map_file) as j:
+                    references_map = json.load(j)
+                self.set('refImage', references_map.get(tile))
+            else:
+                logger.warning("The reference path %s doesn't exist. So it is considered as None.", references_map_file)
+                self.set('refImage', None)
+        else:
+            self.set('refImage', None)
+        self.set('hlsplus', self.getboolean('doPackager') or self.getboolean('doPackagerL2F'))
+        self.set('debug', args.debug)
+        self.set('generate_intermediate_products', args.generate_intermediate_products)
+        if hasattr(args, 'l2a'):
+            self.set('s2_processing_level', 'LEVEL2A' if args.l2a else "LEVEL1C")
 
 
 config = S2L_Config()

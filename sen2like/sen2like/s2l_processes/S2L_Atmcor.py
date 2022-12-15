@@ -6,13 +6,16 @@ import datetime as dt
 import logging
 import os
 
-from osgeo import gdal
 import numpy as np
 
 from atmcor.atmospheric_parameters import ATMO_parameter
 from atmcor.cams_data_reader import ECMWF_Product
 from atmcor.smac import smac
 from core import S2L_config
+from core.QI_MTD.mtd import metadata
+from core.S2L_config import config
+from core.image_file import S2L_ImageFile
+from core.products.product import S2L_Product
 from s2l_processes.S2L_Process import S2L_Process
 
 log = logging.getLogger("Sen2Like")
@@ -38,45 +41,6 @@ def get_smac_coefficients(product, band):
     if os.path.exists(smac_file):
         return smac_file
     return None
-
-
-def smac_correction_grid(obs_datetime, extent, hcs_code, resolution=120):
-    output_filename = 'output_file.tif'
-
-    ecmwf_data = ECMWF_Product(cams_config=get_cams_configuration(), observation_datetime=obs_datetime)
-
-    new_SRS = gdal.osr.SpatialReference()
-    new_SRS.ImportFromEPSG(int(4326))
-
-    if ecmwf_data.is_valid:
-        # Write cams file
-        cams_file = 'cams_file.tif'
-        etype = gdal.GDT_Float32
-        driver = gdal.GetDriverByName('GTiff')
-        dst_ds = driver.Create(cams_file, xsize=ecmwf_data.longitude.size,
-                               ysize=ecmwf_data.latitude.size, bands=4, eType=etype, options=[])
-        dst_ds.SetProjection(new_SRS.ExportToWkt())
-        x_res = (ecmwf_data.longitude.max() - ecmwf_data.longitude.min()) / ecmwf_data.longitude.size
-        y_res = (ecmwf_data.latitude.max() - ecmwf_data.latitude.min()) / ecmwf_data.latitude.size
-        geotranform = (ecmwf_data.longitude.min(), x_res, 0, ecmwf_data.latitude.max(), 0, -y_res)
-        dst_ds.SetGeoTransform(geotranform)
-
-        dst_ds.GetRasterBand(1).WriteArray(ecmwf_data.aod550.astype(np.float))
-        dst_ds.GetRasterBand(2).WriteArray(ecmwf_data.tcwv.astype(np.float))
-        dst_ds.GetRasterBand(3).WriteArray(ecmwf_data.gtco3.astype(np.float))
-        dst_ds.GetRasterBand(4).WriteArray(ecmwf_data.msl.astype(np.float))
-
-        dst_ds.FlushCache()
-
-        # Warp cams data on input spatial extent
-        options = gdal.WarpOptions(srcSRS=dst_ds.GetProjection(), dstSRS=hcs_code, xRes=resolution,
-                                   yRes=resolution,
-                                   resampleAlg='cubicspline',
-                                   outputBounds=extent)
-        gdal.Warp(output_filename, cams_file, options=options)
-        dst_ds = None
-
-        return output_filename
 
 
 def smac_correction(product, array_in, extent, band):
@@ -223,18 +187,48 @@ def smac_correction(product, array_in, extent, band):
 
 
 class S2L_Atmcor(S2L_Process):
+    """
+    Atmo Correction processing block class.
+    Only able to run SMAC atmo corr as sen2cor cannot be run by band.
+    If use_sen2cor=True in the config, then this class set S2A_AC AC_PROCESSOR quality parameter.
+    If use_smac=True in the config, then run SMAC atmo corr and set S2A_AC quality parameters.
+    Notice that use_sen2cor and use_smac can be overridden depending on the type of product to process.
+    See sen2like module about
+    """
 
-    def process(self, product, image, band):
+    def process(self, product: S2L_Product, image: S2L_ImageFile, band: str) -> S2L_ImageFile:
         log.info('Start')
 
-        # SMAC correction
-        extent = image.getCorners(outEPSG=4326)
-        array_in = image.array
-        array_out = smac_correction(product, array_in, extent, band)
-        image = image.duplicate(self.output_file(product, band), array_out)
-        if S2L_config.config.getboolean('generate_intermediate_products'):
-            image.write(creation_options=['COMPRESS=LZW'])
+        out_image = image
+
+        if config.getboolean('use_smac'):
+            # SMAC correction
+            extent = image.getCorners(outEPSG=4326)
+            array_in = image.array
+            array_out = smac_correction(product, array_in, extent, band)
+            out_image = image.duplicate(self.output_file(product, band), array_out)
+            if S2L_config.config.getboolean('generate_intermediate_products'):
+                image.write(creation_options=['COMPRESS=LZW'])
+        else:
+            log.info("Atmo corr already done with sen2cor")
 
         log.info('End')
 
-        return image
+        return out_image
+
+    def postprocess(self, product: S2L_Product):
+        """Set QI params
+
+        Args:
+            product (S2L_Product): product to post process
+        """
+        if config.getboolean('use_sen2cor'):
+            metadata.qi["AC_PROCESSOR"] = "SEN2COR"
+
+        elif config.getboolean('use_smac'):
+            metadata.qi["AC_PROCESSOR"] = "SMAC"
+            # TODO: put config param in self ?
+            metadata.qi["GRANULE_MEAN_WV"] = S2L_config.config.get('uH2O')
+            metadata.qi["OZONE_VALUE"] = S2L_config.config.get('uO3')
+            metadata.qi["PRESSURE"] = S2L_config.config.get('pressure')
+            metadata.qi["GRANULE_MEAN_AOT"] = S2L_config.config.get('taup550')

@@ -1,17 +1,26 @@
-import logging
+"""Base MTL/MTD reader class
 
-import numpy as np
+Returns:
+    MaskImage: dataclass having enough to write a mask file
+    ImageMasks: dataclass combination of nodata et validity mask as 'MaskImage'
+    MaskInfo: dataclass having enough to compute mask QI info
+    BaseReader: Base class for MTL/MTD reader
+"""
+import logging
 from abc import ABC, abstractmethod
+import numpy as np
+
 
 logger = logging.getLogger("Sen2Like")
 
 
 class BaseReader(ABC):
+    """Base reader for image metadata extraction"""
 
     def __init__(self, product_path):
         self.product_path = product_path
-        logger.info("%s Class" % self.__class__.__name__)
-        logger.info("Product: %s" % self.product_path)
+        logger.info("%s Class",  self.__class__.__name__)
+        logger.info("Product: %s", self.product_path)
         self.is_refined = False
 
         # Mandatory attributes
@@ -21,19 +30,16 @@ class BaseReader(ABC):
         self.scene_boundary_lon = None
         self.absolute_orbit = 'N/A'
         self.sensor = None  # Instrument
-        self.angles_file = None  # All angles images
         self.data_type = None  # Product level
-        self.mask_filename = None  # Mask filename
         self.observation_date = None
         self.doy = 0
         self.sun_zenith_angle = None
         self.mission = None  # Mission name
         self.cloud_cover = None
         self.relative_orbit = None
-        self.nodata_mask_filename = None
         self.sun_azimuth_angle = None
         self.mtl_file_name = None
-        self.file_date = None # Product date
+        self.file_date = None  # Product date
         self.tile_metadata = None
         self.scene_center_time = None
         self.l2a_qi_report_path = None
@@ -53,17 +59,3 @@ class BaseReader(ABC):
         :return:
         """
         return False
-
-    @abstractmethod
-    def get_valid_pixel_mask(self, mask_filename):
-        pass
-
-    @abstractmethod
-    def get_angle_images(self, DST=None):
-        """
-        :param DST: Optional name of the output tif containing all angles images
-        :return: set self.angles_file
-        Following band order : SAT_AZ , SAT_ZENITH, SUN_AZ, SUN_ZENITH ')
-        The unit is RADIANS
-        """
-        pass

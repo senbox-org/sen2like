@@ -13,7 +13,7 @@ from osgeo import gdal
 from osgeo import ogr
 
 from core.S2L_config import S2L_Config
-from product_archive import InputProductArchive
+import core.product_archive.tile_db as tile_db
 
 logging.basicConfig(
     level=logging.DEBUG,
@@ -106,10 +106,10 @@ class DemDownloader:
         self.cross_dateline = False
 
         if os.path.isfile(self.dem_output):
-            LOGGER.info('DEM file for tile {}: {}'.format(self.mgrs_tile, self.dem_output))
+            LOGGER.info('DEM file for tile %s: %s', self.mgrs_tile, self.dem_output)
             return self.dem_output
 
-        LOGGER.warning('No DEM available for tile {}.'.format(self.mgrs_tile))
+        LOGGER.warning('No DEM available for tile %s.', self.mgrs_tile)
 
         if not self.configuration.getboolean('download_if_unavailable'):
             return None
@@ -117,27 +117,27 @@ class DemDownloader:
         return self.process(mgrs_tile)
 
     def process(self, mgrs_tile):
-        LOGGER.info("Trying to download DEM for tile %s" % self.mgrs_tile)
+        LOGGER.info("Trying to download DEM for tile %s", self.mgrs_tile)
 
         self.temp_directory = tempfile.TemporaryDirectory()
 
         locations = self.compute_tile_extent()
         dem_files = self.resolve_dem_filenames(locations)
         if not self.check_tiles(dem_files):
-            LOGGER.error("Error while processing tile {}. DEM is invalid.".format(mgrs_tile))
+            LOGGER.error("Error while processing tile %s. DEM is invalid.", mgrs_tile)
         else:
             dem_file = self.create_dem(dem_files)
             if dem_file is None:
-                LOGGER.error("Invalid DEM for tile: {}".format(self.mgrs_tile))
+                LOGGER.error("Invalid DEM for tile: %s", self.mgrs_tile)
             else:
-                LOGGER.info("DEM file for tile {}: {}".format(self.mgrs_tile, dem_file))
+                LOGGER.info("DEM file for tile %s: %s", self.mgrs_tile, dem_file)
                 return dem_file
         return None
 
     def extent(self, utm):
-        tile_wkt = InputProductArchive.mgrs_to_wkt(self.mgrs_tile, utm=utm)
+        tile_wkt = tile_db.mgrs_to_wkt(self.mgrs_tile, utm=utm)
         if tile_wkt is None:
-            LOGGER.error("Cannot get geometry for tile {}".format(self.mgrs_tile))
+            LOGGER.error("Cannot get geometry for tile %s", self.mgrs_tile)
         self.tile_geometry = ogr.CreateGeometryFromWkt(tile_wkt)
         return self.tile_geometry.GetEnvelope()
 
@@ -149,7 +149,7 @@ class DemDownloader:
         """
         locations = None
         extent = self.extent(False)
-        LOGGER.debug("Extent: {}".format(extent))
+        LOGGER.debug("Extent: %s", extent)
         if extent:
             lon_min, lon_max, lat_min, lat_max = extent
 
@@ -222,24 +222,24 @@ class DemDownloader:
         for dem_url in urls.values():
             tmp_file = os.path.join(self.temp_directory.name, os.path.basename(dem_url))
             try:
-                LOGGER.info('Downloading file to {}'.format(tmp_file))
+                LOGGER.info('Downloading file to %s', tmp_file)
                 local_dem, _ = urllib.request.urlretrieve(dem_url, tmp_file, reporthook=progress)
                 LOGGER.info('File correctly downloaded')
             except HTTPError as err:
-                LOGGER.error('Cannot get file {} : {}'.format(dem_url, err))
+                LOGGER.error('Cannot get file %s : %s', dem_url, err)
             else:
                 output_dir = os.path.dirname(output_file)
                 if local_dem.endswith('.zip'):
                     LOGGER.info('Unzipping file...')
                     with zipfile.ZipFile(local_dem) as zip_file:
                         zip_file.extractall(output_dir)
-                    LOGGER.info('DEM extracted to {}'.format(output_dir))
+                    LOGGER.info('DEM extracted to %s', output_dir)
                 elif local_dem.endswith('.tar'):
                     LOGGER.info('Untarring file...')
                     with tarfile.open(local_dem) as tar_file:
                         tar_file.extractall(path=output_dir, members=dem_file_from_tar(tar_file))
                 else:
-                    LOGGER.error("Unknown archive format: %s".format(output_file))
+                    LOGGER.error("Unknown archive format: %s", output_file)
 
     def create_dem(self, dem_files):
         dem_files = list(dem_files.values())
@@ -264,7 +264,7 @@ class DemDownloader:
             ds = None
 
             gdal.SetConfigOption('CENTER_LONG', '0')
-            LOGGER.debug('DEM mosaic: {}'.format(dem_src))
+            LOGGER.debug('DEM mosaic: %s', dem_src)
         except Exception as e:
             LOGGER.fatal(e, exc_info=True)
             LOGGER.fatal('error using gdalwarp')

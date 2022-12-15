@@ -8,8 +8,10 @@ import shutil
 from core import S2L_config
 from core.product_archive.product_archive import InputProductArchive
 from core.image_file import S2L_ImageFile
+from core.products.product import S2L_Product
 from grids import mgrs_framing
 from s2l_processes.S2L_Process import S2L_Process
+import core.product_archive.tile_db as tile_db
 
 log = logging.getLogger("Sen2Like")
 
@@ -67,15 +69,15 @@ class S2L_Stitching(S2L_Process):
 
     def _get_l8_new_product(self, product):
         products = []
-        log.debug("Product is located on [{}, {}]".format(product.mtl.path, product.mtl.row))
-        log.debug(self.downloader.get_coverage((product.mtl.path, product.mtl.row), product.mtl.mgrs))
+        log.debug("Product is located on [%s, %s]", product.mtl.path, product.mtl.row)
+        log.debug(tile_db.get_coverage((product.mtl.path, product.mtl.row), product.mtl.mgrs))
         # Get previous_acquisition and test eligibility
         for row_offset in [-1, 1]:
             new_products = self.acquisition(product, row_offset=row_offset)
-            log.debug("products for row_offset: {}".format(row_offset))
+            log.debug("products for row_offset: %s", row_offset)
             log.debug([p.path for p in new_products])
             if len(new_products):
-                coverage = self.downloader.get_coverage((product.mtl.path, int(product.mtl.row) + row_offset), product.mtl.mgrs)
+                coverage = tile_db.get_coverage((product.mtl.path, int(product.mtl.row) + row_offset), product.mtl.mgrs)
                 log.debug(coverage)
                 if coverage > 0.001:
                     products.append((new_products[0], coverage))
@@ -83,7 +85,7 @@ class S2L_Stitching(S2L_Process):
         if len(products) > 0:
             products = sorted(products, key=lambda t: t[1], reverse=True)
             self.new_product = products[0][0]
-            log.info("Product found for stitching {}:".format(self.new_product.path))
+            log.info("Product found for stitching %s:", self.new_product.path)
         else:
             log.info("No product found for stitching")
             self.new_product = None
@@ -94,7 +96,7 @@ class S2L_Stitching(S2L_Process):
         elif product.sensor == 'S2':
             self._get_s2_new_product(product)
         else:
-            log.info("Product type not supported by stitching: {}".format(product.sensor))
+            log.info("Product type not supported by stitching: %s", product.sensor)
             self.new_product = None
 
     def reframe(self, image, product, band=None, dtype=None):
@@ -146,7 +148,7 @@ class S2L_Stitching(S2L_Process):
         ds_dst = None
         return filepath_out
 
-    def preprocess(self, product):
+    def preprocess(self, product: S2L_Product):
         self.get_new_product(product)
         if self.new_product is None:
             return
@@ -155,24 +157,26 @@ class S2L_Stitching(S2L_Process):
         product_nodata_masks = []
         product_angles = []
         product_ndvi = []
-        for _product in [product, self.new_product.reader(self.new_product.path)]:
+        for _product in [product, self.new_product.s2l_product_class(self.new_product.path)]:
             is_mask_valid = True
             # Validity mask
-            if _product.mtl.mask_filename is None:
-                is_mask_valid = _product.mtl.get_valid_pixel_mask(
-                    os.path.join(S2L_config.config.get("wd"), _product.name, 'valid_pixel_mask.tif'))
+            if _product.mask_filename is None:
+                is_mask_valid = _product.get_valid_pixel_mask(
+                    os.path.join(S2L_config.config.get("wd"),
+                                 _product.name, 'valid_pixel_mask.tif'),
+                    product.roi_filename)
             if is_mask_valid:
-                product_validity_masks.append(self.reframe(S2L_ImageFile(_product.mtl.mask_filename), _product))
-                product_nodata_masks.append(self.reframe(S2L_ImageFile(_product.mtl.nodata_mask_filename), _product))
+                product_validity_masks.append(self.reframe(S2L_ImageFile(_product.mask_filename), _product))
+                product_nodata_masks.append(self.reframe(S2L_ImageFile(_product.nodata_mask_filename), _product))
             # Angles
-            if _product.mtl.angles_file is None:
-                _product.mtl.get_angle_images(os.path.join(S2L_config.config.get("wd"), _product.name, 'tie_points.tif'))
+            if _product.angles_file is None:
+                _product.get_angle_images(os.path.join(S2L_config.config.get("wd"), _product.name, 'tie_points.tif'))
             filepath_out = os.path.join(S2L_config.config.get('wd'), _product.name, 'tie_points_PREREFRAMED.TIF')
             if product.sensor != 'S2':
-                mgrs_framing.reframeMulti(_product.mtl.angles_file, self.tile, filepath_out=filepath_out, order=0)
+                mgrs_framing.reframeMulti(_product.angles_file, self.tile, filepath_out=filepath_out, order=0)
                 product_angles.append(filepath_out)
             else:
-                shutil.copyfile(_product.mtl.angles_file, filepath_out)
+                shutil.copyfile(_product.angles_file, filepath_out)
                 product_angles.append(filepath_out)
             # NDVI
             if S2L_config.config.get('nbar_methode') == 'VJB':
@@ -183,12 +187,12 @@ class S2L_Stitching(S2L_Process):
         if None not in product_validity_masks:
             stitched_mask = self.stitch(product, product_validity_masks[0], product_validity_masks[1])
             stitched_mask.write(creation_options=['COMPRESS=LZW'])
-            product.mtl.mask_filename = stitched_mask.filepath
+            product.mask_filename = stitched_mask.filepath
 
         if None not in product_nodata_masks:
             stitched_mask = self.stitch(product, product_nodata_masks[0], product_nodata_masks[1])
             stitched_mask.write(creation_options=['COMPRESS=LZW'])
-            product.mtl.nodata_mask_filename = stitched_mask.filepath
+            product.nodata_mask_filename = stitched_mask.filepath
 
         if len(product_ndvi) > 0 and None not in product_ndvi:
             stitched_ndvi = self.stitch(product, product_ndvi[0], product_ndvi[1])
@@ -196,7 +200,7 @@ class S2L_Stitching(S2L_Process):
             product.ndvi_filename = stitched_ndvi.filepath
 
         stitched_angles = self.stitch_multi(product, product_angles[0], product_angles[1])
-        product.mtl.angles_file = stitched_angles
+        product.angles_file = stitched_angles
 
         # Stitch reference band (needed by geometry module)
         band = S2L_config.config.get('reference_band', 'B04')
@@ -204,7 +208,7 @@ class S2L_Stitching(S2L_Process):
             image = product.get_band_file(band)
             self.process(product, image, band)
 
-    def process(self, product, image, band):
+    def process(self, product: S2L_Product, image: S2L_ImageFile, band: str) -> S2L_ImageFile:
         log.info('Start')
         if self.new_product is None:
             log.info("None product found for stitching.")
@@ -213,7 +217,7 @@ class S2L_Stitching(S2L_Process):
 
         # Reframe products
         product_image = self.reframe(image, product, band, dtype=np.float32)
-        new_product = self.new_product.reader(self.new_product.path)
+        new_product = self.new_product.s2l_product_class(self.new_product.path)
         new_product_image = self.reframe(new_product.get_band_file(band), new_product, band, dtype=np.float32)
         stitched_product_image = self.stitch(product, product_image, new_product_image, band)
         stitched_product_image.write(creation_options=['COMPRESS=LZW'], DCmode=True)

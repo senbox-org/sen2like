@@ -5,6 +5,7 @@
 
 import numpy as np
 from osgeo import gdal
+from skimage.morphology import binary_closing, binary_opening, binary_dilation, disk, square
 
 # inputs
 # scl_image = sys.argv[1]
@@ -75,7 +76,6 @@ valid_px_mask = binary_dilation(valid_px_mask, np.ones((5, 5)))
 """
 
 # Closing
-from skimage.morphology import binary_closing, binary_opening, binary_dilation, disk, square
 
 # valid_px_mask = closing(valid_px_mask, disk(5))
 # valid_px_mask = erosion(valid_px_mask, square(3))

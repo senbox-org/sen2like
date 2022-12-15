@@ -17,6 +17,7 @@ from skimage.measure import block_reduce
 from core import S2L_config
 from core.image_file import S2L_ImageFile
 from core.products.hls_product import S2L_HLS_Product
+from core.products.product import S2L_Product
 from grids import mgrs_framing
 from s2l_processes.S2L_Process import S2L_Process
 from core.S2L_tools import out_stat
@@ -75,26 +76,29 @@ class S2L_Fusion(S2L_Process):
 
     def initialize(self):
         self.reference_products = []
+        self._predict_method = None
 
-    def preprocess(self, pd):
+    def preprocess(self, product: S2L_Product):
+
+        log.info('Start')
 
         # check most recent HLS S2 products available
         archive_dir = S2L_config.config.get('archive_dir')
-        tsdir = join(archive_dir, pd.mtl.mgrs)
+        tsdir = join(archive_dir, product.mtl.mgrs)
 
         # list products with dates
         pdlist = []
         for pdpath in sorted(glob.glob(tsdir + '/L2F_*_S2*')):
             pdname = basename(pdpath)
             date = dt.datetime.strptime(pdname.split('_')[2], '%Y%m%d').date()
-            if date <= pd.acqdate.date():
+            if date <= product.acqdate.date():
                 pdlist.append([date, pdpath])
 
         # Handle new format aswell
         for pdpath in sorted(glob.glob(tsdir + '/S2*L2F_*')):
             pdname = basename(pdpath)
             date = dt.datetime.strptime(os.path.splitext(pdname.split('_')[2])[0], '%Y%m%dT%H%M%S').date()
-            if date <= pd.acqdate.date():
+            if date <= product.acqdate.date():
                 pdlist.append([date, pdpath])
 
         # sort by date
@@ -104,16 +108,18 @@ class S2L_Fusion(S2L_Process):
         self.reference_products = []
         nb_products = int(S2L_config.config.get('predict_nb_products', 2))
         for date, pdname in pdlist[-nb_products:]:
-            product = S2L_HLS_Product(pdname)
-            if product.product is not None:
-                self.reference_products.append(product)
+            ref_product = S2L_HLS_Product(pdname)
+            if ref_product.s2l_product_class is not None:
+                self.reference_products.append(ref_product)
 
-        for product in self.reference_products:
-            log.info('Selected product: {}'.format(product.name))
+        for ref_product in self.reference_products:
+            log.info('Selected product: {}'.format(ref_product.name))
 
         S2L_config.config.set('none_S2_product_for_fusion', len(self.reference_products) == 0)
 
-    def process(self, product, image, band):
+        log.info('End')
+
+    def process(self, product: S2L_Product, image: S2L_ImageFile, band: str) -> S2L_ImageFile:
         log.info('Start')
 
         if not S2L_config.config.getboolean('hlsplus'):
@@ -147,14 +153,14 @@ class S2L_Fusion(S2L_Process):
                 'Not enough Sentinel2 products for the predict (only one product). Using last S2 product as ref.')
             predict_method = 'composite'
 
+        self._predict_method = predict_method
         # general info
         band_s2 = product.get_s2like_band(band)
         image_file_L2F = self.reference_products[0].get_band_file(band_s2, plus=True)
         output_shape = (image_file_L2F.ySize, image_file_L2F.xSize)
 
         # method: prediction (from the 2 most recent S2 products)
-        if predict_method == 'predict':
-            metadata.qi['PREDICTED_METHODE'] = 'predict'
+        if self._predict_method == 'predict':
             # Use QA (product selection) to apply Composting :
             qa_mask = self._get_qa_band(output_shape)
 
@@ -168,8 +174,7 @@ class S2L_Fusion(S2L_Process):
                 self._save_as_image_file(image_file_L2F, array_L2F_predict, product, band, '_FUSION_L2F_PREDICT.TIF')
 
         # method: composite (most recent valid pixels from N products)
-        elif predict_method == 'composite':
-            metadata.qi['PREDICTED_METHODE'] = 'composite'
+        elif self._predict_method == 'composite':
             # composite
             array_L2H_predict, array_L2F_predict = self._composite(product, band_s2, output_shape)
 
@@ -180,11 +185,11 @@ class S2L_Fusion(S2L_Process):
 
         # method: unknown
         else:
-            log.error(f'Unknown predict method: {predict_method}. Please check your configuration.')
+            log.error('Unknown predict method: %s. Please check your configuration.', self._predict_method)
             return None
 
         # fusion L8/S2
-        mask_filename = product.mtl.nodata_mask_filename
+        mask_filename = product.nodata_mask_filename
         array_out = self._fusion(image, array_L2H_predict, array_L2F_predict, mask_filename).astype(np.float32)
         image_out = self._save_as_image_file(image_file_L2F, array_out, product, band, '_FUSION_L2H_PREDICT.TIF')
 
@@ -213,10 +218,25 @@ class S2L_Fusion(S2L_Process):
             threshold_msk.write(creation_options=['COMPRESS=LZW'])
             product.fusion_auto_check_threshold_msk_file = threshold_msk.filepath
 
-
         log.info('End')
 
         return image_out
+
+    def postprocess(self, product: S2L_Product):
+        """Set QI params
+
+        Args:
+            product (S2L_Product): product to post process
+        """
+
+        log.info('Start')
+
+        metadata.qi["FUSION_AUTO_CHECK_THRESHOLD"] = S2L_config.config.getfloat(
+            'fusion_auto_check_threshold')
+
+        metadata.qi["PREDICTED_METHOD"] = self._predict_method
+
+        log.info('End')
 
     def _save_as_image_file(self, image_template, array, product, band, extension):
         path = os.path.join(S2L_config.config.get('wd'), product.name, product.get_band_file(band).rootname + extension)
@@ -342,7 +362,7 @@ class S2L_Fusion(S2L_Process):
             B = array2 - A * doy_2
 
             # Compute Predicted Image at input_xdoy
-            array_dp_raw = A * (np.float(input_xdoy)) + B
+            array_dp_raw = A * (float(input_xdoy)) + B
 
             array_dp = array_dp_raw * M1 + array1 * M3 + array2 * M2  # + array_dp_raw [qa_mask == 0]
 

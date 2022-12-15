@@ -15,6 +15,8 @@ __version__ = "0.1.0"
 __status__ = "Production"  # "Prototype", "Development", or "Production"
 description = __component_name__ + " version:" + __version__ + " (" + __status__ + ")"
 
+NOT_FOUND = 'not found'
+
 
 def compute_earth_solar_distance(doy):
     return 1 - np.multiply(0.016729, np.cos(0.9856 * (doy - 4) * np.divide(np.pi, 180)))
@@ -69,7 +71,7 @@ def reg_exp(mtl_text, stringToSearch):
     if result:
         subs = result[0].split('=')[1].replace('"', '').replace(' ', '')
     else:
-        subs = 'not found'
+        subs = NOT_FOUND
     return subs
 
 

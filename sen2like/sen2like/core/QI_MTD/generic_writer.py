@@ -1,7 +1,7 @@
 #! /usr/bin/env python
 # -*- coding: utf-8 -*-
 # G. Cavaro (TPZ-F) 2020
-
+import abc
 import copy
 import json
 import logging
@@ -20,44 +20,49 @@ import xmltodict
 
 from grids import grids
 
+from core.products.product import S2L_Product
+
 log = logging.getLogger('Sen2Like')
 
 
-class MtdWriter:
+class XmlWriter(abc.ABC):
     """
     Generic xml writer.
     """
 
-    def __init__(self, backbone_path: str, init_MTD_path: Union[str, None], H_F: str):
+    def __init__(self, backbone_path: str, input_xml_path: Union[str, None], H_F: str):
         """
+        Init 'self.root_out' with given 'backbone_path' and fill it with 'input_xml_path' content if given and is xml.
+        'self.root_in' is init with 'input_xml_path' content if given and is xml.
+
         :param backbone_path: path of the .xml backbone
-        :param init_MTD_path: path of the .xml file of the input product, if exists. Can be None
+        :param input_xml_path: path of the .xml file of the input product, if exists. Can be None
         :param H_F:           Product level (H or F)
         """
         self.root_in = None
         backbone_path = os.path.join(os.path.dirname(__file__), backbone_path)
         if not os.path.exists(backbone_path):
-            log.error('MTD backbone {} does not exist'.format(backbone_path))
+            log.error('MTD backbone %s does not exist', backbone_path)
             return
-        if init_MTD_path and not os.path.exists(init_MTD_path):
-            log.error('Input product MTD {} does not exist'.format(init_MTD_path))
+        if input_xml_path and not os.path.exists(input_xml_path):
+            log.error('Input product MTD %s does not exist', input_xml_path)
             return
 
         self.backbone_path = backbone_path
-        self.init_MTD_path = init_MTD_path
+        self.input_xml_path = input_xml_path
 
         try:
             tree_bb = ElementTree.parse(backbone_path)  # Tree backbone for the output file. Will not be changed
             self.root_bb = tree_bb.getroot()
 
-            if init_MTD_path and not init_MTD_path.endswith('.txt'):
-                tree_in = ElementTree.parse(init_MTD_path)  # Tree of the input mtd (S2 MTD.xml, L2A_QI_report.xml)
+            if input_xml_path and not input_xml_path.endswith('.txt'):
+                tree_in = ElementTree.parse(input_xml_path)  # Tree of the input mtd (S2 MTD.xml, L2A_QI_report.xml)
                 self.root_in = tree_in.getroot()
             else:
                 self.root_in = None
 
         except pars.expat.ExpatError as err:
-            logging.error("Error during parsing of MTD product file: %s" % backbone_path)
+            logging.error("Error during parsing of MTD product file: %s", backbone_path)
             logging.error(err)
             sys.exit(-1)
 
@@ -66,8 +71,14 @@ class MtdWriter:
 
         self.H_F = H_F  # Product level (H or F)
 
-    def manual_replaces(self, product):
-        pass
+    @abc.abstractmethod
+    def manual_replaces(self, product: S2L_Product):
+        """Implementation made here all replacement in the template ('root_bb') to fill
+
+        Args:
+            product (S2L_Product): Product used to fill the template
+        """
+
 
     def remove_children(self, root, tag: str = '', attrs: dict = None, exceptions: list = None):
         """
@@ -383,8 +394,8 @@ def create_child(root: Element, rpath: str, tag: str, text: str = None, attribs:
 
     parent_elm = find_element_by_path(root, rpath)
     if len(parent_elm) > 1 or len(parent_elm) == 0:
-        log.warning('(fn create_child) Multiple or 0 elements found with this path {}'.format(rpath) +
-                    'Will not create element under')
+        log.warning('(fn create_child) Multiple or 0 elements found with this path %s '
+                    'Will not create element under', rpath)
 
     child = xml.etree.ElementTree.SubElement(parent_elm[0], tag, attrib=attribs)
     child.text = text
@@ -406,12 +417,13 @@ def copy_elements(elements_to_copy: list, root_in, root_out, root_bb=None):
         out_elems = find_element_by_path(root_out, elem_path)
         ini_elems = find_element_by_path(root_in, elem_path)
         if len(out_elems) == 0 or len(ini_elems) == 0:
-            log.warning('(fn copy_elements) No matching elements found for {}'.format(elem_path))
+            log.warning('(fn copy_elements) No matching elements found for %s', elem_path)
             continue
         if len(out_elems) == len(ini_elems):
             if len(out_elems) > 1:
-                log.warning('(fn copy_elements) multiple matching elements found for {}'.format(elem_path) +
-                            'They will be copied in the encountered order')
+                log.warning(
+                    '(fn copy_elements) multiple matching elements found for %s They will be copied in the encountered order',
+                    elem_path)
             for out_elem, ini_elem in zip(out_elems, ini_elems):
                 parent = getParentObjectNode(root_out, out_elem)
                 idx = get_idx(parent, out_elem)
@@ -485,4 +497,4 @@ def write_json(xml_file: str):
         xml_content = xmltodict.parse(p_xml.read())
     with open(json_file, 'w') as fp:
         json.dump(xml_content, fp, indent=4)
-    log.info('Json file writed: {}'.format(json_file))
+    log.info('Json file writed: %s', json_file)

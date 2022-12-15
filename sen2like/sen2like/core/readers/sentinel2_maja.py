@@ -10,12 +10,29 @@ from osgeo import osr
 from osgeo import gdal
 import mgrs
 
-from atmcor.get_s2_angles import reduce_angle_matrix, from_values_list_to_array, get_angles_band_index
-from core.image_file import S2L_ImageFile
+from atmcor.get_s2_angles import reduce_angle_matrix, get_angles_band_index
 from core.metadata_extraction import from_date_to_doy
 from core.readers.reader import BaseReader
 
 log = logging.getLogger('Sen2Like')
+
+def from_values_list_to_array(selected_node):
+    col_step = selected_node.findtext('COL_STEP')
+    row_step = selected_node.findtext('ROW_STEP')
+
+    values_list = selected_node.find('.//Values_List').findall('.//VALUES')
+
+    # x_size, y_size , size of the matrix
+    x_size = len(values_list[0].text.split())
+    y_size = len(values_list)
+
+    # Create np array of size (x_size, y_size) for values :
+    arr = np.empty([x_size, y_size], np.float)
+    for j in range(y_size):
+        a = np.asarray(values_list[j].text.split(), np.float)
+        arr[j] = a
+
+    return x_size, y_size, col_step, row_step, arr
 
 
 class Sentinel2MajaMTL(BaseReader):
@@ -45,12 +62,10 @@ class Sentinel2MajaMTL(BaseReader):
             root = ElementTree.parse(mtl_file_name)
         except pars.expat.ExpatError as err:
             self.isValid = False
-            logging.error("Error during parsing of MTD product file: %s" % mtl_file_name)
+            logging.error("Error during parsing of MTD product file: %s", mtl_file_name)
             logging.error(err)
             sys.exit(-1)
 
-        self.mask_filename = None
-        self.nodata_mask_filename = None
         self.aerosol_band = None
         self.aerosol_value = None
 
@@ -82,7 +97,7 @@ class Sentinel2MajaMTL(BaseReader):
                     for band_file in bands_files:
                         band_id = band_file.text.split('_')[-1].split('.')[0]
                         file_path = os.path.join(self.product_path, band_file.text)
-                        log.debug('{} {}'.format(band_id, file_path))
+                        log.debug('%s %s', band_id, file_path)
                         self.bands[band_id] = file_path
 
             # Collection not applicable for Landsat
@@ -103,7 +118,7 @@ class Sentinel2MajaMTL(BaseReader):
                                                        "Solar_irradiance": solar_irradiance
                                                        }
 
-            # self.band_sequence = [np.int(rec) + 1 for rec in self.band_sequence]
+            # self.band_sequence = [int(rec) + 1 for rec in self.band_sequence]
             # self.rescaling_gain = [0.00001] * len(self.band_sequence)
             # self.rescaling_offset = [0] * len(self.band_sequence)
 
@@ -158,7 +173,6 @@ class Sentinel2MajaMTL(BaseReader):
 
         try:
             self.doy = 0
-            self.angles_file = None
             self.sun_zenith_angle = root.findtext('.//Geometric_Informations/Mean_Value_List/Sun_Angles/ZENITH_ANGLE')
             self.sun_azimuth_angle = root.findtext('.//Geometric_Informations/Mean_Value_List/Sun_Angles/AZIMUTH_ANGLE')
 
@@ -175,7 +189,7 @@ class Sentinel2MajaMTL(BaseReader):
                                                        }
 
             # TO USE </Viewing_Incidence_Angles_Grids> to set the angle files
-            self.angles_file = None
+            # self.angles_file = None
 
             geoposition_node = root.find('Geoposition_Informations/Coordinate_Reference_System')
             self.utm = geoposition_node.findtext('HORIZONTAL_CS_NAME')
@@ -219,99 +233,6 @@ class Sentinel2MajaMTL(BaseReader):
                 product_path, 'GRANULE', self.granule_id, 'QI_DATA', 'L2A_QUALITY.xml')
             if not os.path.isfile(self.l2a_qi_report_path):
                 self.l2a_qi_report_path = None
-
-    def get_valid_pixel_mask(self, mask_filename, res=20):
-        """
-        :param res:
-        :param mask_filename:
-        :return:
-        """
-        resolution = self.resolutions.get(res)
-        mask_band = self.classif_band.get(res)
-
-        log.info('Read validity and nodata masks')
-        log.debug(f'Read mask: {mask_band}')
-
-        # No data mask
-        edge = S2L_ImageFile(os.path.join(self.product_path, self.edge_mask[resolution]))
-        edge_arr = edge.array
-        defective = S2L_ImageFile(os.path.join(self.product_path, self.nodata_mask[mask_band]))
-        defective_arr = defective.array
-
-        nodata = np.zeros(edge_arr.shape, np.uint8)
-        nodata[edge_arr == 1] = 1
-        nodata[defective_arr == 1] = 1
-
-        del edge_arr
-        del defective_arr
-
-        nodata_mask_filename = os.path.join(os.path.dirname(mask_filename), 'nodata_pixel_mask.tif')
-        mask = edge.duplicate(nodata_mask_filename, array=nodata)
-        mask.write(creation_options=['COMPRESS=LZW'])
-        self.nodata_mask_filename = mask_filename
-
-        # Validity mask
-        cloud = S2L_ImageFile(os.path.join(self.product_path, self.cloud_mask[resolution]))
-        cloud_arr = cloud.array
-        saturation = S2L_ImageFile(os.path.join(self.product_path, self.saturation_mask[mask_band]))
-        saturation_arr = saturation.array
-
-        valid_px_mask = np.ones(cloud_arr.shape, np.uint8)
-        valid_px_mask[cloud_arr == 1] = 0
-        valid_px_mask[cloud_arr == 2] = 0
-        valid_px_mask[cloud_arr == 4] = 0
-        valid_px_mask[cloud_arr == 8] = 0
-        valid_px_mask[saturation_arr == 1] = 0
-        valid_px_mask[nodata == 1] = 0
-
-        mask = cloud.duplicate(mask_filename, array=valid_px_mask)
-        mask.write(creation_options=['COMPRESS=LZW'])
-        self.mask_filename = mask_filename
-
-        return True
-
-    def get_angle_images(self, DST=None):
-        """
-        :param DST: Optional name of the output tif containing all angle images
-        :return: set self.angles_file
-        Following band order : SAT_AZ , SAT_ZENITH, SUN_AZ, SUN_ZENITH ')
-        The unit is DEGREES
-        """
-        if DST is not None:
-            root_dir = os.path.dirname(DST)
-        else:
-            root_dir = os.path.dirname(self.tile_metadata)
-
-        # Viewing Angles (SAT_AZ / SAT_ZENITH)
-        dst_file = os.path.join(root_dir, 'VAA.tif')
-        out_file_list = self.extract_viewing_angle(dst_file, 'Azimuth')
-
-        dst_file = os.path.join(root_dir, 'VZA.tif')
-        out_file_list.extend(self.extract_viewing_angle(dst_file, 'Zenith'))
-
-        # Solar Angles (SUN_AZ, SUN_ZENITH)
-        dst_file = os.path.join(root_dir, 'SAA.tif')
-        self.extract_sun_angle(dst_file, 'Azimuth')
-        out_file_list.append(dst_file)
-
-        dst_file = os.path.join(root_dir, 'SZA.tif')
-        self.extract_sun_angle(dst_file, 'Zenith')
-        out_file_list.append(dst_file)
-
-        out_vrt_file = os.path.join(root_dir, 'tie_points.vrt')
-        gdal.BuildVRT(out_vrt_file, out_file_list, separate=True)
-
-        if DST is not None:
-            out_tif_file = DST
-        else:
-            out_tif_file = os.path.join(root_dir, 'tie_points.tif')
-        gdal.Translate(out_tif_file, out_vrt_file, format="GTiff")
-
-        self.angles_file = out_vrt_file
-        log.info('SAT_AZ, SAT_ZENITH, SUN_AZ, SUN_ZENITH')
-        log.info('UNIT = DEGREES (scale: x100) :')
-        log.info('             ' + out_tif_file)
-        self.angles_file = out_tif_file
 
     @staticmethod
     def can_read(product_name):
@@ -366,18 +287,18 @@ class Sentinel2MajaMTL(BaseReader):
                 arr[arr > 180] -= 360
 
             # Create gdal dataset
-            x_res = np.int(x_size)
-            y_res = np.int(y_size)
+            x_res = int(x_size)
+            y_res = int(y_size)
 
-            x_pixel_size = np.int(col_step)
-            y_pixel_size = np.int(row_step)
+            x_pixel_size = int(col_step)
+            y_pixel_size = int(row_step)
 
             dst_file_bd = dst_file.replace('.tif', '_band_' + str(rec) + '.tif')
             out_list.append(dst_file_bd)
-            log.debug(' Save in {}'.format(dst_file_bd))
+            log.debug(' Save in %s', dst_file_bd)
             target_ds = gdal.GetDriverByName('GTiff').Create(dst_file_bd, x_res, y_res, 1, gdal.GDT_Int16)
             target_ds.SetGeoTransform(
-                (np.int(np.float(ulx)), x_pixel_size, 0, np.int(np.float(uly)), 0, -y_pixel_size))
+                (int(float(ulx)), x_pixel_size, 0, int(float(uly)), 0, -y_pixel_size))
             band = target_ds.GetRasterBand(1)
             band.SetNoDataValue(NoData_value)
             band.SetDescription('Viewing_' + angle_type + '_band_' + str(rec))  # This sets the band name!
@@ -386,7 +307,6 @@ class Sentinel2MajaMTL(BaseReader):
             band = None
             target_ds = None
             arr = None
-            a = None
 
         return out_list
 
@@ -411,7 +331,7 @@ class Sentinel2MajaMTL(BaseReader):
         wkt = srs.ExportToWkt()
 
         # Load xml file and extract parameter for sun zenith :
-        node_name = 'Sun_Angles_Grid'  # Level-1C / Level-2A ?
+        # Level-1C / Level-2A ?
         sun_angle_node = root.find('.//Sun_Angles_Grids')
 
         selected_node = sun_angle_node.find(f'.//{angle_type}')
@@ -423,15 +343,15 @@ class Sentinel2MajaMTL(BaseReader):
             arr[arr > 180] -= 360
 
         # Create gdal dataset
-        x_res = np.int(x_size)
-        y_res = np.int(y_size)
+        x_res = int(x_size)
+        y_res = int(y_size)
 
-        x_pixel_size = np.int(col_step)
-        y_pixel_size = np.int(row_step)
+        x_pixel_size = int(col_step)
+        y_pixel_size = int(row_step)
 
-        log.debug(' Save in {}'.format(dst_file))
+        log.debug(' Save in %s', dst_file)
         target_ds = gdal.GetDriverByName('GTiff').Create(dst_file, x_res, y_res, 1, gdal.GDT_Int16)
-        target_ds.SetGeoTransform((np.int(np.float(ulx)), x_pixel_size, 0, np.int(np.float(uly)), 0, -y_pixel_size))
+        target_ds.SetGeoTransform((int(float(ulx)), x_pixel_size, 0, int(float(uly)), 0, -y_pixel_size))
         band = target_ds.GetRasterBand(1)
         band.SetNoDataValue(NoData_value)
         band.SetDescription('Solar_' + angle_type)
@@ -442,22 +362,3 @@ class Sentinel2MajaMTL(BaseReader):
         m = mgrs.MGRS()
         lat, lon = m.toLatLon(self.mgrs + '5490045100')
         return lon, lat
-
-
-def from_values_list_to_array(selected_node):
-    col_step = selected_node.findtext('COL_STEP')
-    row_step = selected_node.findtext('ROW_STEP')
-
-    values_list = selected_node.find('.//Values_List').findall('.//VALUES')
-
-    # x_size, y_size , size of the matrix
-    x_size = len(values_list[0].text.split())
-    y_size = len(values_list)
-
-    # Create np array of size (x_size, y_size) for values :
-    arr = np.empty([x_size, y_size], np.float)
-    for j in range(y_size):
-        a = np.asarray(values_list[j].text.split(), np.float)
-        arr[j] = a
-
-    return x_size, y_size, col_step, row_step, arr

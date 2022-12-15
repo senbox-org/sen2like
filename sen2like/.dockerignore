@@ -1,0 +1,5 @@
+# exclude all
+*
+# but not what we want to send in the build context
+!requirements.txt
+!sen2like

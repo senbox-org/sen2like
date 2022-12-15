@@ -46,4 +46,3 @@ class Landsat8MajaProduct(S2L_Product):
     @property
     def sensor_name(self):
         return self.sensor_names[self.sensor]
-

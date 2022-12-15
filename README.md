@@ -9,7 +9,7 @@ The main goal of __Sen2Like__ is to generate Sentinel-2 like harmonised/fused su
 
 It is a contribution to on going worldwide initiatives (*NASA-HLS, Force, CESBIO [2],[3]) undertook to facilitate higher level processing starting from harmonized data. 
 
-The __Sen2Like__ framework is a scientific and open source software. In its current implementation version (*November 2020*), it combines Landsat-8 and Sentinel-2 data products. 
+The __Sen2Like__ framework is a scientific and open source software. In its current implementation version (*December 2022*), it combines Landsat-8 and Sentinel-2 data products. 
 Level 1 and Level 2 input Landsat 8 (LS8) products are processed to be harmonized with Sentinel-2 data (S2).
 The two following ARD product types are generated: 
 * Harmonized Surface Reflectance Products (Level 2H) - at 30m of resolution,
@@ -36,7 +36,7 @@ It is therefore possible, to cover large geographic extent with a __seamless ima
 It is worth noting that the overall accuracy of your final ARD product strongly depends on the accuracy of sen2like auxiliary data. Two categories of auxiliary data are important: the raster reference for geometric corrections and the meteorological data for atmospheric corrections. Regarding atmospheric corrections, one possibility is to use data from the Copernicus Atmosphere Monitoring Service [9]. The Sen2Like team prepared a dedicated CAMS monthly dataset for the Year 2020, available from [here](http://185.178.85.51/CAMS/). Please refer to this short [description](http://185.178.85.51/CAMS/Readme_CAMS2020.txt) for additional information.
 
 For further details on the format specification of the harmonized products or the functionalities of the Sen2Like software, please 
-refer to the [Product Format Specification](https://github.com/senbox-org/sen2like/blob/master/sen2like/docs/source/S2-PDGS-MPC-L2HF-PFS-v1.0.pdf), and the [User Manual v1.5](https://github.com/senbox-org/sen2like/blob/master/sen2like/docs/source/S2-SEN2LIKE-UM-V1.5.pdf).
+refer to the [Product Format Specification](https://github.com/senbox-org/sen2like/blob/master/sen2like/docs/source/S2-PDGS-MPC-L2HF-PFS-v1.1.pdf), and the [User Manual v1.6](https://github.com/senbox-org/sen2like/blob/master/sen2like/docs/source/S2-SEN2LIKE-UM-V1.6.pdf).
 
 ## Publications and Contacts
 **Yearning to know more ? Check out**
@@ -57,7 +57,7 @@ And the following research papers :
  
  
 
-**Learn how to use Sen2Like**, have a look at the [User Manual](https://github.com/senbox-org/sen2like/blob/master/sen2like/docs/source/S2-SEN2LIKE-UM-V1.5.pdf).
+**Learn how to use Sen2Like**, have a look at the [User Manual](https://github.com/senbox-org/sen2like/blob/master/sen2like/docs/source/S2-SEN2LIKE-UM-V1.6.pdf).
 
 **Get help**, contact us at sen2like@telespazio.com.
 

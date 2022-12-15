@@ -55,9 +55,6 @@ def main():
 
     # now for each tile
     for pm in root.Document.Folder.Placemark[0:]:
-        # get tileid and description
-        tileid = pm.name.text
-
         # get key/values pairs from kml description
         meta = readDescription(pm)
         for key in ['TILE_ID', 'EPSG', 'UTM_WKT', 'MGRS_REF', 'LL_WKT']:
@@ -72,8 +69,8 @@ def main():
     conn.enable_load_extension(True)
     conn.load_extension("mod_spatialite")
     create_req = (
-        f"CREATE TABLE s2tiles ("
-        f"TILE_ID VARCHAR(5), EPSG VARCHAR(5), UTM_WKT VARCHAR, MGRS_REF VARCHAR, LL_WKT VARCHAR, geometry POLYGON); "
+        "CREATE TABLE s2tiles ("
+        "TILE_ID VARCHAR(5), EPSG VARCHAR(5), UTM_WKT VARCHAR, MGRS_REF VARCHAR, LL_WKT VARCHAR, geometry POLYGON); "
     )
     conn.execute(create_req)
     insert_req = (

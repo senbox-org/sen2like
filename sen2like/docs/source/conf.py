@@ -12,16 +12,22 @@
 #
 import os
 import sys
+from datetime import date
 
 sys.path.insert(0, os.path.abspath(os.path.join('..', '..', 'sen2like')))
 sys.path.insert(0, os.path.abspath(os.path.join('..', '..')))
 
+# import version from sen2like
+# pylint: disable=wrong-import-position
+import version
+
 # -- Project information -----------------------------------------------------
 
+# pylint: disable=invalid-name
 project = 'Sen2Like'
-copyright = '2020, Telespazio'
 author = 'Telespazio'
-version = __version__
+copyright = f'{date.today().year}, {author}' # pylint: disable=redefined-builtin
+version = version.__version__
 release = version
 
 # -- General configuration ---------------------------------------------------
@@ -35,7 +41,7 @@ extensions = ['sphinx.ext.todo',
               'sphinx.ext.autosummary',
               'sphinx.ext.coverage',
               'sphinx_rtd_theme',
-              'm2r'
+              'm2r2'
               ]
 
 # Add any paths that contain templates here, relative to this directory.

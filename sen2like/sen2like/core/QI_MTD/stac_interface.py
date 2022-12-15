@@ -116,7 +116,8 @@ class STACWriter:
         output_name = f"{os.path.join(output_dir, product_id)}.json"
 
         item = self._create_item(product, product_id, output_name, bands[0])
-        for image in set(bands):
+        # sort mainly to avoid error during compare with ref file in tests
+        for image in sorted(set(bands)):
             band = image.split('_')[-2]
             if not os.path.exists(image) and image.endswith('.jp2'):
                 log.warning("Overwrite .jp2 extension from metadata -> image file is a TIF !!!!!")
@@ -136,16 +137,16 @@ class STACWriter:
                                         media_type=pystac.MediaType.JPEG)
                 item.add_asset("thumbnail", ql_asset)
             else:
-                log.warning("%s not found: No thumbnail for band %s" % (ql_path, band))
+                log.warning("%s not found: No thumbnail for band %s", ql_path, band)
 
         item.save_object()
-        logging.debug("STAC file generated: %s" % output_name)
+        log.debug("STAC file generated: %s", output_name)
 
         if self.catalog_path is not None:
             try:
                 self.catalog.add_item(item, title=product_id)
             except urllib.error.URLError as error:
-                log.error("Cannot write to catalog: %s" % error)
+                log.error("Cannot write to catalog: %s", error)
 
     def write_catalog(self):
         if self.catalog is None:
@@ -155,7 +156,7 @@ class STACWriter:
                     list(self.catalog.get_all_items())):
                 self.catalog.update_extent_from_items()
             self.catalog.save(catalog_type=pystac.CatalogType.ABSOLUTE_PUBLISHED)
-            logging.debug("STAC catalog generated: %s" % self.catalog_path)
+            log.debug("STAC catalog generated: %s", self.catalog_path)
 
 
 class STACReader:

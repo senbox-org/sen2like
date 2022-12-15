@@ -4,7 +4,7 @@ import logging
 import os
 
 from core.image_file import S2L_ImageFile
-from core.products import get_product_from_sensor_name, get_product
+from core.products import get_s2l_product_class_from_sensor_name
 from core.products.product import S2L_Product
 
 logger = logging.getLogger('Sen2Like')
@@ -21,28 +21,28 @@ class S2L_HLS_Product(S2L_Product):
         try:
             self.type, self.tilecode, self.datestr, self.sensor, self.relative_orbit = self.name.split('_')
         except ValueError:
-            logger.info("Cannot parse as old format %s: invalid filename" % self.name)
-            self.product = None
+            logger.info("Cannot parse as old format %s: invalid filename", self.name)
+            self.s2l_product_class = None
         else:
             self.acqdate = dt.datetime.strptime(self.datestr, '%Y%m%d')
-            self.product = get_product_from_sensor_name(self.sensor)
-            if self.product is None:
-                logger.warning("Cannot determine Product associated to sensor {}".format(self.sensor))
+            self.s2l_product_class = get_s2l_product_class_from_sensor_name(self.sensor)
+            if self.s2l_product_class is None:
+                logger.warning("Cannot determine Product associated to sensor %s", self.sensor)
 
-        if self.product is None:
+        if self.s2l_product_class is None:
             logger.info('Trying to parse S2like structure')
             try:
                 # S2A_MSIL2F_20170103T104432_N9999_R008_T31TFJ_20170103T104428.SAFE
                 self.sensor, self.type, self.datestr, self.pdgs, self.relative_orbit, self.tilecode, self.filedate = \
                     os.path.splitext(self.name)[0].split('_')
             except ValueError:
-                logger.error("Error while trying to parse %s: invalid filename" % self.name)
-                self.product = None
+                logger.error("Error while trying to parse %s: invalid filename", self.name)
+                self.s2l_product_class = None
             else:
                 self.acqdate = dt.datetime.strptime(self.datestr, '%Y%m%dT%H%M%S')
-                self.product = get_product_from_sensor_name(self.sensor)
-                if self.product is None:
-                    logger.error("Cannot determine Product associated to sensor {}".format(self.sensor))
+                self.s2l_product_class = get_s2l_product_class_from_sensor_name(self.sensor)
+                if self.s2l_product_class is None:
+                    logger.error("Cannot determine Product associated to sensor %s", self.sensor)
 
     def get_band_file(self, band, plus=False):
         # get band
@@ -81,7 +81,7 @@ class S2L_HLS_Product(S2L_Product):
             filepath = '' if not len(filename) != 0 else filename[0]
             if os.path.exists(filepath):
                 return filepath
-        logger.debug("Product band {} with res {} not found in {}".format(band, int(res), self.path))
+        logger.debug("Product band %s with res %s not found in %s", band, int(res), self.path)
         logger.debug(filepath)
         return None
 
@@ -100,7 +100,7 @@ class S2L_HLS_Product(S2L_Product):
         filepath = filename[0] if filename else ''
 
         if not os.path.exists(filepath):
-            logger.warning("Product mask not found at {}".format(filepath))
+            logger.warning("Product mask not found at %s", filepath)
             # Trying to parse with old format
             filename = '{}_MSK.TIF'.format(self.name)
             filepath = os.path.join(self.path, filename)
@@ -114,4 +114,4 @@ class S2L_HLS_Product(S2L_Product):
 
     @property
     def bands(self):
-        return self.product.bands
+        return self.s2l_product_class.bands

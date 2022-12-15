@@ -9,3 +9,4 @@ docs/source/modules
 /doc-generated.txt
 dist/
 sen2cor/
+**/delivery/

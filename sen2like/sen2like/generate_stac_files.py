@@ -7,7 +7,7 @@ import sys
 
 import rasterio
 
-from core.QI_MTD.stac_interface import STACWriter, S2LSTACCatalog, S2LSTACCatalog_Tile, S2LSTACCatalog_Product
+from core.QI_MTD.stac_interface import S2LSTACCatalog, S2LSTACCatalog_Tile, S2LSTACCatalog_Product
 from core.products.hls_product import S2L_HLS_Product
 
 stats = {}
@@ -75,11 +75,10 @@ if __name__ == '__main__':
     parser.add_argument("catalog_dir", help="Path to catalog output directory")
     parser.add_argument(
         "catalog_dir_url",
-        help="The base url call by stac client to get catalog directory "
-             "(exemple: if calalog url is http://sen2like.com/stac/catalog.json, the base url is http://sen2like.com/stac)")
+        help="The base url call by stac client to get catalog directory"
+        "(exemple: if calalog url is http://sen2like.com/stac/catalog.json, the base url is http://sen2like.com/stac)")
     parser.add_argument("s2l_out", help="The sen2like output directory")
     parser.add_argument("s2l_out_url", help="The base url to accesse to the sen2like output directory")
-
 
     # parser.add_argument("--is-tile", help="Indicates if the path is a tile path", action='store_true', dest='is_tile')
     parser.add_argument("--dry-run", help="Only list products. Do not generate files.", action='store_true')

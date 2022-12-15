@@ -75,7 +75,7 @@ Install node-modules
 ```npm install```
 
 Build with specification of catalog url and path proxy.
-```CATALOG_URL=http://45.130.29.32/stac/sen2like_catalog.json STAC_PROXY_URL="/data/S2L|http://45.130.29.32/stac/S2L" npm run build```
+```CATALOG_URL=http://45.130.29.32/stac/catalog.json npm run build```
 
 CATALOG_URL: The stac catalog URL.  
 STAC_PROXY_URL: The original location and the proxy location separated by the | character, i.e. {original}|{proxy}.

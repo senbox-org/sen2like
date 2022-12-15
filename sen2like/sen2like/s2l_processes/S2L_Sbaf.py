@@ -4,27 +4,41 @@
 
 
 import logging
+from dataclasses import dataclass
 
 import numpy as np
 
 from core import S2L_config
 from core.QI_MTD.mtd import metadata
+from core.image_file import S2L_ImageFile
 from core.products.landsat_8.landsat8 import Landsat8Product
+from core.products.product import S2L_Product
 from s2l_processes.S2L_Process import S2L_Process
 
 log = logging.getLogger("Sen2Like")
 
 
+@dataclass
+class SbafParams:
+    """Simple sbaff param storage
+    """
+    coefficient: float
+    offset: float
+
+
 class S2L_Sbaf(S2L_Process):
 
-    def getSen2likeCoef(self, mission):
+    def initialize(self):
+        self._sbaf_params = {}
+
+    def get_sen2like_coef(self, mission):
         """
         Derived from value in HLS Guide v 1.4
         Get Adjustement coefficient for SEN2LIKE processing,
         Coefficient applied to Landsat8/OLI towards Sentinel2A/MSI data
         Coef array definition [slope, intercept]"""
 
-        adj_coef = dict()
+        adj_coef = {}
         if mission in ('LANDSAT_8', 'LANDSAT_9'):
             adj_coef['B01'] = {'bandLabel': 'CA'}
             adj_coef['B02'] = {'bandLabel': 'BLUE'}
@@ -35,19 +49,19 @@ class S2L_Sbaf(S2L_Process):
             adj_coef['B07'] = {'bandLabel': 'SWIR 2'}
 
             # compute coeff from Nasa SBAF values
-            adj_coef_L8_S2A = self.getOLILikeCoef("Sentinel-2A")
+            adj_coef_l8_s2a = self.get_oli_like_coef("Sentinel-2A")
             for oli_band in adj_coef.keys():
                 s2_band = Landsat8Product.get_s2like_band(oli_band)
                 if s2_band is None:
                     continue
-                coef = adj_coef_L8_S2A[s2_band]['coef']
+                coef = adj_coef_l8_s2a[s2_band]['coef']
                 a = 1 / coef[0]
                 b = - coef[1] / coef[0]
                 adj_coef[oli_band]['coef'] = [a, b]
 
         return adj_coef
 
-    def getOLILikeCoef(self, mission):
+    def get_oli_like_coef(self, mission):
         """S.Saunier 20/11/2018
         Value in HLS Guide v 1.4
         Get Adjustement coefficient for OLI LIKE processing,
@@ -76,7 +90,7 @@ class S2L_Sbaf(S2L_Process):
 
         return adj_coef
 
-    def process(self, product, image, band):
+    def process(self, product: S2L_Product, image: S2L_ImageFile, band: str) -> S2L_ImageFile:
         log.info('Start')
 
         # init to None
@@ -85,45 +99,34 @@ class S2L_Sbaf(S2L_Process):
 
         if product.mtl.mission == "Sentinel-2A":
             # skip for S2A
-            metadata.qi['SBAF_COEFFICIENT_{}'.format(band)] = 1
-            metadata.qi['SBAF_OFFSET_{}'.format(band)] = 0
+            # set SBAF parameters for export in L2H/F_QUALITY.xml file
+            self._sbaf_params[band] = SbafParams(1, 0)
             log.info('Skip for Sentinel-2A')
             log.info("End")
             return image
 
         elif product.mtl.mission == "Sentinel-2B":
-            # S2B => L8 + L8 => S2A
-            adj_coef1 = self.getOLILikeCoef("Sentinel-2B")
-            adj_coef2 = self.getSen2likeCoef("LANDSAT_8")
-            band_sbaf1 = band
-            band_sbaf2 = Landsat8Product.get_band_from_s2(band)
-            if band_sbaf1 in adj_coef1 and band_sbaf2 in adj_coef2:
-                log.info(f'Sbaf coefficient find to {band}')
-                slope1, offset1 = adj_coef1[band_sbaf1]['coef']
-                slope2, offset2 = adj_coef2[band_sbaf2]['coef']
-                # merging coefficients
-                slope = slope2 * slope1
-                offset = slope2 * offset1 + offset2
-                log.info(f'slop = {slope}, offset = {offset}')
-            else:
-                log.info("No Sbaf coefficient defined for {}".format(band))
+            # skip for S2B as S2B is intercalibrated with S2B in Collection-1 (PB >= 4.00)
+            # set SBAF parameters for export in L2H/F_QUALITY.xml file
+            self._sbaf_params[band] = SbafParams(1, 0)
+            log.info('Skip for Sentinel-2B, already intercalibrated')
+            log.info("End")
+            return image
 
         elif product.mtl.mission in ('LANDSAT_8', 'LANDSAT_9'):
             # L8 => S2A
             band_sbaf = band
-            adj_coef = self.getSen2likeCoef("LANDSAT_8")
+            adj_coef = self.get_sen2like_coef("LANDSAT_8")
             if band_sbaf in adj_coef:
-                log.info(f'Sbaf coefficient find to {band}')
+                log.info('Sbaf coefficient find to %s', band)
                 slope, offset = adj_coef[band_sbaf]['coef']
-                log.info(f'slop = {slope}, offset = {offset}')
+                log.info('slop = %s, offset = %s', slope, offset)
             else:
-                metadata.qi['SBAF_COEFFICIENT_{}'.format(band)] = 1
-                metadata.qi['SBAF_OFFSET_{}'.format(band)] = 0
-                log.info("No Sbaf coefficient defined for {}".format(band))
+                self._sbaf_params[band] = SbafParams(1, 0)
+                log.info("No Sbaf coefficient defined for %s", band)
                 return image
 
-        metadata.qi['SBAF_COEFFICIENT_{}'.format(band)] = slope
-        metadata.qi['SBAF_OFFSET_{}'.format(band)] = offset
+        self._sbaf_params[band] = SbafParams(slope, offset)
 
         # Apply SBAF
         if offset is not None and slope is not None:
@@ -141,3 +144,13 @@ class S2L_Sbaf(S2L_Process):
         log.info('End')
 
         return image
+
+    def postprocess(self, product: S2L_Product):
+        """Set QI parameters
+
+        Args:
+            product (S2L_Product): product to post process
+        """
+        for band, params in self._sbaf_params.items():
+            metadata.qi[f'SBAF_COEFFICIENT_{band}'] = params.coefficient
+            metadata.qi[f'SBAF_OFFSET_{band}'] = params.offset

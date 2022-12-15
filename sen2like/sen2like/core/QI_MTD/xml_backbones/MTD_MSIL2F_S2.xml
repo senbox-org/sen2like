@@ -59,6 +59,7 @@
         <AOT_QUANTIFICATION_VALUE unit="none">1000.0</AOT_QUANTIFICATION_VALUE> <!-- To be checked ? -->
         <WVP_QUANTIFICATION_VALUE unit="cm">1000.0</WVP_QUANTIFICATION_VALUE> <!-- To be checked ? -->
       </QUANTIFICATION_VALUES_LIST>
+      <BOA_ADD_OFFSET_VALUES_LIST/>
       <Reflectance_Conversion>
         <U>1.02055236267144</U>
         <Solar_Irradiance_List>

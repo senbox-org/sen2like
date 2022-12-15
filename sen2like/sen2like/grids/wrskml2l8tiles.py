@@ -92,8 +92,8 @@ def main():
     conn.enable_load_extension(True)
     conn.load_extension("mod_spatialite")
     create_req = (
-        f"CREATE TABLE l8tiles ("
-        f"PATH_ROW VARCHAR(7), PATH VARCHAR(3), ROW VARCHAR(3), LL_WKT VARCHAR, geometry POLYGON, UTM INTEGER); "
+        "CREATE TABLE l8tiles ("
+        "PATH_ROW VARCHAR(7), PATH VARCHAR(3), ROW VARCHAR(3), LL_WKT VARCHAR, geometry POLYGON, UTM INTEGER); "
     )
     conn.execute(create_req)
     insert_req = (

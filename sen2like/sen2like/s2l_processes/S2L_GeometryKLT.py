@@ -13,6 +13,7 @@ from scipy.stats import skew, kurtosis
 from core import S2L_config
 from core.QI_MTD.mtd import metadata
 from core.image_file import S2L_ImageFile
+from core.products.product import S2L_Product
 from grids import mgrs_framing
 from s2l_processes.S2L_Process import S2L_Process
 
@@ -65,6 +66,29 @@ def extract_features(data, ddepth=cv2.CV_8U, ksize=5, mask=None):
     return result
 
 
+def reframe_mask(product: S2L_Product, product_mask_filename_attr: str, output_filename: str, **kwargs):
+    """Reframe a mask of a product and set product reader mask attr to the reframed mask
+
+    Args:
+        product (S2L_Product): product having the mask
+        product_mask_filename_attr (str): mask file name attr in the product reader
+        output_filename (str): filename for the reframed mask
+        **kwargs: any args for 'S2L_ImageFile.write' except 'creation_options'
+    """
+    filepath_out = os.path.join(S2L_config.config.get(
+        'wd'), product.name, output_filename)
+
+    mask_file_path = getattr(product, product_mask_filename_attr, None)
+    image = S2L_ImageFile(mask_file_path)
+
+    out_image = mgrs_framing.reframe(image, product.mtl.mgrs, filepath_out, S2L_config.config.getfloat(
+        'dx'), S2L_config.config.getfloat('dy'), order=0)
+
+    out_image.write(creation_options=['COMPRESS=LZW'], **kwargs)
+
+    setattr(product, product_mask_filename_attr, filepath_out)
+
+
 def KLT_Tracker(reference, imagedata, mask, matching_winsize=25):
     ##
 
@@ -91,7 +115,7 @@ def KLT_Tracker(reference, imagedata, mask, matching_winsize=25):
         return None, None, 0
 
     # define KLT parameters-for matching
-    log.info("Using window of size {} for matching.".format(matching_winsize))
+    log.info("Using window of size %s for matching.", matching_winsize)
     # LSM input parameters - termination criteria for corner estimation/stopping criteria
     lk_params = dict(winSize=(matching_winsize, matching_winsize),
                      maxLevel=1,
@@ -108,7 +132,7 @@ def KLT_Tracker(reference, imagedata, mask, matching_winsize=25):
     d = abs(p0 - p0r).reshape(-1, 2).max(-1)
     st = d < back_threshold
 
-    logging.debug("Nb Bad Status: {}".format(len(st[st == 0])))
+    logging.debug("Nb Bad Status: %s", len(st[st == 0]))
 
     p0 = p0[st]
     p1 = p1[st]
@@ -131,7 +155,7 @@ class S2L_GeometryKLT(S2L_Process):
         self._output_file = None
         self._tmp_stats = {}
 
-    def preprocess(self, product):
+    def preprocess(self, product: S2L_Product):
         # No geometric correction for refined products
         if product.mtl.is_refined:
             if S2L_config.config.getboolean('force_geometric_correction'):
@@ -147,37 +171,23 @@ class S2L_GeometryKLT(S2L_Process):
         if product.sensor != 'S2':
             # Reframe angles and masks
             filepath_out = os.path.join(S2L_config.config.get('wd'), product.name, 'tie_points_REFRAMED.TIF')
-            mgrs_framing.reframeMulti(product.mtl.angles_file, product.mtl.mgrs, filepath_out,
+            mgrs_framing.reframeMulti(product.angles_file, product.mtl.mgrs, filepath_out,
                                       S2L_config.config.getfloat('dx'),
                                       S2L_config.config.getfloat('dy'), order=0)
-            product.mtl.angles_file = filepath_out
+            # update product angles_images
+            product.angles_file = filepath_out
 
         # Reframe mask
-        if product.mtl.mask_filename:
-            filepath_out = os.path.join(S2L_config.config.get('wd'), product.name, 'valid_pixel_mask_REFRAMED.TIF')
-            image = S2L_ImageFile(product.mtl.mask_filename)
-            imageout = mgrs_framing.reframe(image, product.mtl.mgrs, filepath_out, S2L_config.config.getfloat('dx'),
-                                            S2L_config.config.getfloat('dy'), order=0)
-            imageout.write(creation_options=['COMPRESS=LZW'])
-            product.mtl.mask_filename = filepath_out
+        if product.mask_filename:
+            reframe_mask(product, "mask_filename", 'valid_pixel_mask_REFRAMED.TIF')
 
         # Reframe nodata mask
-        if product.mtl.nodata_mask_filename:
-            filepath_out = os.path.join(S2L_config.config.get('wd'), product.name, 'nodata_pixel_mask_REFRAMED.TIF')
-            image = S2L_ImageFile(product.mtl.nodata_mask_filename)
-            imageout = mgrs_framing.reframe(image, product.mtl.mgrs, filepath_out, S2L_config.config.getfloat('dx'),
-                                            S2L_config.config.getfloat('dy'), order=0)
-            imageout.write(creation_options=['COMPRESS=LZW'])
-            product.mtl.nodata_mask_filename = filepath_out
+        if product.nodata_mask_filename:
+            reframe_mask(product, "nodata_mask_filename", 'nodata_pixel_mask_REFRAMED.TIF')
 
         # Reframe NDVI
         if product.ndvi_filename is not None:
-            filepath_out = os.path.join(S2L_config.config.get('wd'), product.name, 'ndvi_REFRAMED.TIF')
-            image = S2L_ImageFile(product.ndvi_filename)
-            imageout = mgrs_framing.reframe(image, product.mtl.mgrs, filepath_out, S2L_config.config.getfloat('dx'),
-                                            S2L_config.config.getfloat('dy'), order=0)
-            imageout.write(creation_options=['COMPRESS=LZW'], DCmode=True)
-            product.ndvi_filename = filepath_out
+            reframe_mask(product, "ndvi_filename", 'ndvi_REFRAMED.TIF', DCmode=True)
 
         # Matching for dx/dy correction?
         band = S2L_config.config.get('reference_band', 'B04')
@@ -189,7 +199,7 @@ class S2L_GeometryKLT(S2L_Process):
             S2L_config.config.set('freeze_dx_dy', True)
             metadata.qi.update({'COREGISTRATION_BEFORE_CORRECTION': self._tmp_stats.get('MEAN')})
 
-    def process(self, product, image, band):
+    def process(self, product: S2L_Product, image: S2L_ImageFile, band: str) -> S2L_ImageFile:
         # No geometric correction for refined products
         if product.mtl.is_refined:
             if S2L_config.config.getboolean('force_geometric_correction'):
@@ -198,85 +208,105 @@ class S2L_GeometryKLT(S2L_Process):
                 log.info("Product is refined: no additional geometric correction.")
                 return image
 
-        wd = os.path.join(S2L_config.config.get('wd'), product.name)
         self._output_file = self.output_file(product, band)
         self._tmp_stats = {}
 
         log.info('Start')
 
         # MGRS reframing for Landsat8
-        if product.sensor in ('L8', 'L9'):
-            log.debug('{} {}'.format(S2L_config.config.getfloat('dx'), S2L_config.config.getfloat('dy')))
+        if product.sensor in ('L8', 'L9', 'S2'):
+            log.debug('%s %s', S2L_config.config.getfloat('dx'), S2L_config.config.getfloat('dy'))
             image = self._reframe(product, image, S2L_config.config.getfloat('dx'), S2L_config.config.getfloat('dy'))
-
-        # Resampling to 30m for S2 (HLS)
-        elif product.sensor == 'S2':
-            # refine geometry
-            # if config.getfloat('dx') > 0.3 or config.getfloat('dy') > 0.3:
-            log.debug("{} {}".format(S2L_config.config.getfloat('dx'), S2L_config.config.getfloat('dy')))
-            image = self._reframe(product, image, S2L_config.config.getfloat('dx'),
-                                  S2L_config.config.getfloat('dy'))
 
         # matching for having QA stats
         if S2L_config.config.get('refImage'):
 
             # try to adapt resolution, changing end of reference filename
-            refImage_path = S2L_config.config.get('refImage')
-            if not os.path.exists(refImage_path):
+            ref_image_path = S2L_config.config.get('refImage')
+            if not os.path.exists(ref_image_path):
                 return image
 
-            # open image ref
-            imageref = S2L_ImageFile(refImage_path)
+            ref_image = self._get_ref_image(ref_image_path, image)
 
-            # if refImage resolution does not fit
-            if imageref.xRes != image.xRes:
-                # new refImage filepath
-                refImage_noext = os.path.splitext(refImage_path)[0]
-                if refImage_noext.endswith(f"_{int(imageref.xRes)}m"):
-                    refImage_noext = refImage_noext[:-len(f"_{int(imageref.xRes)}m")]
-                refImage_path = refImage_noext + f"_{int(image.xRes)}m.TIF"
-
-                # compute (resample), or load if exists
-                if not os.path.exists(refImage_path):
-                    log.info("Resampling of the reference image")
-                    # compute
-                    imageref = mgrs_framing.resample(imageref, image.xRes, refImage_path)
-                    # write for reuse
-                    imageref.write(DCmode=True, creation_options=['COMPRESS=LZW'])
-                else:
-                    # or load if exists
-                    log.info("Change reference image to:" + refImage_path)
-                    imageref = S2L_ImageFile(refImage_path)
-
-            # open mask
-            mask = S2L_ImageFile(product.mtl.mask_filename)
-            if S2L_config.config.getboolean('freeze_dx_dy'):
-                # do Geometry Assessment only if required
-                assess_geometry_bands = S2L_config.config.get('doAssessGeometry', default='').split(',')
-                if product.sensor != 'S2':
-                    assess_geometry_bands = [product.reverse_bands_mapping.get(band) for band in assess_geometry_bands]
-                if assess_geometry_bands and band in assess_geometry_bands:
-                    log.info("Geometry assessment for band %s" % band)
-                    # Coarse resolution of correlation grid (only for stats)
-                    self._matching(imageref, image, wd, mask)
-
-            else:
-                # Fine resolution of correlation grid (for accurate dx dy computation)
-                dx, dy = self._matching(imageref, image, wd, mask)
-                # save values for correction on bands
-                S2L_config.config.set('dx', dx)
-                S2L_config.config.set('dy', dy)
-                log.info("Geometrical Offsets (DX/DY): {}m {}m".format(S2L_config.config.getfloat('dx'),
-                                                                       S2L_config.config.getfloat('dy')))
+            self._handle_matching(product, band, image, ref_image)
 
             # Append bands name to keys
-            for key, item in self._tmp_stats.items():
+            for key in self._tmp_stats:
                 if S2L_config.config.get('reference_band') != band:
-                    self._tmp_stats[key + '_{}'.format(band)] = self._tmp_stats.pop(key)
+                    self._tmp_stats[f'{key}_{band}'] = self._tmp_stats.pop(key)
             metadata.qi.update(self._tmp_stats)
 
         log.info('End')
         return image
+
+    def _get_ref_image(self, ref_image_path: str, image: S2L_ImageFile) -> S2L_ImageFile:
+        """Get reference image file to use for matching
+
+        Args:
+            ref_image_path (str): reference image file path
+            image (S2L_ImageFile): _description_
+
+        Returns:
+            S2L_ImageFile: reference image denoted by 'ref_image_path'
+            or a new one resample to 'image' X resolution if resolutions differ
+        """
+        # open image ref
+        ref_image = S2L_ImageFile(ref_image_path)
+
+        # if refImage resolution does not fit
+        if ref_image.xRes != image.xRes:
+            # new refImage filepath
+            ref_image_no_ext = os.path.splitext(ref_image_path)[0]
+            if ref_image_no_ext.endswith(f"_{int(ref_image.xRes)}m"):
+                ref_image_no_ext = ref_image_no_ext[:-len(f"_{int(ref_image.xRes)}m")]
+            ref_image_path = ref_image_no_ext + f"_{int(image.xRes)}m.TIF"
+
+            # compute (resample), or load if exists
+            if not os.path.exists(ref_image_path):
+                log.info("Resampling of the reference image")
+                # compute
+                ref_image = mgrs_framing.resample(ref_image, image.xRes, ref_image_path)
+                # write for reuse
+                ref_image.write(DCmode=True, creation_options=['COMPRESS=LZW'])
+            else:
+                # or load if exists
+                log.info("Change reference image to: %s", ref_image_path)
+                ref_image = S2L_ImageFile(ref_image_path)
+
+        return ref_image
+
+    def _handle_matching(self, product: S2L_Product, band: str, image: S2L_ImageFile, ref_image: S2L_ImageFile):
+        """TODO : see with Vince
+        Update '_tmp_stats' only if freeze_dx_dy, otherwise also update dx and dy in config
+
+        Args:
+            product (S2L_Product): current product to create
+            band (str): band name currently manage
+            image (S2L_ImageFile): image to match
+            ref_image (S2L_ImageFile): reference image to use for matching
+        """
+        work_dir = os.path.join(S2L_config.config.get('wd'), product.name)
+
+        # open mask
+        mask = S2L_ImageFile(product.mask_filename)
+        if S2L_config.config.getboolean('freeze_dx_dy'):
+            # do Geometry Assessment only if required
+            assess_geometry_bands = S2L_config.config.get('doAssessGeometry', default='').split(',')
+            if product.sensor != 'S2':
+                assess_geometry_bands = [product.reverse_bands_mapping.get(band) for band in assess_geometry_bands]
+            if assess_geometry_bands and band in assess_geometry_bands:
+                log.info("Geometry assessment for band %s", band)
+                # Coarse resolution of correlation grid (only for stats)
+                self._matching(ref_image, image, work_dir, mask)
+
+        else:
+            # Fine resolution of correlation grid (for accurate dx dy computation)
+            dx, dy = self._matching(ref_image, image, work_dir, mask)
+            # save values for correction on bands
+            S2L_config.config.set('dx', dx)
+            S2L_config.config.set('dy', dy)
+            log.info("Geometrical Offsets (DX/DY): %sm %sm",
+                     S2L_config.config.getfloat('dx'), S2L_config.config.getfloat('dy'))
 
     def _reframe(self, product, imagein, dx=0., dy=0.):
         log.info('MGRS Framing: Start...')
@@ -319,14 +349,19 @@ class S2L_GeometryKLT(S2L_Process):
 
         dx = dx * imageref.xRes
         dy = dy * (- imageref.yRes)
-        log.debug("KLT Nb Points (init/final): {} / {}".format(Ninit, len(dx)))
-        log.debug("KLT (avgx, avgy): {}m {}m".format(dx.mean(), dy.mean()))
+        log.debug("KLT Nb Points (init/final): %s / %s", Ninit, len(dx))
+        log.debug("KLT (avgx, avgy): %sm %sm", dx.mean(), dy.mean())
 
         dist = np.sqrt(np.power(dx, 2) + np.power(dy, 2)).flatten()
         self._tmp_stats.update({'SKEW': np.round(skew(dist, axis=None), 1),
                                 'KURTOSIS': np.round(kurtosis(dist, axis=None), 1),
+                                'REF_IMAGE': os.path.basename(S2L_config.config.get('refImage')),
                                 'MEAN': np.round(np.mean(dist), 1),
+                                'MEAN_X': dx.mean(),
+                                'MEAN_Y': dy.mean(),
                                 'STD': np.round(np.std(dist), 1),
+                                'STD_X': np.round(np.std(dx), 1),
+                                'STD_Y': np.round(np.std(dy), 1),
                                 'RMSE': np.round(np.sqrt(np.mean(np.power(dist, 2))), 1),
                                 'NB_OF_POINTS': len(dx)})
 

@@ -20,16 +20,16 @@ def convert_to_reflectance_from_reflectance_cal_product(mtl, data_in, band):
     reflectance_data = None
     if mtl.sensor == 'OLI' or mtl.sensor == 'OLI_TIRS':
         # LANDSAT 8
-        log.info("Sun Zenith angle : {} deg".format(mtl.sun_zenith_angle))
+        log.info("Sun Zenith angle : %s deg", mtl.sun_zenith_angle)
         sun_elevation_angle = 90. - mtl.sun_zenith_angle
-        log.info("Sun Elevation angle : {} deg".format(sun_elevation_angle))
+        log.info("Sun Elevation angle : %s deg", sun_elevation_angle)
 
         gain = offset = None
         for k, x in list(mtl.radio_coefficient_dic.items()):
             if 'B' + x['Band_id'] == band:
                 gain = str(x['Gain'])
                 offset = str(x['Offset'])
-                log.info('Band Id : {} Gain : {} / Offset : {}'.format(x['Band_id'], gain, offset))
+                log.info('Band Id : %s Gain : %s / Offset : %s', x['Band_id'], gain, offset)
         if gain is not None and offset is not None:
             if 'L2' in mtl.data_type:  # Level-2 product surface reflectance is independent from sun_elevation_angle
                 reflectance_data = (np.float32(data_in) * np.float32(gain) + np.float32(offset))

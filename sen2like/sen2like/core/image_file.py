@@ -1,6 +1,5 @@
 import logging
 import os
-import shutil
 
 import numpy as np
 from osgeo import gdal, osr
@@ -153,46 +152,47 @@ class S2L_ImageFile:
         dst = None
         return data
 
-    def duplicate(self, filepath, array=None, res=None, origin=None, output_EPSG=None):
+    def duplicate(self, filepath, array=None, res=None, origin=None, output_EPSG=None) -> 'S2L_ImageFile':
 
         # case array is not provided (default)
         if array is None:
             array = self._array
 
         # init new instance, copy header, # set array and return new instance
-        newInstance = S2L_ImageFile(filepath, mode='w')
-        self.copyHeaderTo(newInstance)
+        new_image = S2L_ImageFile(filepath, mode='w')
+        self.copyHeaderTo(new_image)
 
         if array is not None:
-            newInstance.xSize = array.shape[1]
-            newInstance.ySize = array.shape[0]
+            new_image.xSize = array.shape[1]
+            new_image.ySize = array.shape[0]
 
         if res is not None:
-            newInstance.xRes = res
-            newInstance.yRes = -res
+            new_image.xRes = res
+            # pylint: disable=invalid-unary-operand-type
+            new_image.yRes = -res
 
         if origin is not None:
             # origin is a tuple with xMin and yMax (same def as in gdal)
-            newInstance.xMin = origin[0]
-            newInstance.yMax = origin[1]
-            newInstance.xMax = newInstance.xMin + newInstance.xSize * newInstance.xRes
-            newInstance.yMin = newInstance.yMax + newInstance.ySize * newInstance.yRes
+            new_image.xMin = origin[0]
+            new_image.yMax = origin[1]
+            new_image.xMax = new_image.xMin + new_image.xSize * new_image.xRes
+            new_image.yMin = new_image.yMax + new_image.ySize * new_image.yRes
 
         if output_EPSG is not None:
-            new_SRS = osr.SpatialReference()
-            new_SRS.ImportFromEPSG(int(output_EPSG))
-            newInstance.projection = new_SRS.ExportToWkt()
+            new_srs = osr.SpatialReference()
+            new_srs.ImportFromEPSG(int(output_EPSG))
+            new_image.projection = new_srs.ExportToWkt()
 
         #  data
-        newInstance._array = array
+        new_image._array = array
 
         # check dimensions
-        if array.shape[0] != newInstance.ySize or array.shape[1] != newInstance.xSize:
+        if array.shape[0] != new_image.ySize or array.shape[1] != new_image.xSize:
             log.error(
                 'ERROR: Input array dimensions do not fit xSize and ySize defined in the file header to be duplicated')
             return None
 
-        return newInstance
+        return new_image
 
     def write(self, creation_options=None, DCmode=False, filepath=None, nodata_value=None, output_format: str = 'GTIFF',
               band: str = None, no_data_mask=None):
@@ -225,13 +225,13 @@ class S2L_ImageFile:
             os.makedirs(self.dirpath)
 
         # write with gdal
-        etype = gdal.GetDataTypeByName(self.array.dtype.name)
+        e_type = gdal.GetDataTypeByName(self.array.dtype.name)
         if self.array.dtype.name.endswith('int8'):
             # work around to GDT_Unknown
-            etype = 1
+            e_type = 1
         elif 'float' in self.array.dtype.name and not DCmode:
             # float to UInt16
-            etype = gdal.GDT_UInt16
+            e_type = gdal.GDT_UInt16
 
         # Update image attributes
         self.setFilePath(filepath)
@@ -243,30 +243,35 @@ class S2L_ImageFile:
         if output_format == 'GTIFF':
             driver = gdal.GetDriverByName('GTiff')
             dst_ds = driver.Create(self.filepath, xsize=self.xSize,
-                                   ysize=self.ySize, bands=1, eType=etype, options=creation_options)
+                                   ysize=self.ySize, bands=1, eType=e_type, options=creation_options)
         else:
             driver = gdal.GetDriverByName('MEM')
             dst_ds = driver.Create('', xsize=self.xSize,
-                                   ysize=self.ySize, bands=1, eType=etype)
+                                   ysize=self.ySize, bands=1, eType=e_type)
 
         dst_ds.SetProjection(self.projection)
-        geotranform = (self.xMin, self.xRes, 0, self.yMax, 0, self.yRes)
-        log.debug(geotranform)
-        dst_ds.SetGeoTransform(geotranform)
+        geo_transform = (self.xMin, self.xRes, 0, self.yMax, 0, self.yRes)
+        log.debug(geo_transform)
+        dst_ds.SetGeoTransform(geo_transform)
+
         if 'float' in self.array.dtype.name and not DCmode:
             # float to UInt16 with scaling factor of 10000
             offset = float(S2L_config.config.get('offset'))
             gain = float(S2L_config.config.get('gain'))
-            array_out = ((offset + self.array).clip(min=0) * gain).astype(np.uint16)
+
+            array_out = (self.array.clip(min=0) * gain + offset).astype(np.uint16)
+
             if no_data_mask is not None:
-                array_out[array_out == nodata_value] += 1
+                array_out[array_out == offset] += 1
                 array_out[no_data_mask == 0] = nodata_value
+
             dst_ds.GetRasterBand(1).WriteArray(array_out)
             # set GTiff metadata
             dst_ds.GetRasterBand(1).SetScale(1 / gain)
-            dst_ds.GetRasterBand(1).SetOffset(offset)
+            dst_ds.GetRasterBand(1).SetOffset(-offset / gain)
         else:
             dst_ds.GetRasterBand(1).WriteArray(self.array)
+
         if nodata_value is not None:
             dst_ds.GetRasterBand(1).SetNoDataValue(nodata_value)
 
@@ -279,6 +284,7 @@ class S2L_ImageFile:
                 creation_options["QUALITY"] = 100
                 creation_options["REVERSIBLE"] = 'YES'
                 creation_options["YCBCR420"] = 'NO'
+
             if self.xRes == 60:
                 creation_options.update({
                     'CODEBLOCK_WIDTH': 4,
@@ -308,7 +314,9 @@ class S2L_ImageFile:
                 })
             creation_options = list(map(lambda ops: ops[0] + '=' + str(ops[1]), creation_options.items()))
 
+            # pylint: disable=unused-variable
             data_set2 = driver_JPG.CreateCopy(self.filepath, dst_ds, options=creation_options)
+            # this is the way to close gdal dataset
             data_set2 = None
 
         if output_format == 'COG':
@@ -341,13 +349,12 @@ class S2L_ImageFile:
             try:
                 data_set2 = driver_Gtiff.CreateCopy(self.filepath, dst_ds,
                                                     options=creation_options + ['COPY_SRC_OVERVIEWS=YES'])
-                data_set2 = None
+                data_set2 = None  # noqa: F841
             except RuntimeError as err:
                 log.error(err)
 
             else:
-                log.info('Written: {}'.format(self.filepath))
-
+                log.info('Written: %s', self.filepath)
 
         dst_ds.FlushCache()
         dst_ds = None

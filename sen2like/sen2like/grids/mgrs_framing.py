@@ -30,7 +30,6 @@ def resample(imagein, res, filepath_out):
 
     # get input resolutionresolution
     input_res = imagein.xRes
-    dst_in = None
 
     # SCIKIT resampling
     fullRes = imagein.array
@@ -60,7 +59,6 @@ def pixel_center(image, tilecode):
     inSR = osr.SpatialReference()
     inSR.ImportFromEPSG(int('32' + ('6' if orientation == 'N' else '7') + str(utm)))
     outSR = osr.SpatialReference(wkt=image.projection)
-    utm_offset = 0
     if not inSR.IsSame(outSR):
         transformater = osr.CoordinateTransformation(inSR, outSR)
         northing, easting = transformater.TransformPoint((northing, easting))
@@ -138,8 +136,6 @@ def reframe(image, tilecode, filepath_out, dx=0., dy=0., order=3, dtype=None, ma
 
 
 def reframeMulti(filepath_in, tilecode, filepath_out, dx=0., dy=0., order=3):
-    from osgeo import gdal
-    from math import ceil
 
     # get roi from mgrs tilecode
     converter = grids.GridsConverter()

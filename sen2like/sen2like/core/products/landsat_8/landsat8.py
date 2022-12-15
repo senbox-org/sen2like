@@ -3,7 +3,7 @@ import os
 import re
 from typing import List
 
-from core.product_archive.product_archive import InputProductArchive
+import core.product_archive.tile_db as tile_db
 from core.products.product import S2L_Product
 
 
@@ -46,7 +46,7 @@ class Landsat8Product(S2L_Product):
 
     def update_site_info(self, tile=None):
         if tile is None:
-            tiles = InputProductArchive.wrs_to_mgrs((self.mtl.path, self.mtl.row))
+            tiles = tile_db.wrs_to_mgrs((self.mtl.path, self.mtl.row))
             self.mtl.mgrs = tiles[0] if len(tiles) else "NO_TILE"
         else:
             self.mtl.mgrs = tile
