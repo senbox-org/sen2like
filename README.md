@@ -54,8 +54,8 @@ And the following research papers :
  + [7] Roy, David P., Jian Li, Hankui K. Zhang, Lin Yan, Haiyan Huang, et Zhongbin Li. Examination of Sentinel-2A Multi-Spectral Instrument (MSI) Reflectance Anisotropy and the Suitability of a General Method to Normalize MSI Reflectance to Nadir BRDF Adjusted Reflectance". Remote Sensing of Environment 199 (septembre 2017): 25‑38. (https://doi.org/10.1016/j.rse.2017.06.019)
  + [8] Sen2Like User Manual
  + [9] [Copernicus Atmosphere Monitoring Service](https://atmosphere.copernicus.eu/)
- 
- 
+ + [10] Saunier, S.; Pflug, B.; Lobos, I.M.; Franch, B.; Louis, J.; De Los Reyes, R.; Debaecker, V.; Cadau, E.G.; Boccia, V.; Gascon, F.; Kocaman, S. Sen2Like: Paving the Way towards Harmonization and Fusion of Optical Data. Remote Sens. 2022, 14, 3855. (https://doi.org/10.3390/rs14163855) 
+
 
 **Learn how to use Sen2Like**, have a look at the [User Manual](https://github.com/senbox-org/sen2like/blob/master/sen2like/docs/source/S2-SEN2LIKE-UM-V1.6.pdf).
 
