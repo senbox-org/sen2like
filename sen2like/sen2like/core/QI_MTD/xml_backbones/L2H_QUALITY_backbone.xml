@@ -178,6 +178,8 @@
 					<extraValues>
                         <value name="BAND">B04</value>
 						<value name="COREGISTRATION_BEFORE_CORRECTION">NONE</value>
+						<value name="INPUT_RMSE_X">NONE</value>
+						<value name="INPUT_RMSE_Y">NONE</value>
 						<value name="COREGISTRATION_AFTER_CORRECTION">NONE</value>
 						<value name="NB_OF_POINTS">NONE</value>
 						<value name="REF_IMAGE">NONE</value>
@@ -190,7 +192,7 @@
 						<value name="RMSE">NONE</value>
 						<value name="SKEW">NONE</value>
             			<value name="KURTOSIS">NONE</value>
-						<value name="REFERENCE_DOI">Publication regarding the SIFT methods (ISPRS)</value>
+						<value name="REFERENCE_DOI_GEOMETRY">Publication regarding the SIFT methods (ISPRS)</value>
 						<value name="ROI_FILE">NONE</value>
 					</extraValues>
 				</check>
@@ -227,7 +229,7 @@
 				<check>
 					<message contentType="text/plain">"SBAF correction"</message>
 					<extraValues>
-						<value name="REFERENCE_DOI">Claverie and al. 2018</value>
+						<value name="REFERENCE_DOI_SBAF">Claverie and al. 2018</value>
 						<value name="SBAF_COEFFICIENT_B01">NONE</value>
 						<value name="SBAF_COEFFICIENT_B02">NONE</value>
 						<value name="SBAF_COEFFICIENT_B03">NONE</value>

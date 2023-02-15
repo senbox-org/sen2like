@@ -8,20 +8,18 @@ import datetime
 import importlib
 import logging
 import os
-import shutil
 import sys
-import glob
 from argparse import Namespace
 from multiprocessing import Pool
 from typing import Tuple, List
 
 from core import S2L_config, log
+from core.argparser import S2LArgumentParser, Mode
+from core.image_file import S2L_ImageFile
+from core.product_preparation import ProductPreparator
 from core.QI_MTD import mtd
 from core.QI_MTD.mtd import Metadata
 from core.S2L_config import config
-from core.argparser import S2LArgumentParser, Mode
-from core.image_file import S2L_ImageFile
-from core.readers import BaseReader
 from core.sen2cor_client.sen2cor_client import Sen2corClient, Sen2corError
 from core.product_archive import product_selector
 from s2l_processes.S2L_Process import S2L_Process
@@ -41,27 +39,6 @@ sys.path.append(os.path.join(BINDIR, "s2l_processes"))
 logger = logging.getLogger('Sen2Like')
 
 PROCESS_INSTANCES = {}  # OPTIM
-
-
-def get_scl_map(scl_dir, product):
-    scl_map = None
-    tilecode = product.mtl.mgrs
-
-    if product.sensor == 'S2':
-        acq_date = datetime.datetime.strftime(product.dt_sensing_start, '%Y%m%dT%H%M%S')
-    else:
-        acq_date = datetime.datetime.strftime(product.acqdate, '%Y%m%dT%H%M%S')
-
-    result = glob.glob(os.path.join(scl_dir, tilecode, f"T{tilecode}_{acq_date}_SCL_60m.tif"))
-    if result:
-        scl_map = result[0]
-
-    if scl_map is not None:
-        logger.info('Auxiliary scene classification map found: %s', scl_map)
-    else:
-        logger.info('Auxiliary scene classification map NOT found.')
-
-    return scl_map
 
 
 def get_module(block_name: str) -> S2L_Process:
@@ -89,7 +66,7 @@ def generic_process_step(block_name, product, process_step):
     """
     From the name of the block, import the module, get the class,
     create object from class, run the process step method of object.
-    This supposes that there all the names are the same (e.g. S2L_GeometryKLT)
+    This supposes that there all the names are the same (e.g. S2L_Geometry)
 
     :param block_name: The block to process
     :param product:
@@ -308,14 +285,14 @@ def process_no_run(tile: str, input_products: List[InputProduct]):
         logger.info("%s %s %s", tile_message, cloud_message, product.path)
 
 
-def start_process(tile: str, product_urls: List['tuple'], args: Namespace, start_date: datetime.datetime,
+def start_process(tile: str, search_urls: List['tuple'], args: Namespace, start_date: datetime.datetime,
                   end_date: datetime.datetime):
     """
     Process products on the tile for a period
-    All products are not processed, only the one on the period, see InputProductArchive.get_products_from_urls
+    All products are not processed, only the one on the period, see InputProductArchive.search_product
     Args:
         tile (str): tile name
-        product_urls (list(tuple)): list of products urls.
+        search_urls (list(tuple)): list of products search urls.
         args (argparse.Namespace): program arguments
         start_date (datetime.datetime): start date period to process
         end_date (datetime.datetime): end date to process (include)
@@ -326,9 +303,9 @@ def start_process(tile: str, product_urls: List['tuple'], args: Namespace, start
     config.update_with_args(args, tile)
     config.set('tile', tile)
     logger.info("Processing tile %s", tile)
-    downloader = InputProductArchive(config)
-    input_products_list = downloader.get_products_from_urls(
-        product_urls, start_date, end_date, product_mode=args.operational_mode == 'product-mode')
+    archive = InputProductArchive(config)
+    input_products_list = archive.search_product(
+        search_urls, start_date, end_date, product_mode=args.operational_mode == Mode.PRODUCT)
 
     if args.no_run:
         process_no_run(tile, input_products_list)
@@ -369,48 +346,10 @@ def start_process(tile: str, product_urls: List['tuple'], args: Namespace, start
         config.overload(f'use_smac={use_smac_config}')
         config.overload(f'doStitching={stitch}')
         config.overload(f'doInterCalibration={intercalibration}')
+
+        if s2l_product.related_product is not None:
+            del s2l_product.related_product
         del s2l_product
-
-
-def extract_product_files(product: S2L_Product, args: Namespace):
-    """Prepare the product before process by extracting some files in the current working dir when possible.
-    Extracted data from product are :
-    - product metadata file
-    - product tile metadata file
-    - angle images (see 'S2L_Product.get_angle_images' impl)
-    - valid and no data pixel masks (see 'S2L_Product.get_valid_pixel_mask' impl)
-    - NDVI image
-    Args:
-        product (S2L_Product): product to prepare
-        args (Namespace): program args
-    """
-    # copy MTL files in wd
-    working_dir = os.path.join(config.get("wd"), product.name)
-    product_reader: BaseReader = product.mtl
-
-    # copy MTL files in final product
-    shutil.copyfile(product_reader.mtl_file_name,
-        os.path.join(working_dir, os.path.basename(product_reader.mtl_file_name)))
-    if product_reader.tile_metadata:
-        shutil.copyfile(product_reader.tile_metadata,
-            os.path.join(working_dir, os.path.basename(product_reader.tile_metadata)))
-
-    # Get scl map for valid pixel mask
-    scl_dir = config.get("scl_dir")
-    if scl_dir and (not config.getboolean('use_sen2cor')) and product_reader.data_type != 'Level-2A':
-        product_reader.scene_classif_band = get_scl_map(scl_dir, product)
-
-    # Angles extraction
-    product.get_angle_images(os.path.join(working_dir, 'tie_points.tif'))
-
-    # extract masks
-    roi_file = args.roi if args.operational_mode == Mode.ROI_BASED else None
-    product.get_valid_pixel_mask(
-        os.path.join(working_dir, 'valid_pixel_mask.tif'), roi_file)
-
-    # extract NDVI
-    if S2L_config.config.get('nbar_methode') == 'VJB':
-        product.get_ndvi_image(os.path.join(working_dir, 'ndvi.tif'))
 
 
 def process(product: S2L_Product, args: Namespace):
@@ -421,10 +360,6 @@ def process(product: S2L_Product, args: Namespace):
         args (Namespace): program arguments
     """
     bands = args.bands
-    # create working directory and save conf (traceability)
-    product_path = os.path.join(config.get("wd"), product.name)
-    if not os.path.exists(product_path):
-        os.makedirs(product_path)
 
     # displays
     logger.info('=' * 50)
@@ -433,8 +368,9 @@ def process(product: S2L_Product, args: Namespace):
     # list of the blocks that are available
     list_of_blocks = tuple(S2L_config.PROC_BLOCKS.keys())
 
-    # prepare the product
-    extract_product_files(product, args)
+    # Search and attach related product to product
+    # only if S2L_Stitching activated, and extract product files
+    ProductPreparator(S2L_config.config, args).prepare(product)
 
     # !! Initialization of each block
     for block_name in list_of_blocks:
@@ -518,26 +454,27 @@ def main(args, with_multiprocess_support=False):
         parser.print_help()
         return 1
 
+    # get product search urls
     config.update_with_args(args)
     date_range = parser.get_date_range()
-    products = product_selector.get_products(args, date_range)
+    search_urls = product_selector.get_search_url(args, date_range)
 
-    if products is None:
+    if search_urls is None:
         return 1
 
-    if args.operational_mode == 'multi-tile-mode' and with_multiprocess_support and not args.no_run:
+    if args.operational_mode == Mode.MULTI_TILE and with_multiprocess_support and not args.no_run:
         number_of_process = args.jobs
         if number_of_process is None:
             number_of_process = config.get('number_of_process', 1)
-        params = [(tile, _products, args, date_range.start_date, date_range.end_date)
-                  for tile, _products in products.items()]
+        params = [(tile, _search_url, args, date_range.start_date, date_range.end_date)
+                  for tile, _search_url in search_urls.items()]
         with Pool(int(number_of_process)) as pool:
             pool.starmap(start_process, params)
     else:
         if args.no_run:
             logger.info("No-run mode: Products will only be listed")
-        for tile, _products in products.items():
-            start_process(tile, _products, args, date_range.start_date, date_range.end_date)
+        for tile, _search_url in search_urls.items():
+            start_process(tile, _search_url, args, date_range.start_date, date_range.end_date)
     return 0
 
 

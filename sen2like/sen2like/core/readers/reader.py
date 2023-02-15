@@ -14,6 +14,43 @@ import numpy as np
 logger = logging.getLogger("Sen2Like")
 
 
+def compute_scene_boundaries(scene_boundary_lat, scene_boundary_lon):
+    """Compute scene boundary from list of lat and lon
+
+    Args:
+        scene_boundary_lat (list[number]): list of latitudes
+        scene_boundary_lon (list[number]): list of longitudes
+
+    Returns:
+        tuple: tuple of list of lat and list of lon
+    """
+    arr1 = np.asarray(scene_boundary_lat, float)
+    arr1_r = np.roll(arr1, -1)
+    # Retour d index
+    arr2 = np.asarray(scene_boundary_lon, float)
+    arr2_r = np.roll(arr2, -1)
+    x = arr1_r - arr1  # Vecteur X - latitude
+    y = arr2_r - arr2  # Vecteur Y - longitude
+    # Remove point with diff null in the two direction
+    index = (np.argwhere((x == 0) & (y == 0))).flatten()
+    x = np.delete(x, index)
+    y = np.delete(y, index)
+    x_r = np.roll(x, -1)
+    y_r = np.roll(y, -1)
+    scalar = np.multiply(x, x_r) + np.multiply(y, y_r)  # Scalar product
+    # Norm
+    norm = np.power(np.multiply(x, x) + np.multiply(y, y), 0.5)
+    norm_r = np.roll(norm, -1)
+    # Product of Norm || U || * || V ||
+
+    theta = np.roll(
+        np.arccos(np.divide(scalar, np.multiply(norm, norm_r))) * (np.divide(180, np.pi)),
+        1)
+    arr1 = np.delete(arr1, index)
+    arr2 = np.delete(arr2, index)
+    return (arr1[theta > 60.0].tolist(), arr2[theta > 60.0].tolist())
+
+
 class BaseReader(ABC):
     """Base reader for image metadata extraction"""
 

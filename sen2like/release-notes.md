@@ -1,5 +1,38 @@
 # Sen2Like Release Notes
 
+## v4.2.0
+
+### **Breaking changes**
+
+* The new feature `Reprojection` led to the following changes in the configuration files (config.ini and config.xml): 
+  * `doGeometryKLT` config parameter is renamed to `doGeometry`
+  * Add new `doGeometryCheck` config parameter
+  * Remove runtime config parameter `freeze_dx_dy`
+  * `force_geometric_correction` config param default value set to `True`
+  * remove `reframe_margin` config parameter in `Stitching` section
+* Remove legacy Packager : 
+  * S2L_Packager module removed
+  * Remove `doPackager` config parameter
+* `Sen2Like_GIPP.xsd` updated in consequences, **don't forget to update your XML configuration file**
+* Sen2Like new HABA AUX file: 
+  *  New file naming convention following Sentinel 2 AUX data file naming convention
+  *  HABA file attributes and bands management updates
+
+### New features
+
+* Reprojection : product in different geographic projection system (i.e. UTM zones) than the target MRGS tile to process can be processed or used for stitching. SRS stands for Spatial Reference System.
+  * Add optional new sen2like program argument : `--allow-other-srs`, default `False`
+  * Add optional new config param under `Stitching` section : `same_utm_only`, default `True`
+
+### Fix
+
+* Wrong tile coverage value logged with no-run parameter
+* SBAF Param values in QI report of product generated from LS product
+
+### Improvements
+
+* Improve product correctness by updating generated MTD XML file compliant with `S2-PDGS-TAS-DI-PSD-V14.9_S2L-V4.2_Schema`
+
 ## v4.1.1
 
 ### Fix

@@ -11,6 +11,7 @@ import re
 from os.path import join, basename, dirname
 
 import numpy as np
+from skimage.morphology import square, dilation
 from skimage.transform import resize as skit_resize
 from skimage.measure import block_reduce
 
@@ -123,13 +124,9 @@ class S2L_Fusion(S2L_Process):
         log.info('Start')
 
         if not S2L_config.config.getboolean('hlsplus'):
-            log.warning('Skipping Data Fusion because doPackager and doPackagerL2F options are not activated')
+            log.warning('Skipping Data Fusion because doPackagerL2F option is not activated')
             log.info('End')
             return image
-
-        # save into file before processing (old packager will need it)
-        if S2L_config.config.getboolean('doPackager'):
-            product.image30m[band] = image
 
         if band == 'B01':
             log.warning('Skipping Data Fusion for B01.')
@@ -372,21 +369,44 @@ class S2L_Fusion(S2L_Process):
 
     @staticmethod
     def get_harmonized_product(product, band_s2, output_shape, plus):
+        # Search for S2 L2H at 30 m resolution (legacy L2H products)
         image_file = product.get_band_file(band_s2, plus=plus)
+
+        # Initialize border to None in case S2 legacy L2H products are found (30 m resolution)
+        border = None
 
         if image_file is None:
             log.info('Resampling to 30m: Start...')
+            # Search for S2 L2H at native (full) resolution (10 m, 20 m)
             band_file = product.get_band_file(band_s2, plus=True)
+            # Construct temporary nodata mask with pixels equal to 0
+            nodata = (band_file.array == 0)
+            # Dilate temporary nodata mask by one pixel using a square operator of size 3
+            nodatadil = dilation(nodata, square(3))
+            # Substract nodata mask to dilated mask to create border mask array
+            # border mask array identifies the pixels defining the (internal) border of image close to the nodata area
+            # border mask array is at native (full) resolution (10 m, 20 m)
+            border = nodatadil ^ nodata
+
             match = re.search(r'_(\d{2})m', band_file.filename)
             if match:
                 resampled_file = band_file.filename.replace(match.group(1), '30')
             else:
                 resampled_file = band_file.filename.replace('.', '_resampled_30m.')
+            # Resample S2 L2H at native (full) resolution (10 m, 20 m) to 30 m
             image_file = mgrs_framing.resample(band_file, 30, os.path.join(band_file.dirpath, resampled_file))
             log.info('Resampling to 30m: End')
+
+        # Convert array from DN to float
+        # TODO: check if radiometric offset (since S2 PB 04.00) needs to be take into account. It seems it is not mandatory
         array = image_file.array.astype(np.float32) / 10000.
+
         if output_shape != array.shape:
             array = skit_resize(array.clip(min=-1.0, max=1.0), output_shape).astype(np.float32)
+            # Perform the reset of border values to initial L2H (native resolution) values only when border has been created
+            if border is not None:
+                array[border] = band_file.array[border].astype(np.float32) / 10000.            
+
         return array
 
     def _fusion(self, L8_HLS, S2_HLS_img, S2_HLS_plus_img, mask_filename=None):

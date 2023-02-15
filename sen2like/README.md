@@ -79,9 +79,7 @@ We recommend to use miniconda.
 
 To install miniconda, please refer to the miniconda documentation : https://docs.conda.io/en/latest/miniconda.html#
 
-**Please note that you MUST use an installer compatible with your current python version**
-
-For example: if you have python 3.8 on Linux x86_64, choose the Python 3.8	Miniconda3 Linux 64-bit installer as illustrated bellow : 
+**As sen2like is based on python 3.7 it is recommended to install miniconda with python 3.7 but it is fine with conda having another version of python**
 
 ![miniconda](docs/resources/miniconda_version.png)
 
@@ -103,11 +101,11 @@ conda activate sen2like
 
 ```bash
 python sen2like.py 
-[INFO    ] 2022-10-23 06:53:18 - sen2like             - Run Sen2like 4.1.0
+[INFO    ] 2023-01-11 14:50:54 - sen2like             - Run Sen2like 4.2.0
 usage: sen2like.py [-h] [--version] [--refImage PATH] [--wd PATH]
                    [--conf PATH] [--confParams STRLIST] [--bands STRLIST]
-                   [--no-run] [--intermediate-products] [--parallelize-bands]
-                   [--debug] [--no-log-date]
+                   [--allow-other-srs] [--no-run] [--intermediate-products]
+                   [--parallelize-bands] [--debug] [--no-log-date]
                    {product-mode,single-tile-mode,multi-tile-mode,roi-based-mode}
                    ...
 ....
@@ -152,7 +150,7 @@ Create a tag TARGET_IMAGE that refers to SOURCE_IMAGE
 Example
 
 ```bash
-docker image tag sen2like my-internal-docker-registry-url/sen2like:4.1
+docker image tag sen2like my-internal-docker-registry-url/sen2like:4.2
 ```
 
 Push the image on a registry with the command `docker push NAME[:TAG]`
@@ -160,7 +158,7 @@ Push the image on a registry with the command `docker push NAME[:TAG]`
 Example
 
 ```bash
-docker push my-internal-docker-registry-url/sen2like:4.1
+docker push my-internal-docker-registry-url/sen2like:4.2
 ```
 
 ## Running the tool
@@ -184,19 +182,19 @@ Build sen2like docker image or pull it from a registry with the command `docker 
 Example :
 
 ```bash
-docker pull https://my-internal-docker-registry-url/sen2like:4.1
+docker pull https://my-internal-docker-registry-url/sen2like:4.2
 ```
 
 You can run it directly without entering into the container: 
 
 ```bash
-docker run --rm my-internal-docker-registry-url/sen2like/sen2like:4.1
+docker run --rm my-internal-docker-registry-url/sen2like/sen2like:4.2
 
-[INFO    ] 2022-10-23 04:37:47 - sen2like             - Run Sen2like 4.1.0
+[INFO    ] 2023-01-11 14:50:54 - sen2like             - Run Sen2like 4.2.0
 usage: sen2like.py [-h] [--version] [--refImage PATH] [--wd PATH]
                    [--conf PATH] [--confParams STRLIST] [--bands STRLIST]
-                   [--no-run] [--intermediate-products] [--parallelize-bands]
-                   [--debug] [--no-log-date]
+                   [--allow-other-srs] [--no-run] [--intermediate-products]
+                   [--parallelize-bands] [--debug] [--no-log-date]
                    {product-mode,single-tile-mode,multi-tile-mode,roi-based-mode}
                    ...
 
@@ -213,7 +211,7 @@ In the following examples **local** folder `/data` is supposed to exist and cont
 ```bash
 docker run --rm \
   --mount type=bind,source="/data",target=/data \
-  my-internal-docker-registry-url/sen2like/sen2like:4.1 \
+  my-internal-docker-registry-url/sen2like/sen2like:4.2 \
   single-tile-mode 31TFJ \
   --conf "/data/config.ini" \
   --start-date 2017-10-30 --end-date 2017-10-31 \
@@ -227,7 +225,7 @@ Python script `sen2like.py` could be accessed from a docker container.
 Launch the docker binding **local** `/data` folder to the container `/data` folder, example: 
 
 ```bash
-docker run --rm -it --mount type=bind,source="/data",target=/data --entrypoint=/bin/bash my-internal-docker-registry-url/sen2like/sen2like:4.1
+docker run --rm -it --mount type=bind,source="/data",target=/data --entrypoint=/bin/bash my-internal-docker-registry-url/sen2like/sen2like:4.2
 
 root@15a2f44ddd70:/usr/local/sen2like
 
@@ -269,15 +267,15 @@ The configuration file is divided in several parts, each describing specific blo
 
 Enable or disable a processing block based on value `(True, False)`:
 
+* `doGeometry`: Run the geometric correction and reframing processing using KLT
 * `doStitching`: Run the stitching processing
-* `doGeometryKLT`: Run the geometric correction processing using KLT
+* `doGeometryCheck`: Run the geometric assessment using KLT to compute geometry QI
 * `doToa`: Run the TOA correction
 * `doInterCalibration`: Run the Inter Calibration correction (S2B)
 * `doAtmcor`: Run the Atmospheric correction (SMAC or Sen2Cor)
 * `doNbar`: Run Nbar correction processing
 * `doSbaf`: Run the Sbaf correction processing
 * `doFusion`: Run the Fusion processing
-* `doPackager`: Run the packaging processing (legacy)
 * `doPackagerL2H`: Run the packaging processing for harmonized products
 * `doPackagerL2F`: Run the packaging processing for fused products
 
@@ -399,7 +397,8 @@ Define parameters for Fusion processing.
 
 Define parameters for stitching processing.
 
-* `reframe_margin`: Margin to add during stitching reframing
+* `same_utm_only`: Enable or disable stitching with product on different UTM as current processed product.  
+  For Landsat it allows to use previous or next product that can be on another UTM for stitching and have a better tile coverage.
 
 #### OutputFormat
 
@@ -457,8 +456,8 @@ python sen2like.py --help
 ```
 usage: sen2like.py [-h] [--version] [--refImage PATH] [--wd PATH]
                    [--conf PATH] [--confParams STRLIST] [--bands STRLIST]
-                   [--no-run] [--intermediate-products] [--parallelize-bands]
-                   [--debug] [--no-log-date]
+                   [--allow-other-srs] [--no-run] [--intermediate-products]
+                   [--parallelize-bands] [--debug] [--no-log-date]
                    {product-mode,single-tile-mode,multi-tile-mode,roi-based-mode}
                    ...
 
@@ -483,6 +482,8 @@ optional arguments:
                         --confParams "doNbar=False,doSbaf=False"
   --bands STRLIST       S2 bands to process as coma separated list (Default:
                         ALL bands)
+  --allow-other-srs     Selected product to process can have another SRS/UTM
+                        than the one of the S2 tile (default: False)
   --no-run              Do not start process and only list products (default:
                         False)
   --intermediate-products
@@ -506,10 +507,11 @@ python sen2like.py product-mode --help
 ```
 
 ```
-usage: sen2like.py product-mode [-h] [-v] [--refImage PATH] [--wd PATH]
+usage: sen2like.py product-mode [-h] [--version] [--refImage PATH] [--wd PATH]
                                 [--conf PATH] [--confParams STRLIST]
-                                [--bands STRLIST] [--no-run]
-                                [--intermediate-products] [--debug]
+                                [--bands STRLIST] [--allow-other-srs]
+                                [--no-run] [--intermediate-products]
+                                [--parallelize-bands] [--debug]
                                 [--no-log-date] --tile TILE
                                 product
 
@@ -519,20 +521,23 @@ positional arguments:
 
 optional arguments:
   -h, --help            show this help message and exit
-  -v, --version         show program's version number and exit
+  --version, -v         show program's version number and exit
   --refImage PATH       Reference image (use as geometric reference)
   --wd PATH             Working directory (default : /data/production/wd)
   --conf PATH           S2L_configuration file (Default:
                         SEN2LIKE_DIR/conf/S2L_config.ini)
   --confParams STRLIST  Overload parameter values (Default: None). Given as a
-                        "key=value" comma-separated list.Example: --confParams
-                        "doNbar=False,doSbaf=False"
-  --bands STRLIST       Bands to process as coma separated list (Default: ALL
-                        bands)
+                        "key=value" comma-separated list. Example:
+                        --confParams "doNbar=False,doSbaf=False"
+  --bands STRLIST       S2 bands to process as coma separated list (Default:
+                        ALL bands)
+  --allow-other-srs     Selected product to process can have another SRS/UTM
+                        than the one of the S2 tile (default: False)
   --no-run              Do not start process and only list products (default:
                         False)
   --intermediate-products
                         Generate intermediate products (default: False)
+  --parallelize-bands   Process bands in parallel (default: False)
   --tile TILE           Id of the MGRS tile to process
 
 Debug arguments:
@@ -558,12 +563,13 @@ python sen2like.py single-tile-mode --help
 
 ```
 usage: sen2like.py single-tile-mode [-h] [--start-date START_DATE]
-                                    [--end-date END_DATE] [-v]
+                                    [--end-date END_DATE] [--l2a] [--version]
                                     [--refImage PATH] [--wd PATH]
                                     [--conf PATH] [--confParams STRLIST]
-                                    [--bands STRLIST] [--no-run]
-                                    [--intermediate-products] [--parallelize-bands]
-                                    [--debug] [--no-log-date]
+                                    [--bands STRLIST] [--allow-other-srs]
+                                    [--no-run] [--intermediate-products]
+                                    [--parallelize-bands] [--debug]
+                                    [--no-log-date]
                                     tile
 
 positional arguments:
@@ -574,22 +580,25 @@ optional arguments:
   --start-date START_DATE
                         Beginning of period (format YYYY-MM-DD)
   --end-date END_DATE   End of period (format YYYY-MM-DD)
-  -v, --version         show program's version number and exit
+  --l2a                 Processing level Level-2A for S2 products if set
+                        (default: L1C)
+  --version, -v         show program's version number and exit
   --refImage PATH       Reference image (use as geometric reference)
   --wd PATH             Working directory (default : /data/production/wd)
   --conf PATH           S2L_configuration file (Default:
                         SEN2LIKE_DIR/conf/S2L_config.ini)
   --confParams STRLIST  Overload parameter values (Default: None). Given as a
-                        "key=value" comma-separated list.Example: --confParams
-                        "doNbar=False,doSbaf=False"
-  --bands STRLIST       Bands to process as coma separated list (Default: ALL
-                        bands)
+                        "key=value" comma-separated list. Example:
+                        --confParams "doNbar=False,doSbaf=False"
+  --bands STRLIST       S2 bands to process as coma separated list (Default:
+                        ALL bands)
+  --allow-other-srs     Selected product to process can have another SRS/UTM
+                        than the one of the S2 tile (default: False)
   --no-run              Do not start process and only list products (default:
                         False)
   --intermediate-products
                         Generate intermediate products (default: False)
-  --parallelize-bands
-                        Process bands in parallel (default: False)
+  --parallelize-bands   Process bands in parallel (default: False)
 
 Debug arguments:
   --debug, -d           Enable Debug mode (default: False)
@@ -615,12 +624,13 @@ python sen2like.py multi-tile-mode --help
 
 ```
 usage: sen2like.py multi-tile-mode [-h] [--start-date START_DATE]
-                                   [--end-date END_DATE] [--jobs JOBS] [-v]
-                                   [--refImage PATH] [--wd PATH] [--conf PATH]
-                                   [--confParams STRLIST] [--bands STRLIST]
-                                   [--no-run]
-                                   [--intermediate-products] [parallelize-bands]
-                                   [--debug] [--no-log-date]
+                                   [--end-date END_DATE] [--l2a] [--jobs JOBS]
+                                   [--version] [--refImage PATH] [--wd PATH]
+                                   [--conf PATH] [--confParams STRLIST]
+                                   [--bands STRLIST] [--allow-other-srs]
+                                   [--no-run] [--intermediate-products]
+                                   [--parallelize-bands] [--debug]
+                                   [--no-log-date]
                                    roi
 
 positional arguments:
@@ -631,23 +641,26 @@ optional arguments:
   --start-date START_DATE
                         Beginning of period (format YYYY-MM-DD)
   --end-date END_DATE   End of period (format YYYY-MM-DD)
+  --l2a                 Processing level Level-2A for S2 products if set
+                        (default: L1C)
   --jobs JOBS, -j JOBS  Number of tile to process in parallel
-  -v, --version         show program's version number and exit
+  --version, -v         show program's version number and exit
   --refImage PATH       Reference image (use as geometric reference)
   --wd PATH             Working directory (default : /data/production/wd)
   --conf PATH           S2L_configuration file (Default:
                         SEN2LIKE_DIR/conf/S2L_config.ini)
   --confParams STRLIST  Overload parameter values (Default: None). Given as a
-                        "key=value" comma-separated list.Example: --confParams
-                        "doNbar=False,doSbaf=False"
-  --bands STRLIST       Bands to process as coma separated list (Default: ALL
-                        bands)
+                        "key=value" comma-separated list. Example:
+                        --confParams "doNbar=False,doSbaf=False"
+  --bands STRLIST       S2 bands to process as coma separated list (Default:
+                        ALL bands)
+  --allow-other-srs     Selected product to process can have another SRS/UTM
+                        than the one of the S2 tile (default: False)
   --no-run              Do not start process and only list products (default:
                         False)
   --intermediate-products
                         Generate intermediate products (default: False)
-  --parallelize-bands
-                        Process bands in parallel (default: False)
+  --parallelize-bands   Process bands in parallel (default: False)
 
 Debug arguments:
   --debug, -d           Enable Debug mode (default: False)
@@ -675,7 +688,8 @@ usage: sen2like.py roi-based-mode [-h] [--tile TILE] [--start-date START_DATE]
                                   [--end-date END_DATE] [--l2a] [--version]
                                   [--refImage PATH] [--wd PATH] [--conf PATH]
                                   [--confParams STRLIST] [--bands STRLIST]
-                                  [--no-run] [--intermediate-products]
+                                  [--allow-other-srs] [--no-run]
+                                  [--intermediate-products]
                                   [--parallelize-bands] [--debug]
                                   [--no-log-date]
                                   roi
@@ -702,6 +716,8 @@ optional arguments:
                         --confParams "doNbar=False,doSbaf=False"
   --bands STRLIST       S2 bands to process as coma separated list (Default:
                         ALL bands)
+  --allow-other-srs     Selected product to process can have another SRS/UTM
+                        than the one of the S2 tile (default: False)
   --no-run              Do not start process and only list products (default:
                         False)
   --intermediate-products

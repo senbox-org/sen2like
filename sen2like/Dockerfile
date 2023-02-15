@@ -1,5 +1,5 @@
 # docker image baser on miniconda image (debian:latest)
-FROM continuumio/miniconda3 AS build
+FROM continuumio/miniconda3:22.11.1 AS build
 LABEL stage=sen2like_build
 
 # set the working dir to /usr/local/sen2like

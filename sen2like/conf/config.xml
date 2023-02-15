@@ -2,15 +2,15 @@
 <Level-2A_Ground_Image_Processing_Parameter xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
                                             xsi:noNamespaceSchemaLocation="Sen2Like_GIPP.xsd">
     <Processing>
+        <doGeometry>True</doGeometry>
         <doStitching>True</doStitching>
-        <doGeometryKLT>True</doGeometryKLT>
+        <doGeometryCheck>True</doGeometryCheck>
         <doToa>True</doToa>
         <doInterCalibration>True</doInterCalibration>
         <doAtmcor>True</doAtmcor>
         <doNbar>True</doNbar>
         <doSbaf>True</doSbaf>
         <doFusion>True</doFusion>
-        <doPackager>False</doPackager>
         <doPackagerL2H>False</doPackagerL2H>
         <doPackagerL2F>True</doPackagerL2F>
     </Processing>
@@ -71,7 +71,7 @@
         <doMatchingCorrection>True</doMatchingCorrection>
         <doAssessGeometry>B04</doAssessGeometry>
         <references_map>/data/References/references_map.json</references_map>
-        <force_geometric_correction>False</force_geometric_correction>
+        <force_geometric_correction>True</force_geometric_correction>
     </Geometry>
     <Atmcor>
         <use_sen2cor>True</use_sen2cor>
@@ -88,7 +88,7 @@
         <fusion_auto_check_threshold>0.1</fusion_auto_check_threshold>
     </Fusion>
     <Stitching>
-        <reframe_margin>50</reframe_margin>
+        <same_utm_only>True</same_utm_only>
     </Stitching>
     <OutputFormat>
         <gain>10000</gain>
@@ -121,6 +121,5 @@
     <RunTime>
         <dx>0</dx>
         <dy>0</dy>
-        <freeze_dx_dy>True</freeze_dx_dy>
     </RunTime>
 </Level-2A_Ground_Image_Processing_Parameter>

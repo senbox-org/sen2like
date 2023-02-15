@@ -381,7 +381,7 @@ def create_child(root: Element, rpath: str, tag: str, text: str = None, attribs:
     """
     Usage example:
     create_child(root_out, rpath='./General_Info/Product_Info/Product_Organisation/Granule_List/Granule',
-                 tag='IMAGE_FILE', text='trololo')
+                 tag='IMAGE_FILE_2HF', text='trololo')
     :param root:
     :param rpath:    relative path of the element in the root
     :param tag:      Tag to give to the created node

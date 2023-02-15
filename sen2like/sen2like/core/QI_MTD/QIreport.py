@@ -71,15 +71,17 @@ class QiWriter(XmlWriter):
                              attribs={"name": key})
 
         # Change all 'item' urls and names
-        urls = os.path.join(metadata.mtd.get('product_{}_name'.format(self.H_F)), 'GRANULE',
-                            metadata.mtd.get('granule_{}_name'.format(self.H_F)), 'QI_DATA')
-        url_aux = os.path.join(metadata.mtd.get('product_{}_name'.format(self.H_F)), 'GRANULE',
-                               metadata.mtd.get('granule_{}_name'.format(self.H_F)), 'AUX_DATA')
+        product_name_field = f"product_{self.H_F}_name"
+        granule_name_field = f"granule_{self.H_F}_name"
+        urls = os.path.join(metadata.mtd.get(product_name_field), 'GRANULE',
+                            metadata.mtd.get(granule_name_field), 'QI_DATA')
+        url_aux = os.path.join(metadata.mtd.get(product_name_field), 'GRANULE',
+                               metadata.mtd.get(granule_name_field), 'AUX_DATA')
         change_elm(self.root_out, rpath='./Data_Block/report/checkList/item', attr_to_change='url', new_value=urls)
         change_elm(self.root_out, rpath='./Data_Block/report/checkList[parentID="L2A_AUX"]/item', attr_to_change='url',
                    new_value=url_aux)
         change_elm(self.root_out, rpath='./Data_Block/report/checkList/item', attr_to_change='name',
-                   new_value=metadata.mtd.get('granule_{}_name'.format(self.H_F)))
+                   new_value=metadata.mtd.get(granule_name_field))
 
     def _feed_values_dict(self):
         """

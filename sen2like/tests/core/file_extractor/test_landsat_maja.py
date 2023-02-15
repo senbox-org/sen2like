@@ -11,8 +11,7 @@ roi_path_file = os.path.join(
 
 
 class TestLandsatMajaExtractor(AbstractExtractorTestCase):
-    """LandsatMajaMTL test class
-    """
+    """LandsatMajaMTL test class"""
 
     def __init__(self, methodName="unitTest"):
         super().__init__(LandsatMajaMTL, roi_path_file, 'L2A_MAJA', methodName)

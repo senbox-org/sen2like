@@ -1,4 +1,4 @@
-import glob
+"""Module for Sentinel 2 Maja product""" 
 import logging
 import os
 import sys
@@ -12,7 +12,7 @@ import mgrs
 
 from atmcor.get_s2_angles import reduce_angle_matrix, get_angles_band_index
 from core.metadata_extraction import from_date_to_doy
-from core.readers.reader import BaseReader
+from core.readers.maja_reader import MajaReader
 
 log = logging.getLogger('Sen2Like')
 
@@ -27,66 +27,43 @@ def from_values_list_to_array(selected_node):
     y_size = len(values_list)
 
     # Create np array of size (x_size, y_size) for values :
-    arr = np.empty([x_size, y_size], np.float)
+    arr = np.empty([x_size, y_size], float)
     for j in range(y_size):
-        a = np.asarray(values_list[j].text.split(), np.float)
+        a = np.asarray(values_list[j].text.split(), float)
         arr[j] = a
 
     return x_size, y_size, col_step, row_step, arr
 
 
-class Sentinel2MajaMTL(BaseReader):
+class Sentinel2MajaMTL(MajaReader):
     resolutions = {10: 'R1', 20: 'R2'}
     classif_band = {10: 'B4', 20: 'B5'}
 
     # Object for metadata extraction
 
-    def __init__(self, product_path, mtd_file=None):
+    def __init__(self, product_path):
         super().__init__(product_path)
 
-        if not os.path.exists(self.product_path):
-            log.error('Input product does not exist')
-            self.isValid = False
+        if not self.isValid:
             return
 
-        self.isValid = True
-
         self.mgrs = os.path.basename(self.product_path).split('_')[3][-5:]
-
-        try:
-            mtl_file_name = glob.glob(os.path.join(self.product_path, '*MTD*.xml'))[0]
-        except IndexError:
-            self.isValid = False
-            sys.exit('No MTD product file information found')
-        try:
-            root = ElementTree.parse(mtl_file_name)
-        except pars.expat.ExpatError as err:
-            self.isValid = False
-            logging.error("Error during parsing of MTD product file: %s", mtl_file_name)
-            logging.error(err)
-            sys.exit(-1)
 
         self.aerosol_band = None
         self.aerosol_value = None
 
-        self.dt_sensing_start = root.findtext('Product_Characteristics/ACQUISITION_DATE')
-        self.ds_sensing_start = root.findtext('Product_Characteristics/ACQUISITION_DATE')
+        self.dt_sensing_start = self.root.findtext('Product_Characteristics/ACQUISITION_DATE')
+        self.ds_sensing_start = self.root.findtext('Product_Characteristics/ACQUISITION_DATE')
 
         # Read XML Metadata
         try:
             # mini dom
-            self.mtl_file_name = mtl_file_name
-
-            self.data_type = root.findtext('Product_Characteristics/PRODUCT_LEVEL')  # Level-1C / Level-2
-            self.product_name = root.findtext('Product_Characteristics/PRODUCT_ID')
-
-            self.file_date = root.findtext('Product_Characteristics/PRODUCTION_DATE')
-            self.processing_sw = root.findtext('Product_Characteristics/PRODUCT_VERSION')
-            self.mission = root.findtext('Product_Characteristics/PLATFORM')
+            self.product_name = self.root.findtext('Product_Characteristics/PRODUCT_ID')
+            self.file_date = self.root.findtext('Product_Characteristics/PRODUCTION_DATE')
             self.sensor = 'MSI'
-            self.absolute_orbit = root.findtext('Product_Characteristics/ORBIT_NUMBER')
+            self.absolute_orbit = self.root.findtext('Product_Characteristics/ORBIT_NUMBER')
 
-            image_list_node = root.findall('.//Image_List/Image')
+            image_list_node = self.root.findall('.//Image_List/Image')
 
             self.bands = {}
 
@@ -105,18 +82,18 @@ class Sentinel2MajaMTL(BaseReader):
             self.radio_coefficient_dic = {}
 
             # RESCALING GAIN And OFFSET :
-            self.quantification_value = root.findtext('.//Radiometric_Informations/REFLECTANCE_QUANTIFICATION_VALUE')
+            self.quantification_value = self.root.findtext('.//Radiometric_Informations/REFLECTANCE_QUANTIFICATION_VALUE')
 
-            solar_nodes = root.findall('.//Spectral_Band_Informations_List/Spectral_Band_Informations')
+            solar_nodes = self.root.findall('.//Spectral_Band_Informations_List/Spectral_Band_Informations')
             self.band_sequence = []
             for solar_band_node in solar_nodes:
                 band_id = solar_band_node.attrib['band_id']
                 self.band_sequence.append(band_id)
                 solar_irradiance = solar_band_node.findtext('.//SOLAR_IRRADIANCE')
                 self.radio_coefficient_dic[band_id] = {"Band_id": band_id,
-                                                       "Gain": 0.00001, "Offset": 0.0,
-                                                       "Solar_irradiance": solar_irradiance
-                                                       }
+                                                        "Gain": 0.00001, "Offset": 0.0,
+                                                        "Solar_irradiance": solar_irradiance
+                                                        }
 
             # self.band_sequence = [int(rec) + 1 for rec in self.band_sequence]
             # self.rescaling_gain = [0.00001] * len(self.band_sequence)
@@ -124,39 +101,10 @@ class Sentinel2MajaMTL(BaseReader):
 
             tab = [self.radio_coefficient_dic[x]["Solar_irradiance"] for x in self.radio_coefficient_dic]
             self.solar_irradiance = [np.double(rec) for rec in tab]
-            self.cloud_cover = root.findtext('.//Global_Index_List/QUALITY_INDEX[@name="CloudPercent"]')
+            self.cloud_cover = self.root.findtext('.//Global_Index_List/QUALITY_INDEX[@name="CloudPercent"]')
 
             # Compute scene boundary - EXT_POS_LIST tag
-            scene_boundary_lat = [float(point.findtext('LAT')) for point in
-                                  root.findall('.//Global_Geopositioning/Point') if point.attrib['name'] != 'center']
-            scene_boundary_lon = [float(point.findtext('LON')) for point in
-                                  root.findall('.//Global_Geopositioning/Point') if point.attrib['name'] != 'center']
-            arr1 = np.asarray(scene_boundary_lat, np.float)
-            arr1_r = np.roll(arr1, -1)
-            # Retour d index
-            arr2 = np.asarray(scene_boundary_lon, np.float)
-            arr2_r = np.roll(arr2, -1)
-            x = arr1_r - arr1  # Vecteur X - latitude
-            y = arr2_r - arr2  # Vecteur Y - longitude
-            # Remove point with diff null in the two direction
-            index = (np.argwhere((x == 0) & (y == 0))).flatten()
-            x = np.delete(x, index)
-            y = np.delete(y, index)
-            x_r = np.roll(x, -1)
-            y_r = np.roll(y, -1)
-            scalar = np.multiply(x, x_r) + np.multiply(y, y_r)  # Scalar product
-            # Norm
-            norm = np.power(np.multiply(x, x) + np.multiply(y, y), 0.5)
-            norm_r = np.roll(norm, -1)
-            # Product of Norm || U || * || V ||
-
-            theta = np.roll(
-                np.arccos(np.divide(scalar, np.multiply(norm, norm_r))) * (np.divide(180, np.pi)),
-                1)
-            arr1 = np.delete(arr1, index)
-            arr2 = np.delete(arr2, index)
-            self.scene_boundary_lat = arr1[theta > 60.0].tolist()
-            self.scene_boundary_lon = arr2[theta > 60.0].tolist()
+            self.compute_boundary()
             # End of scene boundary
 
         except IndexError:
@@ -173,12 +121,12 @@ class Sentinel2MajaMTL(BaseReader):
 
         try:
             self.doy = 0
-            self.sun_zenith_angle = root.findtext('.//Geometric_Informations/Mean_Value_List/Sun_Angles/ZENITH_ANGLE')
-            self.sun_azimuth_angle = root.findtext('.//Geometric_Informations/Mean_Value_List/Sun_Angles/AZIMUTH_ANGLE')
+            self.sun_zenith_angle = self.root.findtext('.//Geometric_Informations/Mean_Value_List/Sun_Angles/ZENITH_ANGLE')
+            self.sun_azimuth_angle = self.root.findtext('.//Geometric_Informations/Mean_Value_List/Sun_Angles/AZIMUTH_ANGLE')
 
             self.viewing_azimuth_angle = {}
             self.viewing_zenith_angle = {}
-            incidence_angle_nodes = root.find('.//Mean_Viewing_Incidence_Angle_List')
+            incidence_angle_nodes = self.root.find('.//Mean_Viewing_Incidence_Angle_List')
             for cpt, incidence_angle_node in enumerate(incidence_angle_nodes):
                 band_id = incidence_angle_node.attrib['band_id']
                 self.viewing_azimuth_angle[str(cpt)] = {"Band_id": band_id,
@@ -191,7 +139,7 @@ class Sentinel2MajaMTL(BaseReader):
             # TO USE </Viewing_Incidence_Angles_Grids> to set the angle files
             # self.angles_file = None
 
-            geoposition_node = root.find('Geoposition_Informations/Coordinate_Reference_System')
+            geoposition_node = self.root.find('Geoposition_Informations/Coordinate_Reference_System')
             self.utm = geoposition_node.findtext('HORIZONTAL_CS_NAME')
 
             # 2017 - 12 - 07T09:13:39.027 Z
@@ -205,7 +153,7 @@ class Sentinel2MajaMTL(BaseReader):
 
             self.epsg = geoposition_node.findtext('HORIZONTAL_CS_CODE')
 
-            mask_nodes = root.findall('.//Mask_List/Mask')
+            mask_nodes = self.root.findall('.//Mask_List/Mask')
             self.cloud_mask = []
             self.nodata_mask = {}
             self.detfoo_mask = {}

@@ -1,12 +1,13 @@
 #! /usr/bin/env python
 # -*- coding: utf-8 -*-
 # S. Saunier (TPZ) 2018
-
-
+from collections import OrderedDict
+from datetime import datetime
 import logging
-
-import os
 import glob
+import os
+import re
+
 import numpy as np
 from osgeo import gdal
 from skimage.transform import resize as skit_resize
@@ -167,27 +168,75 @@ class ROYBRDFCoefficient(BRDFCoefficient):
 
 
 class VJBMatriceBRDFCoefficient(BRDFCoefficient):
-    vr_file_glob_path = '*_BRDFinputs.nc'
+
     mtd = 'Vermote, E., C.O. Justice, et F.-M. Breon. 2009'
 
-    def __init__(self, product, image, band, vr_matrix_dir):
-        super().__init__(product, image, band)
-        vr_files = glob.glob(os.path.join(vr_matrix_dir, self.vr_file_glob_path))
-        self.vr_matrix = None
-        self.vr_matrix_file = None
-        self.tile = product.mtl.mgrs
-        for file in vr_files:
-            vr_matrix = xr.open_dataset(file)
-            if vr_matrix.attrs['TILE'][-5:] == product.mtl.mgrs:
-                log.info("Find VJB matrices : %s", file)
-                self.vr_matrix = vr_matrix
-                self.vr_matrix_resolution = int(self.vr_matrix.attrs['SPATIAL_RESOLUTION'])
-                self.vr_matrix_file = file
-                self.band_names = {
-                    k: v for k, v in zip(self.vr_matrix.attrs['BANDS_NUMBER'], self.vr_matrix.attrs['BANDS'])}
+    # AUX DATA filename sample : S2__USER_AUX_HABA___UV___20221027T000101_V20190105T103429_20191231T103339_T31TFJ_MLSS2_MO.nc
+    # Note that group 6 (20221027T000101) is composed by production day + T + 00 + version number -> this is note a real date and time
+    # groupe 7 is validity start date
+    # groupe 8 is validity end date
+    AUX_FILE_EXPR = re.compile(
+        "S2(.)_(.{4})_(.{3})_(.{6})_(.{4})_(\\d{8}T\\d{6})_V(\\d{8}T\\d{6})_(\\d{8}T\\d{6})_T(.{5})_(.{5})_(.{2})\\.nc"
+    )
 
-                break  # Stop at the first correct file
+    def __init__(self, product, image, band, vr_matrix_dir):
+
+        super().__init__(product, image, band)
+
+        self.vr_matrix = None
+        self.tile = product.mtl.mgrs
+        self.vr_matrix_file = self._select_vr_file(vr_matrix_dir)
+
+        if self.vr_matrix_file:
+            log.info("Find VJB matrices : %s", self.vr_matrix_file)
+            vr_matrix = xr.open_dataset(self.vr_matrix_file)
+            self.vr_matrix = vr_matrix
+            self.vr_matrix_resolution = int(self.vr_matrix.attrs['SPATIAL_RESOLUTION'])
             vr_matrix.close()
+
+    def _select_vr_file(self, aux_data_folder_path) -> str:
+        """Select aux data file in the given dir path having tile and validity dates 
+        that match product tile and acquisition date.
+        If multiple files match, select the most recent.
+
+        Args:
+            aux_data_folder_path (str): aux data folder path
+
+        Returns:
+            str: aux data file path, None if no fil match
+        """
+
+        # First filter aux data files on tile
+        vr_file_glob_path = f"S2*_T{self.product.mtl.mgrs}*.nc"
+        vr_files = glob.glob(os.path.join(aux_data_folder_path, vr_file_glob_path))
+
+        # We will index candidate files by production day/version number pair
+        _candidate_vr_files = {}
+
+        # attempt to select on validity dates
+        for file_path in vr_files:
+            aux_data_file_name = os.path.basename(file_path)
+            match = self.AUX_FILE_EXPR.match(aux_data_file_name)
+            if match:
+                validity_start = datetime.strptime(match.group(7), "%Y%m%dT%H%M%S")
+                validity_start = validity_start.replace(microsecond=0)
+                validity_end = datetime.strptime(match.group(8), "%Y%m%dT%H%M%S")
+                validity_end = validity_end.replace(microsecond=999999)
+
+                if validity_start < self.product.acqdate < validity_end:
+                    # validity dates match, index it on production day/version number pair
+                    _idx = match.group(6)
+                    _candidate_vr_files[_idx] = file_path
+
+        # found file
+        if _candidate_vr_files:
+            # sort candidates by production day/version number pair
+            _candidate_vr_files = OrderedDict(sorted(_candidate_vr_files.items()))
+            # get latest
+            return _candidate_vr_files.popitem(last=True)[1]
+
+        # no file found
+        return None
 
     def check(self):
         return self.vr_matrix is not None and self.band in self.vr_matrix.attrs['BANDS_NUMBER']
@@ -196,10 +245,17 @@ class VJBMatriceBRDFCoefficient(BRDFCoefficient):
         # Load datas
         if not self.check():
             return None
-        V0 = self.vr_matrix['V0_tendency_' + self.band_names[self.band]] / 10000.0
-        V1 = self.vr_matrix['V1_tendency_' + self.band_names[self.band]] / 10000.0
-        R0 = self.vr_matrix['R0_tendency_' + self.band_names[self.band]] / 10000.0
-        R1 = self.vr_matrix['R1_tendency_' + self.band_names[self.band]] / 10000.0
+
+        # V0 <=> V_intercept_Bxx
+        # V1 <=> V_slope_Bxx
+        # R0 <=> R_intercept_Bxx
+        # R1 <=> R_slope_Bxx
+
+        V0 = self.vr_matrix[f'V_intercept_{self.band}'] / 10000.0
+        V1 = self.vr_matrix[f'V_slope_{self.band}'] / 10000.0
+        R0 = self.vr_matrix[f'R_intercept_{self.band}'] / 10000.0
+        R1 = self.vr_matrix[f'R_slope_{self.band}'] / 10000.0
+
         ndvi_img = S2L_ImageFile(self.product.ndvi_filename)
 
         #  Resizing
@@ -210,8 +266,8 @@ class VJBMatriceBRDFCoefficient(BRDFCoefficient):
         V1 = _resize(V1.data, img_res / self.vr_matrix_resolution)
         R0 = _resize(R0.data, img_res / self.vr_matrix_resolution)
         R1 = _resize(R1.data, img_res / self.vr_matrix_resolution)
-        ndvi_min = _resize(self.vr_matrix.ndvi_min.data, img_res / self.vr_matrix_resolution) / 10000.0
-        ndvi_max = _resize(self.vr_matrix.ndvi_max.data, img_res / self.vr_matrix_resolution) / 10000.0
+        ndvi_min = _resize(self.vr_matrix.NDVImin.data, img_res / self.vr_matrix_resolution) / 10000.0
+        ndvi_max = _resize(self.vr_matrix.NDVImax.data, img_res / self.vr_matrix_resolution) / 10000.0
 
         # Clip a tester:
         ndvi = np.where(ndvi < ndvi_min, ndvi_min, ndvi)

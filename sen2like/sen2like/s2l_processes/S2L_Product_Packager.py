@@ -67,7 +67,7 @@ class S2L_Product_Packager(S2L_Process):
         self.mtd_product_qi_xsd_field = config.mtd_product_qi_xsd_field
         self.tile_mtd_file_path = config.tile_mtd_file_path
 
-    def base_path_product(self, product):
+    def base_path_product(self, product: S2L_Product):
         """
         See https://sentinel.esa.int/web/sentinel/user-guides/sentinel-2-msi/naming-convention
         More information https://sentinel.esa.int/documents/247904/685211/Sentinel-2-Products-Specification-Document
@@ -93,7 +93,7 @@ class S2L_Product_Packager(S2L_Process):
             absolute_orbit = S2L_config.config.get('absolute_orbit')
         else:
             datatake_sensing_start = dt.datetime.strftime(product.acqdate, DATE_FILE_FORMAT)
-            datastrip_sensing_start = dt.datetime.strftime(product.file_date, DATE_FILE_FORMAT)
+            datastrip_sensing_start = datatake_sensing_start # dt.datetime.strftime(product.file_date, DATE_FILE_FORMAT)
             absolute_orbit = metadata.hardcoded_values.get('L8_absolute_orbit')
 
         tile_code = product.mtl.mgrs
@@ -322,16 +322,8 @@ class S2L_Product_Packager(S2L_Process):
             qi_data_dir (str): path to quicklook output dir
             product (S2L_Product): product
         """
-        if len(self.images.keys()) > 1:
-            # true color QL
-            self.handle_product_quicklook(qi_data_dir, product, ["B04", "B03", "B02"], 'B432')
-            self.handle_product_quicklook(qi_data_dir, product, ["B12", "B11", "B8A"], 'B12118A')
-        else:
-            # grayscale QL
-            band_list = list(self.images.keys())
-            self.handle_product_quicklook(qi_data_dir, product, band_list, band_list[0])
 
-        # PVI
+        # PVI : MUST BE FIRST
         band_list = ["B04", "B03", "B02"]
         pvi_filename = f"{metadata.mtd.get(self.mtd_band_root_name_field)}_PVI.TIF"
         ql_path = os.path.join(qi_data_dir, pvi_filename)
@@ -342,6 +334,15 @@ class S2L_Product_Packager(S2L_Process):
 
         if result_path is not None:
             metadata.mtd.get(self.mtd_quicklook_field).append(ql_path)
+
+        if len(self.images.keys()) > 1:
+            # true color QL
+            self.handle_product_quicklook(qi_data_dir, product, ["B04", "B03", "B02"], 'B432')
+            self.handle_product_quicklook(qi_data_dir, product, ["B12", "B11", "B8A"], 'B12118A')
+        else:
+            # grayscale QL
+            band_list = list(self.images.keys())
+            self.handle_product_quicklook(qi_data_dir, product, band_list, band_list[0])
 
     def handle_product_quicklook(self, qi_data_dir: str, product: S2L_Product, band_list: list, suffix: str):
         """
@@ -378,10 +379,10 @@ class S2L_Product_Packager(S2L_Process):
                                                                   "text": element.text})
 
         # copy valid pixel mask
-        outfile = "_".join([metadata.mtd.get(self.mtd_band_root_name_field), product.sensor, 'MSK']) + '.TIF'
+        outfile = "_".join([metadata.mtd.get(self.mtd_band_root_name_field), 'MSK']) + '.TIF'
 
         fpath = os.path.join(qi_data_dir, outfile)
-        metadata.mtd.get(self.mtd_mask_field).append({"tag": "MASK_FILENAME", "attribs": {"type": "MSK_VALPIX"},
+        metadata.mtd.get(self.mtd_mask_field).append({"tag": "MASK_FILENAME", "attribs": {"type": "MSK_VALPXL"},
                                                       "text": os.path.relpath(fpath, product_path)})
 
         if S2L_config.config.get('output_format') == 'COG':

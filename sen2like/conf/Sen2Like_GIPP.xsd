@@ -5,15 +5,15 @@
                 type="Level-2A_Ground_Image_Processing_ParameterType"/>
     <xs:complexType name="ProcessingType">
         <xs:sequence>
+            <xs:element type="StringBoolType" name="doGeometry"/>
             <xs:element type="StringBoolType" name="doStitching"/>
-            <xs:element type="StringBoolType" name="doGeometryKLT"/>
+            <xs:element type="StringBoolType" name="doGeometryCheck"/>
             <xs:element type="StringBoolType" name="doToa"/>
             <xs:element type="StringBoolType" name="doInterCalibration"/>
             <xs:element type="StringBoolType" name="doAtmcor"/>
             <xs:element type="StringBoolType" name="doNbar"/>
             <xs:element type="StringBoolType" name="doSbaf"/>
             <xs:element type="StringBoolType" name="doFusion"/>
-            <xs:element type="StringBoolType" name="doPackager"/>
             <xs:element type="StringBoolType" name="doPackagerL2H"/>
             <xs:element type="StringBoolType" name="doPackagerL2F"/>
         </xs:sequence>
@@ -107,7 +107,7 @@
     </xs:complexType>
     <xs:complexType name="StitchingType">
         <xs:sequence>
-            <xs:element type="xs:integer" name="reframe_margin"/>
+            <xs:element type="StringBoolType" name="same_utm_only"/>
         </xs:sequence>
     </xs:complexType>
     <xs:complexType name="NbarType">
@@ -166,8 +166,7 @@
         <xs:sequence>
             <xs:element type="xs:integer" name="dx"/>
             <xs:element type="xs:integer" name="dy"/>
-            <xs:element type="xs:string" name="freeze_dx_dy"/>
-            <xs:element type="StringBoolType" name="use_smac"/>
+            <xs:element type="StringBoolType" name="use_smac" minOccurs="0"/>
         </xs:sequence>
     </xs:complexType>
     <xs:complexType name="Level-2A_Ground_Image_Processing_ParameterType">

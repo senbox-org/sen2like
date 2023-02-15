@@ -8,20 +8,24 @@ import hashlib
 import json
 import logging
 import os
-import xmlschema
 
 from argparse import Namespace
 from collections import OrderedDict
 from xml.etree import ElementTree
 
+import xmlschema
+
+# TODO see this to have config object
+# https://stackoverflow.com/questions/63431417/using-configparser-to-create-objects-of-a-class
 
 # INTERNAL CONFIGURATION (static)
 
 # define here all the blocks that are implemented, then user to choose
 # which blocks are to be run through the on/off switches in the config.ini file
 PROC_BLOCKS = OrderedDict()
+PROC_BLOCKS['S2L_Geometry'] = {'extension': '_REFRAMED.TIF', 'applicability': 'L8_L9_S2'}
 PROC_BLOCKS['S2L_Stitching'] = {'extension': '_STITCHED.TIF', 'applicability': 'L8_L9_S2'}
-PROC_BLOCKS['S2L_GeometryKLT'] = {'extension': '_REFRAMED.TIF', 'applicability': 'L8_L9_S2'}
+PROC_BLOCKS['S2L_GeometryCheck'] = {'extension': None, 'applicability': 'L8_L9_S2'}
 PROC_BLOCKS['S2L_Toa'] = {'extension': '_TOA.TIF', 'applicability': 'L8_L9_S2'}
 PROC_BLOCKS['S2L_InterCalibration'] = {'extension': '_INTERCAL.TIF', 'applicability': 'L8_L9_S2'}
 PROC_BLOCKS['S2L_Atmcor'] = {'extension': '_SURF.TIF', 'applicability': 'L8_L9_S2'}
@@ -29,7 +33,6 @@ PROC_BLOCKS['S2L_Nbar'] = {'extension': '_BRDF.TIF', 'applicability': 'L8_L9_S2'
 PROC_BLOCKS['S2L_Sbaf'] = {'extension': '_SBAF.TIF', 'applicability': 'L8_L9_S2'}
 PROC_BLOCKS['S2L_PackagerL2H'] = {'extension': None, 'applicability': 'L8_L9_S2'}
 PROC_BLOCKS['S2L_Fusion'] = {'extension': '_FUSION.TIF', 'applicability': 'L8_L9'}
-PROC_BLOCKS['S2L_Packager'] = {'extension': None, 'applicability': 'L8_L9_S2'}
 PROC_BLOCKS['S2L_PackagerL2F'] = {'extension': None, 'applicability': 'L8_L9_S2'}
 
 logger = logging.getLogger("Sen2Like")
@@ -344,11 +347,13 @@ class S2L_Config:
                 self.set('refImage', None)
         else:
             self.set('refImage', None)
-        self.set('hlsplus', self.getboolean('doPackager') or self.getboolean('doPackagerL2F'))
+        self.set('hlsplus', self.getboolean('doPackagerL2F'))
         self.set('debug', args.debug)
         self.set('generate_intermediate_products', args.generate_intermediate_products)
         if hasattr(args, 'l2a'):
             self.set('s2_processing_level', 'LEVEL2A' if args.l2a else "LEVEL1C")
+
+        self.set('allow_other_srs', args.allow_other_srs)
 
 
 config = S2L_Config()

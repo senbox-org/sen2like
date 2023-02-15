@@ -68,11 +68,17 @@ def main():
     conn = sqlite3.connect(args.out)
     conn.enable_load_extension(True)
     conn.load_extension("mod_spatialite")
+
+    conn.execute("SELECT InitSpatialMetaData();")
+
     create_req = (
         "CREATE TABLE s2tiles ("
-        "TILE_ID VARCHAR(5), EPSG VARCHAR(5), UTM_WKT VARCHAR, MGRS_REF VARCHAR, LL_WKT VARCHAR, geometry POLYGON); "
+        "TILE_ID VARCHAR(5), EPSG VARCHAR(5), UTM_WKT VARCHAR, MGRS_REF VARCHAR, LL_WKT VARCHAR); "
     )
     conn.execute(create_req)
+
+    conn.execute("SELECT AddGeometryColumn('s2tiles', 'geometry', 4326, 'POLYGON', 0);")
+
     insert_req = (
         "INSERT INTO s2tiles(TILE_ID , EPSG , UTM_WKT , MGRS_REF , LL_WKT , geometry) "
         "VALUES (?, ?, ?, ?, ?, GeomFromText(?, 4326)) "

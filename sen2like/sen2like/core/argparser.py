@@ -135,6 +135,8 @@ class S2LArgumentParser(ArgumentParser):
         parser.add_argument("--bands", dest="bands", type=lambda s: [i for i in s.split(',')],
                             help="S2 bands to process as coma separated list (Default: ALL bands)", metavar="STRLIST",
                             default=None)
+        parser.add_argument("--allow-other-srs", dest="allow_other_srs",
+                            help="Selected product to process can have another SRS/UTM than the one of the S2 tile (default: False)", action="store_true")
         parser.add_argument("--no-run", dest="no_run", action="store_true",
                             help="Do not start process and only list products (default: False)")
         parser.add_argument("--intermediate-products", dest="generate_intermediate_products", action="store_true",

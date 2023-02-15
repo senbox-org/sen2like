@@ -1,15 +1,19 @@
 import csv
 import inspect
 import logging
+from typing import Type
 import os
 import sys
 from collections import OrderedDict
 
 from core.module_loader import dynamic_loader, get_proj_dir
 
+
 log = logging.getLogger('Sen2Like')
 
-PRODUCTS = {}
+
+# S2L_Product classes dict, keys are S2L_Product class name
+_PRODUCT_CLASS_DICT = {}
 BANDS_MAPPING = {}
 
 
@@ -25,19 +29,19 @@ def get_s2l_product_class_from_sensor_name(sensor):
     :param sensor: Product sensor name
     :return:
     """
-    for current_product in PRODUCTS.values():
+    for current_product in _PRODUCT_CLASS_DICT.values():
         if getattr(current_product, 'is_final', False) and sensor in getattr(current_product, 'supported_sensors', []):
             return current_product
     return None
 
 
-def get_s2l_product_class(product_path):
+def get_s2l_product_class(product_path) -> Type["S2L_Product"]:
     """Get S2L_Product children class corresponding to given product.
 
     :param product_path: Path of the product file to read
     :return:
     """
-    products = [_product for _product in PRODUCTS.values() if _product.can_handle(product_path)]
+    products = [_product for _product in _PRODUCT_CLASS_DICT.values() if _product.can_handle(product_path)]
     if len(products) == 1:
         return products[0]
     if len(products) > 1:
@@ -61,7 +65,8 @@ def read_mapping(product_class) -> OrderedDict:
     return mapping
 
 
-# Loads products
-for product in dynamic_loader(get_proj_dir(__file__), 'products', is_product):
-    PRODUCTS[product.__name__] = product
-    setattr(sys.modules[__name__], product.__name__, product)
+# Loads product classes and fill _PRODUCT_CLASS_DICT
+for _class in dynamic_loader(get_proj_dir(__file__), 'products', is_product):
+    _PRODUCT_CLASS_DICT[_class.__name__] = _class
+    setattr(sys.modules[__name__], _class.__name__, _class)
+

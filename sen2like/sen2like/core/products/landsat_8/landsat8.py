@@ -44,7 +44,7 @@ class Landsat8Product(S2L_Product):
             date_format = "%Y%m%d"
         return regexp, date_format
 
-    def update_site_info(self, tile=None):
+    def _update_site_info(self, tile=None):
         if tile is None:
             tiles = tile_db.wrs_to_mgrs((self.mtl.path, self.mtl.row))
             self.mtl.mgrs = tiles[0] if len(tiles) else "NO_TILE"

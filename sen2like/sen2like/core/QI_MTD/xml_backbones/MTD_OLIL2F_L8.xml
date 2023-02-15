@@ -8,13 +8,13 @@
       <PROCESSING_LEVEL>Level-2F</PROCESSING_LEVEL>
       <PRODUCT_TYPE>L8OLI2F</PRODUCT_TYPE>
       <PROCESSING_BASELINE>99.99</PROCESSING_BASELINE>
-      <PRODUCT_DOI>https://github.com/senbox-org/sen2like</PRODUCT_DOI>
+      <PRODUCT_DOI>https://doi.org/10.57780/esa-4862e7e</PRODUCT_DOI>
       <GENERATION_TIME>2020-05-19T07:52:45.439Z</GENERATION_TIME>
       <PREVIEW_IMAGE_URL>NONE</PREVIEW_IMAGE_URL>
       <PREVIEW_GEO_INFO>NONE</PREVIEW_GEO_INFO>
-      <Datatake datatakeIdentifier="LANDSAT_SCENE_ID?">
+      <Datatake>
         <SPACECRAFT_NAME>LANDSAT_8</SPACECRAFT_NAME> <!-- SPACECRAFT_ID = "LANDSAT_8" -->
-        <DATATAKE_TYPE>NONE</DATATAKE_TYPE>
+        <DATATAKE_TYPE>INS-NOBS</DATATAKE_TYPE>
         <DATATAKE_SENSING_START>2017-11-14T10:24:08.0962369Z</DATATAKE_SENSING_START> <!-- DATE_ACQUIRED = 2017-11-14 SCENE_CENTER_TIME = "10:24:08.0962369Z" -->
         <SENSING_ORBIT_NUMBER>196</SENSING_ORBIT_NUMBER> <!-- TARGET_WRS_PATH = 196 -->
         <SENSING_ORBIT_DIRECTION>DESCENDING</SENSING_ORBIT_DIRECTION>
@@ -24,7 +24,7 @@
       </Query_Options>
       <Product_Organisation>
         <Granule_List>
-          <Granule datastripIdentifier="NONE" granuleIdentifier="NONE" imageFormat="JPEG2000">
+          <Granule granuleIdentifier="NONE" imageFormat="JPEG2000">
             <IMAGE_FILE>GRANULE/L2F_T31TFJ_A000000_20171114T104257_LS8_R196/IMG_DATA/L2F_T31TFJ_20171114T104259_LS8_R196_B01_30m</IMAGE_FILE>
             <IMAGE_FILE>GRANULE/L2F_T31TFJ_A000000_20171114T104257_LS8_R196/IMG_DATA/L2F_T31TFJ_20171114T104259_LS8_R196_B02_10m</IMAGE_FILE>
             <IMAGE_FILE>GRANULE/L2F_T31TFJ_A000000_20171114T104257_LS8_R196/IMG_DATA/L2F_T31TFJ_20171114T104259_LS8_R196_B03_10m</IMAGE_FILE>
@@ -285,7 +285,6 @@
     <ESACCI_SnowCondition_Map_Dir>ESACCI-LC-L4-Snow-Cond-500m-P13Y7D-2000-2012-v2.0</ESACCI_SnowCondition_Map_Dir> <!-- Keep ? -->
   </n1:Auxiliary_Data_Info>
   <n1:Quality_Indicators_Info> <!-- Do we duplicate also QI from granule at product level so that filtering is possible from Scihub and other catalogues ? -->
-    <Input_Product_Info type="LANDSAT_8">LC81960302017318MTI00</Input_Product_Info>
     <Cloud_Coverage_Assessment>1.121011</Cloud_Coverage_Assessment>
     <Cloud_Coverage_Over_Land_Assessment>0.98</Cloud_Coverage_Over_Land_Assessment>
     <Technical_Quality_Assessment>

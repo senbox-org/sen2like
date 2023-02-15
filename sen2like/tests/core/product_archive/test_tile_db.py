@@ -17,6 +17,11 @@ class TestTileDb(unittest.TestCase):
         self.assertEqual(res[2], ([197, 29], 0.23638134146149337))
         self.assertEqual(res[3], ([197, 30], 0.17748451765693712))
 
+        res = tile_db.mgrs_to_wrs("33TTG",same_utm=True)
+        self.assertEqual(len(res), 2)
+        res = tile_db.mgrs_to_wrs("33TTG",same_utm=False)
+        self.assertEqual(len(res), 3)
+
     def test_wrs_to_mgrs(self):
         res = tile_db.wrs_to_mgrs("196_30")
         # ['25XDA', '25XEA', '25WEV', '25WDV', '25XDB']
@@ -44,6 +49,18 @@ class TestTileDb(unittest.TestCase):
         self.assertEqual(res[0], "32TQM")
         self.assertEqual(res[1], "33TTG")
         self.assertEqual(len(res), 2)
+
+    def test_get_coverage(self):
+        # WRS UTM 32 vs MGRS UTM 33
+        assert tile_db.get_coverage((192,31), "33TTG", True) == 0
+        assert tile_db.get_coverage((192,31), "33TTG", False) != 0
+
+        # WRS UTM 33 vs MGRS UTM 33
+        assert tile_db.get_coverage((191,31), "33TTG", True) != 0
+        assert tile_db.get_coverage((191,31), "33TTG", False) != 0
+
+        print(tile_db.get_coverage((192,30), "33TTG", True))
+        print("-> %s" , tile_db.get_coverage((192,30), "33TTG", False))
 
 if __name__ == '__main__':
     unittest.main()

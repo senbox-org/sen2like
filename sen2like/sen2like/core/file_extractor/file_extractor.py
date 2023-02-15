@@ -16,6 +16,7 @@ from fmask import landsatangles
 from fmask import config as fmask_config
 from osgeo import gdal
 from rios import fileinfo
+from skimage.morphology import square, erosion
 from skimage.transform import resize as skit_resize
 
 from atmcor import get_s2_angles as s2_angles
@@ -285,6 +286,14 @@ class S2FileExtractor(InputFileExtractor):
         shape = (int(nodata.shape[0] * - image.yRes / res),
                  int(nodata.shape[1] * image.xRes / res))
         log.debug(shape)
+
+        # Reference band for nodata : B01 (60 m)
+        # dilate no data mask with 120 m thanks to erosion (2 pixels at 60 m)
+        # to be sure to avoid artefact during fusion of S2 + LS (no stitching case)
+        # TODO: create a nodata mask specific to the band to be processed + find a way to have a common nodata mask for every bands
+        # TODO: set nodata pixels to Nan in the image band array to optimize scipy resampling/interprolation processes
+        nodata = erosion(nodata, square(5))
+
         nodata = skit_resize(nodata, shape, order=0, preserve_range=True).astype(np.uint8)
 
         return MaskImage(image, nodata, nodata_mask_filename, res)
@@ -517,13 +526,22 @@ class LandsatFileExtractor(InputFileExtractor):
 
         validity_mask = MaskImage(bqa, valid_px_mask, mask_filename, None)
 
-        # nodata mask (not good when taking it from BQA, getting from B01):
+        # nodata mask (not good when taking it from BQA)
+        # Reference band for nodata : First band to process (usually B01)
         if self._input_product.data_type == 'L2A':
             image_filename = self._input_product.surf_image_list[0]
         else:
             image_filename = self._input_product.dn_image_list[0]
         image = S2L_ImageFile(image_filename)
+        
         nodata = image.array.clip(0, 1).astype(np.uint8)
+
+        
+        # dilate nodata mask 60 m thanks to erosion (2 pixels at 30 m)
+        # avoid black border on L2H/F
+        # TODO: create a nodata mask specific to the band to be processed + find a way to have a common nodata mask for every bands
+        # TODO: set nodata pixels to Nan in the image band array to optimize scipy resampling/interprolation processes
+        nodata = erosion(nodata, square(5))
 
         nodata_mask_filename = os.path.join(
             os.path.dirname(mask_filename), NO_DATA_MASK_FILE_NAME)

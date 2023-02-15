@@ -43,9 +43,23 @@ def main():
     args_parser.add_argument(
         'kml_file',
         help=('KML can be downloaded on Landsat website: '
-              'https://prd-wret.s3.us-west-2.amazonaws.com/assets/palladium/production/atoms/files/WRS-2_bound_world_0.kml'))
+              'https://www.usgs.gov/media/files/landsat-wrs-2-scene-boundaries-kml-file'))
+    args_parser.add_argument(
+        'utm_file',
+        help=('''CSV file having path_row/utm table, formatted as path,row,utm, example :
+              1,1,31
+              1,2,30
+              1,3,29
+              1,4,28'''))
     args_parser.add_argument('-o', '--out', help='Out database', default='l8tiles.db', required=False)
     args = args_parser.parse_args()
+
+    # load path_row / utm zone mapping
+    path_row_map = {}
+    with open(args.utm_file) as path_rwo_utm_file:
+        for line in path_rwo_utm_file:
+            split = line.strip().split(",")
+            path_row_map[f"{split[0]}_{split[1]}"] = int(split[2])
 
     with open(args.kml_file) as f:
         root = parser.parse(f).getroot()
@@ -74,10 +88,8 @@ def main():
         print coords
         print ll_wkt"""
 
-        # get utm zone
-        ctr_lon = float(pm.description.text.split('CTR LON</strong>:')[-1].split('<br>')[0])
-        utm_zone = floor((ctr_lon + 180) / 6) + 1
-        meta['UTM'] = utm_zone
+        # set utm
+        meta['UTM'] = path_row_map[meta['WRS_ID']]
 
         # get key/values pairs from kml description
         for key in ['WRS_ID', 'PATH', 'ROW', 'LL_WKT', 'UTM']:
@@ -91,11 +103,17 @@ def main():
     conn = sqlite3.connect(args.out)
     conn.enable_load_extension(True)
     conn.load_extension("mod_spatialite")
+
+    conn.execute("SELECT InitSpatialMetaData();")
+
     create_req = (
         "CREATE TABLE l8tiles ("
-        "PATH_ROW VARCHAR(7), PATH VARCHAR(3), ROW VARCHAR(3), LL_WKT VARCHAR, geometry POLYGON, UTM INTEGER); "
+        "PATH_ROW VARCHAR(7), PATH VARCHAR(3), ROW VARCHAR(3), LL_WKT VARCHAR, UTM INTEGER); "
     )
     conn.execute(create_req)
+
+    conn.execute("SELECT AddGeometryColumn('l8tiles', 'geometry', 4326, 'POLYGON', 0);")
+
     insert_req = (
         "INSERT INTO l8tiles(PATH_ROW, PATH, ROW, LL_WKT, geometry, UTM) "
         "VALUES (?, ?, ?, ?, GeomFromText(?, 4326), ?) "

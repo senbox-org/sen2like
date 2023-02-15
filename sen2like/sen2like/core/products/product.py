@@ -1,6 +1,9 @@
+"""Base S2L Product module"""
 import datetime
 import logging
 import os
+from typing import List
+
 import numpy as np
 from skimage.transform import resize as skit_resize
 
@@ -63,6 +66,12 @@ class S2L_Product():
         self.nodata_mask_filename = None
         self.angles_file = None
         self.roi_filename = None
+        # related product for stitching
+        self.related_product = None
+        # related image for a related_product (inside related_product, not for the current product)
+        self.related_image = None
+        self.dx = 0
+        self.dy = 0
 
     @staticmethod
     def date(name, regexp, date_format):
@@ -90,6 +99,15 @@ class S2L_Product():
             self._reverse_bands_mapping = {v: k for k, v in self.bands_mapping.items()}
         return self._reverse_bands_mapping
 
+    def _update_site_info(self, tile: str):
+        """Concrete implementation MUST set `self.mtl.mgrs`if needed.
+        Some products not need to update their site information
+
+        Args:
+            tile (str): Tile to set; If None, implementation should have a way to set it
+        """
+        # Deliberately empty
+
     def read_metadata(self):
         # extract metadata
         reader_class = readers.get_reader(self.path)
@@ -98,11 +116,7 @@ class S2L_Product():
         # instantiate the reader
         self.mtl = reader_class(self.path)
 
-        try:
-            self.update_site_info(S2L_config.config.get('tile', None))
-        except AttributeError:
-            # Some products not need to update their site information
-            pass
+        self._update_site_info(S2L_config.config.get('tile', None))
 
         # retrieve acquisition date in a datetime format
         scene_center_time = self.mtl.scene_center_time
@@ -180,6 +194,18 @@ class S2L_Product():
     @staticmethod
     def can_handle(product_path):
         return False
+
+    @staticmethod
+    def best_product(products: List[str]) -> List[str]:
+        """Implementation may select and return best product
+
+        Args:
+            products (List[str]): product names
+
+        Returns:
+            (List[str]): selected products, return input product list by default
+        """
+        return products
 
     @classmethod
     def read_bands_mapping(cls):

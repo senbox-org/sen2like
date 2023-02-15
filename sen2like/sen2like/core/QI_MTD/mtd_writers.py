@@ -32,6 +32,7 @@ QUALITY_INDICATOR_PATH = './Quality_Indicators_Info'
 IMAGE_CONTENT_QI_PATH  = './Quality_Indicators_Info/Image_Content_QI'
 PIXEL_LEVEL_QI_PATH    = './Quality_Indicators_Info/Pixel_Level_QI'
 
+ISO_DATE_TIME_FORMAT = "%Y-%m-%dT%H:%M:%S.%fZ"
 
 _template_dict = {
     "H": {
@@ -100,7 +101,7 @@ class S2LProductMtdWriter(XmlWriter, abc.ABC):
         self.remove_children(GRANULE_PATH)
         for band_path in sorted(set(metadata.mtd.get(f'bands_path_{self.H_F}'))):
             adjusted_path = os.path.splitext(re.sub(r'^.*?GRANULE', 'GRANULE', band_path))[0]
-            create_child(self.root_out, rpath=GRANULE_PATH, tag='IMAGE_FILE', text=adjusted_path)
+            create_child(self.root_out, rpath=GRANULE_PATH, tag='IMAGE_FILE_2HF', text=adjusted_path)
 
         tile_id = self._generate_tile_id(product)
         change_elm(self.root_out, rpath=GRANULE_PATH, new_value=tile_id, attr_to_change='granuleIdentifier')
@@ -243,7 +244,7 @@ class LandsatToS2LProductMtdWriter(S2LProductMtdWriter):
 
         # GENERAL_INFO
         # ------------
-        acq_date = datetime.strftime(product.acqdate, '%Y-%m-%dT%H:%M:%S.%fZ')
+        acq_date = datetime.strftime(product.acqdate, ISO_DATE_TIME_FORMAT)
         change_elm(self.root_out, rpath='./General_Info/Product_Info/PRODUCT_START_TIME', new_value=acq_date)
         change_elm(self.root_out, rpath='./General_Info/Product_Info/PRODUCT_STOP_TIME', new_value=acq_date)
         change_elm(self.root_out, rpath='./General_Info/Product_Info/PRODUCT_TYPE',
@@ -266,7 +267,7 @@ class LandsatToS2LProductMtdWriter(S2LProductMtdWriter):
 
         # Auxiliary_Data_Info
         # -------------------
-        self.remove_children(GIPP_LIST_PATH, exceptions=['Input_Product_Info'])
+        self.remove_children(GIPP_LIST_PATH)
 
         config_fn = os.path.splitext(os.path.basename(config.parser.config_file))[0]
         create_child(self.root_out, GIPP_LIST_PATH, tag="GIPP_FILENAME", text=config_fn,
@@ -274,11 +275,7 @@ class LandsatToS2LProductMtdWriter(S2LProductMtdWriter):
 
         # Quality_Indicators_Info
         # -----------------------
-        self.remove_children(QUALITY_INDICATOR_PATH, exceptions=['Input_Product_Info', 'Cloud_Coverage_Assessment'])
-        change_elm(self.root_out, './Quality_Indicators_Info/Input_Product_Info', attr_to_change='type',
-                   new_value=product.mtl.mission)
-        change_elm(self.root_out, './Quality_Indicators_Info/Input_Product_Info',
-                   new_value=product.mtl.landsat_scene_id)
+        self.remove_children(QUALITY_INDICATOR_PATH, exceptions=['Cloud_Coverage_Assessment'])
         change_elm(self.root_out, './Quality_Indicators_Info/Cloud_Coverage_Assessment',
                    new_value=product.mtl.cloud_cover)
 
@@ -459,13 +456,13 @@ class LandsatToS2LTileMtdWriter(S2LTileMtdWriter):
         change_elm(self.root_out, L2A_TILE_ID_PATH, new_value=l2a_tile_id)
         change_elm(self.root_out, TILE_ID_PATH, new_value=tile_id)
 
-        acq_date = datetime.strftime(product.acqdate, '%Y-%m-%dT%H:%M:%S.%fZ')
+        acq_date = datetime.strftime(product.acqdate, ISO_DATE_TIME_FORMAT)
         change_elm(self.root_out, './General_Info/SENSING_TIME', new_value=acq_date)
 
         archive_center = metadata.hardcoded_values.get('L8_archiving_center')
         change_elm(self.root_out, './General_Info/Archiving_Info/ARCHIVING_CENTRE', new_value=archive_center)
         change_elm(self.root_out, './General_Info/Archiving_Info/ARCHIVING_TIME',
-                   new_value=metadata.hardcoded_values.get('L8_archiving_time'))
+                   new_value=datetime.strftime(product.file_date, ISO_DATE_TIME_FORMAT))
 
         # Geometric_info
         # ---------------
@@ -554,24 +551,25 @@ def _generate_landsat8_tile_id(product, H_F):
     absolute_orbit = metadata.hardcoded_values.get('L8_absolute_orbit')
     acq_date = datetime.strftime(product.acqdate, '%Y%m%dT%H%M%S')
 
+    # LS8_OPER_OLI_TL L2H_ZZZ__20171114T102408_A000000_T31TFJ_N04.02
     tile_id = '_'.join(
-        [product.sensor_name, 'OPER', 'OLI', f'L2{H_F}', archive_center, acq_date, f'A{absolute_orbit}', tile_code,
+        [product.sensor_name, 'OPER', 'OLI', 'TL', f'L2{H_F}', archive_center, acq_date, f'A{absolute_orbit}', tile_code,
          f'N{version.baseline_dotted}'])
 
     return tile_id
 
 
 def _generate_sentinel2_tile_id(product, H_F, archive_center):
+
     tile_code = product.mtl.mgrs
     if not tile_code.startswith('T'):
         tile_code = f"T{tile_code}"
 
     acq_date = datetime.strftime(product.acqdate, '%Y%m%dT%H%M%S')
-    if archive_center.endswith('_'):
-        archive_center = archive_center[:-1]
 
+    # S2A_OPER_MSI_TL_L2H_SGS__20171030T104754_A012303_T31TFJ_N04.02
     tile_id = '_'.join(
-        [product.sensor_name, 'OPER', 'MSI', f'L2{H_F}', archive_center, acq_date, f'A{config.get("absolute_orbit")}',
+        [product.sensor_name, 'OPER', 'MSI', 'TL', f'L2{H_F}', archive_center, acq_date, f'A{config.get("absolute_orbit")}',
          tile_code, f'N{version.baseline_dotted}'])
 
     return tile_id

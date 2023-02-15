@@ -51,12 +51,16 @@ def is_spatialite_supported():
     return True
 
 
-def _select_on_attache_db(databases, request, parameters=[]):
+def _select_on_attache_db(databases, request, parameters):
     """ Attache all database on one memory database and execute request on them
     :param databases: dict of {'data base name use in request': 'path to database'}
     :param request: the sql_request
     :param parameters: sqlite3 request parameters
     """
+
+    logger.debug("_select_on_attache_db Request : %s", request )
+    logger.debug("_select_on_attache_db Params  : %s", parameters )
+
     with sqlite3.connect(":memory:") as conn:
         conn.enable_load_extension(True)
         conn.load_extension("mod_spatialite")
@@ -70,7 +74,7 @@ def _select_on_attache_db(databases, request, parameters=[]):
     return res
 
 
-def _prepare_tile_to_tile_request(coverage: float, tile_column: str) -> T2TRequest:
+def _prepare_tile_to_tile_request(coverage: float, tile_column: str, same_utm=True) -> T2TRequest:
     if coverage is None:
         logger.warning(
             "No minimum coverage defined in configuration, using {:.0%} as default coverage.".format(0.1))
@@ -93,25 +97,28 @@ def _prepare_tile_to_tile_request(coverage: float, tile_column: str) -> T2TReque
         f"WHERE {tile_column} == ? "
         f"AND Coverage >= ? "
         f"AND Coverage is not NULL "
-        f"AND cast(SUBSTR(s2.TILE_ID, 1, 2) as INTEGER ) == l8.UTM "
     )
+
+    if same_utm:
+        sql_request+="AND cast(SUBSTR(s2.TILE_ID, 1, 2) as INTEGER ) == l8.UTM "
 
     return T2TRequest(coverage, sql_request)
 
 
-def mgrs_to_wrs(mgrs_tile, coverage=None):
-    """Get WRS tiles that cover a MGRS by at least a coverage percentage
+def mgrs_to_wrs(mgrs_tile, coverage=None, same_utm=True):
+    """Get WRS tiles that cover a MGRS by at least a coverage percentage.
+    Result is sorted by coverage desc
 
     Args:
         mgrs_tile (str): MGRS tile id that should intersect WRS tiles to retrieve
         coverage (float): minimum coverage percentage of MGRS tile by WRS tile, default to 0.1
 
     Returns:
-        A tuple of WRS [path,row] and the coverage of the MGRS tile.
+        A tuple of WRS [path,row] and the coverage of the MGRS tile, sorted by coverage
         Examples : ([45,56],45)
     """
 
-    t2t_request = _prepare_tile_to_tile_request(coverage, "s2.TILE_ID")
+    t2t_request = _prepare_tile_to_tile_request(coverage, "s2.TILE_ID", same_utm)
 
     data = _select_on_attache_db(
         {'l8tiles': _database_path(L8_TILE_DB), 's2tiles': _database_path(S2_TILE_DB)},
@@ -148,18 +155,22 @@ def wrs_to_mgrs(wrs_path, coverage=None):
     return result
 
 
-def get_coverage(wrs_path: tuple, mgrs_tile: str) -> float:
-    """Get the percentage coverage of an MGRS tile by WRS
+def get_coverage(wrs_path: tuple, mgrs_tile: str, same_utm=True) -> float:
+    """Get the percentage coverage of an MGRS tile by WRS.
+    If same_utm is True and wrs_path UTM does not match mgrs_tile UTM
+    returned coverage will be 0.
 
     Args:
         wrs_path (tuple): tuple of WRS path and row
         mgrs_tile (str): MGRS tile id
+        check_utm: shall search also check same UTM for matching WRS & MGRS tile
 
     Returns:
-        Percentage of MGRS tile coverage by WRS
+        Percentage of MGRS tile coverage by WRS, 0 if UTM does not match
 
     """
     # Open db
+    print("wrs_path %s, same_utm %s", wrs_path, same_utm)
     coverage = 0
     select_l8tile_not_on_180th_meridian = SELECT_NOT_ON_180TH_MERIDIAN.format(
         geo_col='geometry', table='l8tiles.l8tiles')
@@ -174,14 +185,18 @@ def get_coverage(wrs_path: tuple, mgrs_tile: str) -> float:
         f"WHERE s2.TILE_ID == ? "
         f"AND l8.PATH_ROW == ? "
         f"AND Coverage is not NULL "
-        f"AND cast(SUBSTR(s2.TILE_ID, 1, 2) as INTEGER ) == l8.UTM "
     )
+
+    if same_utm:
+        sql_request+="AND cast(SUBSTR(s2.TILE_ID, 1, 2) as INTEGER ) == l8.UTM "
+
     data = _select_on_attache_db(
         {'l8tiles': _database_path(L8_TILE_DB), 's2tiles': _database_path(S2_TILE_DB)},
         sql_request,
         # pylint: disable=consider-using-f-string
         [mgrs_tile, "{}_{}".format(*wrs_path)]
     )
+    print("data: %s", data)
     if len(data) > 0:
         coverage = data[0][0]
     return coverage

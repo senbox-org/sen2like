@@ -52,7 +52,7 @@ class S2L_Sbaf(S2L_Process):
             adj_coef_l8_s2a = self.get_oli_like_coef("Sentinel-2A")
             for oli_band in adj_coef.keys():
                 s2_band = Landsat8Product.get_s2like_band(oli_band)
-                if s2_band is None:
+                if not s2_band:
                     continue
                 coef = adj_coef_l8_s2a[s2_band]['coef']
                 a = 1 / coef[0]
@@ -152,5 +152,10 @@ class S2L_Sbaf(S2L_Process):
             product (S2L_Product): product to post process
         """
         for band, params in self._sbaf_params.items():
-            metadata.qi[f'SBAF_COEFFICIENT_{band}'] = params.coefficient
-            metadata.qi[f'SBAF_OFFSET_{band}'] = params.offset
+            # set sbaf qi param with S2 band naming
+            s2_band = product.__class__.get_s2like_band(band)
+            if not s2_band:
+                # avoid Non Sentinel native band
+                continue
+            metadata.qi[f'SBAF_COEFFICIENT_{s2_band}'] = params.coefficient
+            metadata.qi[f'SBAF_OFFSET_{s2_band}'] = params.offset

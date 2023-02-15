@@ -10,7 +10,7 @@ import numpy as np
 import mgrs
 
 from core.metadata_extraction import from_date_to_doy
-from core.readers.reader import BaseReader
+from core.readers.reader import BaseReader, compute_scene_boundaries
 
 log = logging.getLogger('Sen2Like')
 
@@ -202,33 +202,11 @@ class Sentinel2MTL(BaseReader):
             scene_boundary_lat = [rec for j, rec in enumerate(pos_list) if j % 2 == 0]
             scene_boundary_lon = [rec for j, rec in enumerate(pos_list) if j % 2 == 1]
             self.scene_pos_list = pos_list
-            arr1 = np.asarray(scene_boundary_lat, float)
-            arr1_r = np.roll(arr1, -1)
-            # Retour d index
-            arr2 = np.asarray(scene_boundary_lon, float)
-            arr2_r = np.roll(arr2, -1)
-            x = arr1_r - arr1  # Vecteur X - latitude
-            y = arr2_r - arr2  # Vecteur Y - longitude
-            # Remove point with diff null in the two direction
-            index = (np.argwhere((x == 0) & (y == 0))).flatten()
-            x = np.delete(x, index)
-            y = np.delete(y, index)
-            x_r = np.roll(x, -1)
-            y_r = np.roll(y, -1)
-            scalar = np.multiply(x, x_r) + np.multiply(y, y_r)  # Scalar product
-            # Norm
-            norm = np.power(np.multiply(x, x) + np.multiply(y, y), 0.5)
-            norm_r = np.roll(norm, -1)
-            # Product of Norm || U || * || V ||
 
-            theta = np.roll(
-                np.arccos(np.divide(scalar, np.multiply(norm, norm_r))) * (np.divide(180, np.pi)),
-                1)
-            arr1 = np.delete(arr1, index)
-            arr2 = np.delete(arr2, index)
-            self.scene_boundary_lat = arr1[theta > 60.0].tolist()
-            self.scene_boundary_lon = arr2[theta > 60.0].tolist()
-        # End of scene boundary
+            boundaries = compute_scene_boundaries(scene_boundary_lat, scene_boundary_lon)
+            self.scene_boundary_lat = boundaries[0]
+            self.scene_boundary_lon = boundaries[1]
+            # End of scene boundary
 
         except IndexError:
             # if not md_list:
