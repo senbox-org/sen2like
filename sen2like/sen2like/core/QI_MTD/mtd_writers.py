@@ -310,10 +310,10 @@ class S2LTileMtdWriter(XmlWriter, abc.ABC):
     def manual_replaces(self, product: S2L_Product):
 
         tile = loads(search_db(product.mtl.mgrs, search='UTM_WKT'))
-        x_min = int(tile.bounds[0])
-        y_min = int(tile.bounds[1])
-        change_elm(self.root_out, './Geometric_Info/Tile_Geocoding/Geoposition/ULX', new_value=str(x_min))
-        change_elm(self.root_out, './Geometric_Info/Tile_Geocoding/Geoposition/ULY', new_value=str(y_min))
+        ul_x = int(tile.bounds[0])
+        ul_y = int(tile.bounds[3])
+        change_elm(self.root_out, './Geometric_Info/Tile_Geocoding/Geoposition/ULX', new_value=str(ul_x))
+        change_elm(self.root_out, './Geometric_Info/Tile_Geocoding/Geoposition/ULY', new_value=str(ul_y))
 
         angles_path = os.path.join('GRANULE', metadata.mtd.get(f'granule_{self.H_F}_name'), 'QI_DATA',
                                    metadata.mtd.get('ang_filename'))

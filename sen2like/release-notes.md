@@ -1,5 +1,16 @@
 # Sen2Like Release Notes
 
+## v4.2.1
+
+### Known issues
+
+* sen2like not stable when `--parallelize-bands` program argument is used
+
+### Fix
+
+- Fix Tile MTD ULY value
+
+
 ## v4.2.0
 
 ### **Breaking changes**
