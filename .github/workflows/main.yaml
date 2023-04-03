@@ -39,6 +39,6 @@ jobs:
             uses: docker/build-push-action@v4
             with:
                 context: ./sen2like
-                push: ${{ github.event_name != 'pull_request' }} && ${{ matrix.os == 'ubuntu-20.04'}}
+                push: ${{ github.event_name != 'pull_request' && matrix.os == 'ubuntu-20.04'}}
                 tags: ${{ steps.meta.outputs.tags }}
                 labels: ${{ steps.meta.outputs.labels }}
