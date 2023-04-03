@@ -2,7 +2,6 @@
 Sen2Like - how to start
 ==============================
 
-
 ## Quick start
 
 Follow [sen2like/README.md](sen2like/README.md#local-install) instruction to install sen2like and activate his environment.
