@@ -1,6 +1,22 @@
 #! /usr/bin/env python
 # -*- coding: utf-8 -*-
-# S. Saunier (TPZ) 2018
+# Copyright (c) 2023 ESA.
+#
+# This file is part of sen2like.
+# See https://github.com/senbox-org/sen2like for further info.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
 
 
 import logging
@@ -9,7 +25,6 @@ from dataclasses import dataclass
 import numpy as np
 
 from core import S2L_config
-from core.QI_MTD.mtd import metadata
 from core.image_file import S2L_ImageFile
 from core.products.landsat_8.landsat8 import Landsat8Product
 from core.products.product import S2L_Product
@@ -28,7 +43,8 @@ class SbafParams:
 
 class S2L_Sbaf(S2L_Process):
 
-    def initialize(self):
+    def __init__(self):
+        super().__init__()
         self._sbaf_params = {}
 
     def get_sen2like_coef(self, mission):
@@ -64,12 +80,12 @@ class S2L_Sbaf(S2L_Process):
     def get_oli_like_coef(self, mission):
         """S.Saunier 20/11/2018
         Value in HLS Guide v 1.4
-        Get Adjustement coefficient for OLI LIKE processing,
+        Get Adjustment coefficient for OLI LIKE processing,
         Coefficient applied to Sentinel 2 S30 data  and NOT to Landsat
         data
         Coef array definition [slope, intercept]"""
 
-        adj_coef = dict()
+        adj_coef = {}
         if mission == 'Sentinel-2A':
             adj_coef['B01'] = {'bandLabel': 'CA', 'coef': [0.9959, -0.0002]}
             adj_coef['B02'] = {'bandLabel': 'BLUE', 'coef': [0.9778, -0.004]}
@@ -97,23 +113,15 @@ class S2L_Sbaf(S2L_Process):
         offset = None
         slope = None
 
-        if product.mtl.mission == "Sentinel-2A":
-            # skip for S2A
-            # set SBAF parameters for export in L2H/F_QUALITY.xml file
+        if not product.apply_sbaf_param:
             self._sbaf_params[band] = SbafParams(1, 0)
-            log.info('Skip for Sentinel-2A')
+            log.info('Skip for %s', product.mtl.mission)
             log.info("End")
             return image
 
-        elif product.mtl.mission == "Sentinel-2B":
-            # skip for S2B as S2B is intercalibrated with S2B in Collection-1 (PB >= 4.00)
-            # set SBAF parameters for export in L2H/F_QUALITY.xml file
-            self._sbaf_params[band] = SbafParams(1, 0)
-            log.info('Skip for Sentinel-2B, already intercalibrated')
-            log.info("End")
-            return image
-
-        elif product.mtl.mission in ('LANDSAT_8', 'LANDSAT_9'):
+        # TODO : what about MAJA product ? 
+        # (where mission is LANDSAT8,LANDSAT9, SENTINEL2) it will be None, is that right ?
+        if product.mtl.mission in ('LANDSAT_8', 'LANDSAT_9'):
             # L8 => S2A
             band_sbaf = band
             adj_coef = self.get_sen2like_coef("LANDSAT_8")
@@ -157,5 +165,5 @@ class S2L_Sbaf(S2L_Process):
             if not s2_band:
                 # avoid Non Sentinel native band
                 continue
-            metadata.qi[f'SBAF_COEFFICIENT_{s2_band}'] = params.coefficient
-            metadata.qi[f'SBAF_OFFSET_{s2_band}'] = params.offset
+            product.metadata.qi[f'SBAF_COEFFICIENT_{s2_band}'] = params.coefficient
+            product.metadata.qi[f'SBAF_OFFSET_{s2_band}'] = params.offset

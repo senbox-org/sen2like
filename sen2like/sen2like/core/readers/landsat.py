@@ -1,3 +1,20 @@
+# Copyright (c) 2023 ESA.
+#
+# This file is part of sen2like.
+# See https://github.com/senbox-org/sen2like for further info.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
 import fnmatch
 import glob
 import io
@@ -5,9 +22,13 @@ import logging
 import os
 import re
 
-from core.metadata_extraction import NOT_FOUND, reg_exp, compute_earth_solar_distance, get_in_band_solar_irrandiance_value
+from core.metadata_extraction import (
+    NOT_FOUND,
+    compute_earth_solar_distance,
+    get_in_band_solar_irrandiance_value,
+    reg_exp,
+)
 from core.readers.reader import BaseReader
-
 
 log = logging.getLogger('Sen2Like')
 
@@ -152,7 +173,8 @@ class LandsatMTL(BaseReader):
                                               '.', second + 'Z'])
 
             self.relative_orbit = self.path
-            self.absolute_orbit = 'N/A'
+            # hardcoded as we can't have it
+            self.absolute_orbit = '000000'
 
             # SET GEOGRAPHIC INFORMATION :
             self.scene_boundary_lat = []

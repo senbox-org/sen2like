@@ -1,3 +1,20 @@
+# Copyright (c) 2023 ESA.
+#
+# This file is part of sen2like.
+# See https://github.com/senbox-org/sen2like for further info.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
 import datetime as dt
 import glob
 import logging
@@ -5,7 +22,7 @@ import os
 
 from core.image_file import S2L_ImageFile
 from core.products import get_s2l_product_class_from_sensor_name
-from core.products.product import S2L_Product
+from core.products.product import ProcessingContext, S2L_Product
 
 logger = logging.getLogger('Sen2Like')
 
@@ -14,8 +31,8 @@ class S2L_HLS_Product(S2L_Product):
     # TODO: move to bands declaration
     resols_plus = [60, 10, 10, 10, 20, 20, 20, 10, 20, 20, 20]
 
-    def __init__(self, path):
-        super().__init__(path)
+    def __init__(self, path, context: ProcessingContext):
+        super().__init__(path, context)
 
         # S2L_31TFJ_20171224_S2/
         try:

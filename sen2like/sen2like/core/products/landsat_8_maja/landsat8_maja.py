@@ -1,8 +1,26 @@
+# Copyright (c) 2023 ESA.
+#
+# This file is part of sen2like.
+# See https://github.com/senbox-org/sen2like for further info.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
 import glob
 import os
 import re
+from datetime import datetime
 
-from core.products.product import S2L_Product
+from core.products.product import ProcessingContext, S2L_Product
 
 
 class Landsat8MajaProduct(S2L_Product):
@@ -22,8 +40,8 @@ class Landsat8MajaProduct(S2L_Product):
 
     l8_date_regexp = re.compile(r"LANDSAT[89]-.*_(\d{8}-\d{6})-.*")
 
-    def __init__(self, path):
-        super().__init__(path)
+    def __init__(self, path, context: ProcessingContext):
+        super().__init__(path, context)
         self.read_metadata()
         self.sensor = f'L{self.mtl.mission[-1]}'
 
@@ -46,3 +64,21 @@ class Landsat8MajaProduct(S2L_Product):
     @property
     def sensor_name(self):
         return self.sensor_names[self.sensor]
+
+    @property
+    def dt_sensing_start(self) -> datetime:
+        """S2 Datatake sensing start interpretation
+
+        Returns:
+            datetime: Datatake sensing start
+        """
+        return self.acqdate
+
+    @property
+    def ds_sensing_start(self) -> datetime:
+        """S2 Datastrip sensing start interpretation
+
+        Returns:
+            datetime: Datastrip sensing start
+        """
+        return self.acqdate

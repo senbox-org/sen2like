@@ -1,180 +1,45 @@
 #! /usr/bin/env python
 # -*- coding: utf-8 -*-
-# V. Debaecker (TPZ-F) 2018
+# Copyright (c) 2023 ESA.
+#
+# This file is part of sen2like.
+# See https://github.com/senbox-org/sen2like for further info.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
 
 """Main entry point for the sen2like application."""
 
 import datetime
-import importlib
 import logging
 import os
 import sys
 from argparse import Namespace
 from multiprocessing import Pool
-from typing import Tuple, List
 
-from core import S2L_config, log
-from core.argparser import S2LArgumentParser, Mode
-from core.image_file import S2L_ImageFile
+from core import log
+from core.argparser import Mode, S2LArgumentParser
+from core.product_archive import product_selector
+from core.product_archive.product_archive import InputProduct, InputProductArchive
 from core.product_preparation import ProductPreparator
-from core.QI_MTD import mtd
-from core.QI_MTD.mtd import Metadata
+from core.product_process import ProductProcess
+from core.products.product import ProcessingContext, S2L_Product
+from core.reference_image import get_ref_image
 from core.S2L_config import config
 from core.sen2cor_client.sen2cor_client import Sen2corClient, Sen2corError
-from core.product_archive import product_selector
-from s2l_processes.S2L_Process import S2L_Process
-
-try:
-    from sen2like import BINDIR
-except ImportError:
-    BINDIR = os.path.dirname(__file__)
-
-from core.product_archive.product_archive import InputProductArchive, InputProduct
-from core.products.product import S2L_Product
 from version import __version__
 
-# Add building blocks to Python path
-sys.path.append(os.path.join(BINDIR, "s2l_processes"))
-
 logger = logging.getLogger('Sen2Like')
-
-PROCESS_INSTANCES = {}  # OPTIM
-
-
-def get_module(block_name: str) -> S2L_Process:
-    """Get process class instance associated to block_name.
-    If instance does not yet exist, create it, save it and return,
-    otherwise, return existing instance.
-
-    Args:
-        block_name (str): The name of the process to instantiate.
-
-    Returns:
-        S2L_Process: S2L_Process instance
-    """
-    # import module and class
-    class_instance = PROCESS_INSTANCES.get(block_name)
-    if class_instance is None:
-        module = importlib.import_module(block_name)
-        class_instance = getattr(module, block_name)()
-        PROCESS_INSTANCES[block_name] = class_instance
-
-    return class_instance
-
-
-def generic_process_step(block_name, product, process_step):
-    """
-    From the name of the block, import the module, get the class,
-    create object from class, run the process step method of object.
-    This supposes that there all the names are the same (e.g. S2L_Geometry)
-
-    :param block_name: The block to process
-    :param product:
-    :param process_step: The step to process
-    :return:
-    """
-    # check if block is switch ON
-    if not config.getboolean('do' + block_name.split('_')[-1]):
-        return
-
-    # check if block is applicable to the sensor (L8, L9 or S2)
-    if product.sensor not in S2L_config.PROC_BLOCKS[block_name]['applicability']:
-        return
-
-    s2l_process = get_module(block_name)
-
-    # create object and run process if method exists!
-    func = getattr(s2l_process, process_step, None)
-    if func is not None:
-        return func(product)
-
-
-def generic_process_band(block_name: str,
-                         product: S2L_Product,
-                         image: S2L_ImageFile,
-                         band: str) -> Tuple[S2L_ImageFile, S2L_Process]:
-    """
-    Execute the `S2L_Process.process` of the S2L_Process corresponding to the block_name if applicable.
-    The S2L_Process is applicable if its "doBlockName" config param is True
-    and configured as applicable for the product sensor.
-
-    Args:
-        block_name (str): The block name to execute
-        product (S2L_Product): product to process
-        image (S2L_ImageFile): image to process
-        band (str): band of the product to process
-
-    Returns:
-        Tuple[S2L_ImageFile, S2L_Process]: the process output image and executed process instance if applicable,
-        otherwise input S2L_ImageFile and None.
-    """
-
-    # check if block is switch ON
-    logger.debug(config.getboolean('do' + block_name.split('_')[-1]))
-    if not config.getboolean('do' + block_name.split('_')[-1]):
-        return image, None
-
-    # check if block is applicable to the sensor (L8, L9 or S2)
-    if product.sensor not in S2L_config.PROC_BLOCKS[block_name]['applicability']:
-        return image, None
-
-    # create object and run it!
-    s2l_process = get_module(block_name)
-    return s2l_process.process(product, image, band), s2l_process
-
-
-def process_band(product: S2L_Product,
-                 band: str,
-                 list_of_blocks: tuple,
-                 _config: S2L_config,
-                 _metadata: Metadata,
-                 _processus=None) -> Tuple['str', 'dict', 'S2L_config', 'Metadata']:
-    """Run all the blocks over one band of a product.
-
-    Args:
-        product (S2L_Product): product to process
-        band (str): band to process
-        list_of_blocks (tuple): block names that should be executed
-        _config (S2L_config): TODO understand why
-        _metadata (Metadata): TODO understand why
-        _processus (_type_, optional): TODO understand why. Defaults to None.
-
-    Returns:
-        Tuple[str, dict, S2L_config, Metadata]:
-        - Last file path of the image generated by the processing chain
-        - dict indexed by packager block name of dict of generated band images
-        indexed by band name by packager block if executed by the block chain (see `S2L_Product_Packager.process`)
-        - config: TODO understand why
-        - metadata: TODO understand why
-
-        If no image for the band, all None
-    """
-    logger.info('--- Process band %s ---', band)
-    if S2L_config.config.parser is None:
-        S2L_config.config = _config
-        globals()['config'] = _config
-
-    mtd.metadata.update(_metadata)
-    if _processus is not None:
-        global PROCESS_INSTANCES
-        PROCESS_INSTANCES = _processus
-
-    # get band file path
-    image = product.get_band_file(band)
-    if image is None:
-        return None, None, None, None
-
-    # iterate on blocks
-    packager_images = {}
-    for block_name in list_of_blocks:
-        image, block = generic_process_band(block_name, product, image, band)
-
-        # Special case for packager as we need to keep self.images
-        if '_Packager' in block_name and block is not None:
-            packager_images[block_name] = block.images
-
-    # return output
-    return image.filename, packager_images, config, mtd.metadata
 
 
 def filter_product(product: S2L_Product):
@@ -184,54 +49,56 @@ def filter_product(product: S2L_Product):
     """
     cloud_cover = config.getfloat('cloud_cover')
     if float(product.mtl.cloud_cover) > cloud_cover:
-        logger.info('cloud cover > %s', cloud_cover)
+        logger.info('cloud cover > %s : %s', cloud_cover, product.mtl.cloud_cover)
         return False
     return True
 
 
-def pre_process(product: InputProduct, s2l_product: S2L_Product, tile, do_atmcor: bool,
-                use_sen2cor_config: bool) -> S2L_Product:
+def pre_process_atmcor(s2l_product: S2L_Product, tile, do_atmcor: bool) -> S2L_Product|None:
     """
     Adapt processing parameters for atmo corr processing to use.
-    THIS FUNCTION MODIFY SOME CONFIG PARAMETERS (use_sen2cor, use_smac, doStitching, doInterCalibration)
+    THIS FUNCTION MODIFY SOME `s2l_product.context` PARAMETERS (use_sen2cor, use_smac, doStitching, doInterCalibration)
     Run sen2cor if configured for (do_atmcor activated and use_sen2cor=True) and if product is compatible.
     Otherwise, configures exec parameters to use smac if product is compatible in case do_atmcor activated
     Args:
-        product (InputProduct): input product to instantiate S2L_Product after sen2cor execution
         s2l_product (S2L_Product): s2l_product to check atmo corr compatibility and run sen2cor on
         tile (str): tile name for sen2cor
         do_atmcor (bool): if atmospheric correction must be done
-        use_sen2cor_config (bool): if sen2cor should be run or not
 
     Returns:
         s2l_product after sen2cor if executed or provided s2l_product, or None if fail or too many cloud cover
     """
-    use_sen2cor = do_atmcor and use_sen2cor_config
+    use_sen2cor = do_atmcor and s2l_product.context.use_sen2cor
     # only landsat collection 1
     if 'L8' in s2l_product.sensor and not s2l_product.mtl.collection_number.isdigit():
         # can only use SMAC for these product_urls, so force SMAC in case doAtmcor=True
         use_sen2cor = False
-        config.overload('use_sen2cor=False')
-        config.overload('use_smac=True')
+        s2l_product.context.use_sen2cor = use_sen2cor
+        s2l_product.context.use_smac = True
         logger.info("For Landsat 8-9, apply sen2cor only on collection 1 & 2 product_urls")
 
     if use_sen2cor:
         logger.info("Use sen2cor instead of Atmcor SMAC")
         # Disable SMAC Atmospheric correction
-        config.overload('use_smac=False')
-        config.overload('doStitching=False')
-        config.overload('doInterCalibration=False')
+        s2l_product.context.use_smac = False
+        s2l_product.context.doStitching = False
+        s2l_product.context.doInterCalibration = False
 
         sen2cor = Sen2corClient(os.path.abspath(config.get('sen2cor_path')), tile)
 
         try:
             orig_processing_sw = s2l_product.mtl.processing_sw
-            s2l_product = product.s2l_product_class(sen2cor.run(s2l_product))
+
+            s2l_product = s2l_product.__class__(
+                sen2cor.run(s2l_product),
+                s2l_product.context
+            )
             # restore L1 "orig" processing version (processing baseline for S2)
             # because sen2cor sets by default the processing baseline to 99.99
             # however L1 "orig" processing version information could be needed for future processing block.
             # example: for intercalibration to know if S2B intercalibration was already applied, not to apply it twice
             s2l_product.mtl.processing_sw = orig_processing_sw
+
         except Sen2corError:
             logger.warning("sen2cor raises an error", exc_info=True)
             return None
@@ -239,35 +106,26 @@ def pre_process(product: InputProduct, s2l_product: S2L_Product, tile, do_atmcor
         logger.info("sen2cor disabled")
 
     # FIXME : ask to the team why we do this because the same call is done before
-    if s2l_product is None:
-        s2l_product = product.s2l_product_class(product.path)
+    # if s2l_product is None:
+    #     s2l_product = product.s2l_product_class(product.path)
 
     if not filter_product(s2l_product):
         return None
-
-    # Update processing configuration
-    config.set('productName', s2l_product.name)
-    config.set('sensor', s2l_product.sensor)
-    config.set('observation_date', s2l_product.mtl.observation_date)
-    config.set('relative_orbit', s2l_product.mtl.relative_orbit)
-    config.set('absolute_orbit', s2l_product.mtl.absolute_orbit)
-    config.set('mission', s2l_product.mtl.mission)
-    config.set('none_S2_product_for_fusion', False)
 
     # Disable Atmospheric correction for Level-2A product_urls
     if s2l_product.mtl.data_type in ('Level-2A', 'L2TP', 'L2A'):
         config.overload('s2_processing_level=LEVEL2A')
         logger.info("Processing Level-2A product: Atmospheric correction is disabled.")
         # do not run SMAC even if doAtmo=True
-        config.overload('use_smac=False')
-        config.overload('doInterCalibration=False')
+        s2l_product.context.use_smac = False
+        s2l_product.context.doInterCalibration = False
     else:
         config.overload('s2_processing_level=LEVEL1C')
 
     return s2l_product
 
 
-def process_no_run(tile: str, input_products: List[InputProduct]):
+def process_no_run(tile: str, input_products: list[InputProduct]):
     """no run execution
 
     Args:
@@ -285,7 +143,7 @@ def process_no_run(tile: str, input_products: List[InputProduct]):
         logger.info("%s %s %s", tile_message, cloud_message, product.path)
 
 
-def start_process(tile: str, search_urls: List['tuple'], args: Namespace, start_date: datetime.datetime,
+def process_tile(tile: str, search_urls: list[tuple], args: Namespace, start_date: datetime.datetime,
                   end_date: datetime.datetime):
     """
     Process products on the tile for a period
@@ -300,12 +158,13 @@ def start_process(tile: str, search_urls: List['tuple'], args: Namespace, start_
     Returns:
 
     """
-    config.update_with_args(args, tile)
-    config.set('tile', tile)
     logger.info("Processing tile %s", tile)
+    # Get input product list
     archive = InputProductArchive(config)
     input_products_list = archive.search_product(
-        search_urls, start_date, end_date, product_mode=args.operational_mode == Mode.PRODUCT)
+        search_urls, tile, start_date, end_date,
+        product_mode=args.operational_mode == Mode.PRODUCT
+    )
 
     if args.no_run:
         process_no_run(tile, input_products_list)
@@ -315,123 +174,36 @@ def start_process(tile: str, search_urls: List['tuple'], args: Namespace, start_
         logger.error('No product for tile %s', tile)
         return
 
+    # get ref image for tile
+    _tile_ref_image = get_ref_image(args.refImage, config.get('references_map'), tile)
+
     for input_product in input_products_list:
+
+        processing_context = ProcessingContext(config, tile)
+
         # instantiate S2L_Product
-        s2l_product = input_product.s2l_product_class(input_product.path)
+        s2l_product = input_product.s2l_product_class(
+            input_product.path,
+            processing_context
+        )
 
-        # Extract parameters for potential override and restore
-        stitch = config.get('doStitching')
-        intercalibration = config.get('doInterCalibration')
-        do_atmcor = config.get('doAtmcor')
-        use_sen2cor_config = config.getboolean('use_sen2cor')
-        use_smac_config = config.get('use_smac')
-        # use_smac could not be in conf, meaning we want to use it (default behavior)
-        if use_smac_config is None:
-            # force True for future Restore use_smac status and usage in S2L_Atmcor
-            use_smac_config = True
-            # put in conf to allow overloading later here
-            config.set('use_smac', True)
-
-        # run sen2cor if any and prepare conf parameters
-        s2l_product = pre_process(input_product, s2l_product, tile, do_atmcor, use_sen2cor_config)
+        # run sen2cor if any and update s2l_product.context
+        s2l_product = pre_process_atmcor(s2l_product, tile, config.get('doAtmcor'))
 
         if not s2l_product:
             continue
 
-        # execute processing block on product
-        process(s2l_product, args)
+        # Configure a product preparator
+        product_preparator = ProductPreparator(config, args, _tile_ref_image)
 
-        # Restore potential overridden conf parameters (by pre_process)
-        config.overload(f'use_sen2cor={use_sen2cor_config}')
-        config.overload(f'use_smac={use_smac_config}')
-        config.overload(f'doStitching={stitch}')
-        config.overload(f'doInterCalibration={intercalibration}')
+        # execute processing block on product
+        process = ProductProcess(
+            s2l_product, product_preparator, args.parallelize_bands, args.bands)
+        process.run()
 
         if s2l_product.related_product is not None:
             del s2l_product.related_product
         del s2l_product
-
-
-def process(product: S2L_Product, args: Namespace):
-    """Launch process on product
-
-    Args:
-        product (S2L_Product): product to process
-        args (Namespace): program arguments
-    """
-    bands = args.bands
-
-    # displays
-    logger.info('=' * 50)
-    logger.info("Process : %s %s", product.sensor, product.path)
-
-    # list of the blocks that are available
-    list_of_blocks = tuple(S2L_config.PROC_BLOCKS.keys())
-
-    # Search and attach related product to product
-    # only if S2L_Stitching activated, and extract product files
-    ProductPreparator(S2L_config.config, args).prepare(product)
-
-    # !! Initialization of each block
-    for block_name in list_of_blocks:
-        get_module(block_name).initialize()
-
-    # !! Pre processing !!
-    # Run the preprocessing method of each block
-    for block_name in list_of_blocks:
-        generic_process_step(block_name, product, "preprocess")
-
-    # !! Processing !!
-    # save S2L_config file in wd
-    config.savetofile(os.path.join(config.get('wd'), product.name, 'processing_start.cfg'))
-
-    # For each band or a selection of bands:
-    if bands is None:
-        # get all bands
-        bands = product.bands
-    elif product.sensor != 'S2':
-        bands = [product.reverse_bands_mapping.get(band, band) for band in bands]
-
-    if args.parallelize_bands:
-        # Multi processus
-        params = [(product, band, list_of_blocks, config, mtd.metadata, PROCESS_INSTANCES) for band in bands]
-        with Pool() as pool:
-            results = pool.starmap(process_band, params)
-
-        bands_filenames, packager_files, configs, updated_metadatas = zip(*results)
-        if configs and configs[0].parser is not None:
-            S2L_config.config = configs[0]
-        if updated_metadatas:
-            for updated_metadata in updated_metadatas:
-                mtd.metadata.update(updated_metadata)
-        for packager_file in packager_files:
-            for process_instance in packager_file:
-                PROCESS_INSTANCES[process_instance].images.update(packager_file[process_instance])
-                for band, filename in PROCESS_INSTANCES[process_instance].images.items():
-                    S2L_config.config.set('imageout_dir', os.path.dirname(filename))
-                    S2L_config.config.set('imageout_' + band, os.path.basename(filename))
-
-    else:
-        # Single processus
-        bands_filenames = []
-        for band in bands:
-            # process the band through each block
-            bands_filenames.append(process_band(product, band, list_of_blocks, config, mtd.metadata))  # Save image path
-
-    if bands_filenames == [None] * len(bands_filenames):
-        logger.error("No valid band provided for input product.")
-        logger.error("Valids band for product_urls are: %s", str(list(product.bands)))
-        return
-    # !! Post processing !!
-    # Run the postprocessing method of each block
-    for block_name in list_of_blocks:
-        generic_process_step(block_name, product, "postprocess")
-
-    # Clear metadata
-    mtd.metadata.clear()
-
-    # save S2L_config file in wd
-    S2L_config.config.savetofile(os.path.join(S2L_config.config.get('wd'), product.name, 'processing_end.cfg'))
 
 
 def main(args, with_multiprocess_support=False):
@@ -443,12 +215,13 @@ def main(args, with_multiprocess_support=False):
     Returns:
 
     """
-    parser = S2LArgumentParser(BINDIR)
+    start = datetime.datetime.utcnow()
+    parser = S2LArgumentParser(os.path.dirname(__file__))
     args = parser.parse_args(args)
 
     log.configure_loggers(logger, log_path=args.wd, is_debug=args.debug, without_date=args.no_log_date)
 
-    logger.info("Run Sen2like %s", __version__)
+    logger.info("Run Sen2like %s with Python %s", __version__, sys.version)
 
     if args.operational_mode is None:
         parser.print_help()
@@ -469,12 +242,16 @@ def main(args, with_multiprocess_support=False):
         params = [(tile, _search_url, args, date_range.start_date, date_range.end_date)
                   for tile, _search_url in search_urls.items()]
         with Pool(int(number_of_process)) as pool:
-            pool.starmap(start_process, params)
+            pool.starmap(process_tile, params)
     else:
         if args.no_run:
             logger.info("No-run mode: Products will only be listed")
         for tile, _search_url in search_urls.items():
-            start_process(tile, _search_url, args, date_range.start_date, date_range.end_date)
+            process_tile(tile, _search_url, args, date_range.start_date, date_range.end_date)
+
+    if not args.no_run:
+        logger.info("total processing time : %s", str(datetime.datetime.utcnow() - start))
+
     return 0
 
 

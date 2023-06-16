@@ -1,5 +1,48 @@
 # Sen2Like Release Notes
 
+## v4.3.0
+
+### **Breaking changes**
+
+* Bump Python version to 3.10 and dependencies update.
+
+  **Please update your conda environnement or create a new one**
+
+* Remove DEM downloader config parameters
+* Remove catalog search filter `processingLevel` in default configuration due to changes in CREODIAS finder API.
+  
+  **Please do not use this parameter anymore, it is managed by code**
+
+* Update to sen2cor 3.1
+
+### New features
+
+* Add support for PRISMA 4 Sen2like preprocessor output.
+
+### Fix
+
+* Image band parallelization process stability when using `--parallelize-bands` program argument.
+
+### Improvements
+
+* Design: 
+  * Move product processing execution from main sen2like module into a new class `core.product_process.ProductProcess` (separation of concern)
+  * Compute atmo corr parameters only once per product
+  * Set product working dir in the `S2L_Product` instead of rebuild it every time need
+  * Replace `metadata` singleton by an attribute in `S2L_Product`
+  * `config` singleton no more modified for each product to process, replaced by a `ProcessContext` object attached to the product having variable config parameters.
+
+* Remove unused module:
+ 
+  * `atmcor/smac/COEFS/convert.py`
+  * `atmcor/smac/COEFS/convert_from_GIPP.py`
+  * `atmcor/smac/COEFS/diff_coeff.py`
+  * `core/product_archive/dem_downloader.py`
+  * `misc/SCL_to_valid_pixel_mask.py`
+  * `misc/Test_retrieve_CAMS.py`
+  * `misc/s2download.py`
+
+
 ## v4.2.1
 
 ### Known issues

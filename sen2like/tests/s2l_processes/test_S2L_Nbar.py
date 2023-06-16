@@ -3,6 +3,7 @@ import os
 from unittest import TestCase
 
 from core.S2L_config import config
+from core.products.product import ProcessingContext
 from core.products.sentinel_2.sentinel2 import Sentinel2Product
 from s2l_processes.S2L_Nbar import VJBMatriceBRDFCoefficient
 
@@ -30,7 +31,8 @@ class TestS2L_Nbar(TestCase):
             "31TFJ",
             "S2B_MSIL1C_20171114T104259_N0206_R008_T31TFJ_20171114T124011.SAFE",
         )
-        product = Sentinel2Product(_product_path)
+        context = ProcessingContext(config, "31TFJ")
+        product = Sentinel2Product(_product_path, context)
         # deliberately set false aux data folder (test_folder_path)
         # to not have error during object init
         vjb = VJBMatriceBRDFCoefficient(product, None, "B04", test_folder_path)
