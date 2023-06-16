@@ -1,27 +1,43 @@
 #! /usr/bin/env python
 # -*- coding: utf-8 -*-
-# V. Debaecker (TPZ-F) 2018
+# Copyright (c) 2023 ESA.
+#
+# This file is part of sen2like.
+# See https://github.com/senbox-org/sen2like for further info.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
 """mgrs framing tool module"""
-from dataclasses import dataclass
 import logging
-from math import ceil
 import os
+from dataclasses import dataclass
+from math import ceil
 
-import numpy as np
 import affine
+import numpy as np
+import pandas as pd
 from osgeo import gdal, osr
-from shapely.wkt import loads
 from shapely.geometry.base import BaseGeometry
-
+from shapely.wkt import loads
 from skimage.measure import block_reduce
-from skimage.transform import SimilarityTransform
+from skimage.transform import SimilarityTransform, estimate_transform
 from skimage.transform import resize as skit_resize
 from skimage.transform import warp as skit_warp
 
 # internal packages
 from core.image_file import S2L_ImageFile
-from . import grids
 
+from . import grids
 
 log = logging.getLogger("Sen2Like")
 
@@ -194,7 +210,18 @@ def get_mgrs_geo_info(tile_code: str) -> MGRSGeoInfo:
     return MGRSGeoInfo(roi['EPSG'][0], loads(roi['UTM_WKT'][0]))
 
 
-def reframe(image: S2L_ImageFile, tile_code: str, filepath_out, dx=0., dy=0., order=3, dtype=None, margin=0, compute_offsets=False) -> S2L_ImageFile:
+def reframe(
+    image: S2L_ImageFile,
+    tile_code: str,
+    filepath_out,
+    dx=0.,
+    dy=0.,
+    order=3,
+    dtype=None,
+    margin=0,
+    compute_offsets=False,
+    method="translation"
+) -> S2L_ImageFile:
     """Reframe SINGLE band image in MGRS tile
 
     Args:
@@ -207,6 +234,8 @@ def reframe(image: S2L_ImageFile, tile_code: str, filepath_out, dx=0., dy=0., or
         dtype (numpy dtype, optional): output image dtype name. Defaults to None (use input image dtype).
         margin (int, optional): margin to apply to output. Defaults to 0.
         compute_offsets (bool, optional): TODO : see with Vince. Defaults to False.
+        method (str, optional): geometry correction strategy to apply. 
+            Expect 'polynomial' or 'translation". Defaults to 'translation'.
 
     Returns:
         S2L_ImageFile: reframed image
@@ -278,9 +307,21 @@ def reframe(image: S2L_ImageFile, tile_code: str, filepath_out, dx=0., dy=0., or
     if xOff == 0 and yOff == 0 and image.xSize == xSize and image.ySize == ySize:
         new = array
     else:
-        # translate and reframe (order= 0:nearest, 1: linear, 3:cubic)
-        transform = SimilarityTransform(translation=(xOff, yOff))
-        new = skit_warp(array, inverse_map=transform, output_shape=(ySize, xSize), order=order, preserve_range=True)
+        if method == "translation":
+            log.info("Translation correction")
+            # translate and reframe (order= 0:nearest, 1: linear, 3:cubic)
+            transform = SimilarityTransform(translation=(xOff, yOff))
+            new = skit_warp(array, inverse_map=transform, output_shape=(ySize, xSize), order=order, preserve_range=True)
+        elif method == "polynomial":
+            log.info("Polynomial correction")
+            # filepath_out should be in working dir
+            df = pd.read_csv(os.path.join(os.path.dirname(filepath_out), "KLT.csv"), sep=";")
+            dst = np.array([(df.x0 + df.dx).to_numpy(), (df.y0 + df.dy).to_numpy()]).T
+            src = np.array([df.x0.to_numpy(), df.y0.to_numpy()]).T
+            tform = estimate_transform(method, src, dst)
+            new = skit_warp(array, inverse_map=tform, preserve_range=True, cval=1000)
+        else:
+            raise ValueError(f"Unknown correction method: {method}")
 
     # As we played with 0 and NaN, restore zeros for floating array
     # we have to restore zero for output NaN

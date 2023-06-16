@@ -1,0 +1,138 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<n1:Level-1C_Tile_ID xmlns:n1="https://psd-14.sentinel2.eo.esa.int/PSD/S2_PDI_Level-1C_Tile_Metadata.xsd" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="https://psd-14.sentinel2.eo.esa.int/PSD/S2_PDI_Level-1C_Tile_Metadata.xsd /dpc/app/s2ipf/FORMAT_METADATA_TILE_L1C/05.01.01/scripts/../../../schemas/14.08.01/PSD/S2_PDI_Level-1C_Tile_Metadata.xsd">
+
+  <n1:General_Info>
+    <TILE_ID metadataLevel="Brief">{{ product.long_granule_identifier }}</TILE_ID>
+    <DATASTRIP_ID metadataLevel="Standard">{{ product.datastrip_identifier }}</DATASTRIP_ID>
+    <DOWNLINK_PRIORITY metadataLevel="Standard">NOMINAL</DOWNLINK_PRIORITY>
+    <SENSING_TIME metadataLevel="Standard">{{ sensing_time }}</SENSING_TIME>
+    <Archiving_Info metadataLevel="Expertise">
+      <ARCHIVING_CENTRE>2BPS</ARCHIVING_CENTRE>
+      <ARCHIVING_TIME>2022-08-22T21:22:12.232788Z</ARCHIVING_TIME>
+    </Archiving_Info>
+  </n1:General_Info>
+
+  <n1:Geometric_Info>
+    <Tile_Geocoding metadataLevel="Brief">
+      <HORIZONTAL_CS_NAME>{{ product.epsg_name }}</HORIZONTAL_CS_NAME>
+      <HORIZONTAL_CS_CODE>EPSG:{{ product.epsg_code }}</HORIZONTAL_CS_CODE>
+      <Size resolution="10">
+        <NROWS>10980</NROWS>
+        <NCOLS>10980</NCOLS>
+      </Size>
+      <Size resolution="20">
+        <NROWS>5490</NROWS>
+        <NCOLS>5490</NCOLS>
+      </Size>
+      <!-- for prisma -->
+      <Size resolution="30">
+        <NROWS>3660</NROWS>
+        <NCOLS>3660</NCOLS>
+      </Size>
+      <!-- end for prisma -->
+      <Size resolution="60">
+        <NROWS>1830</NROWS>
+        <NCOLS>1830</NCOLS>
+      </Size>
+      <Geoposition resolution="10">
+        <ULX>{{ product.ulx }}</ULX>
+        <ULY>{{ product.uly }}</ULY>
+        <XDIM>10</XDIM>
+        <YDIM>-10</YDIM>
+      </Geoposition>
+      <Geoposition resolution="20">
+        <ULX>{{ product.ulx }}</ULX>
+        <ULY>{{ product.uly }}</ULY>
+        <XDIM>20</XDIM>
+        <YDIM>-20</YDIM>
+      </Geoposition>
+      <!-- for prisma -->
+      <Geoposition resolution="30">
+        <ULX>{{ product.ulx }}</ULX>
+        <ULY>{{ product.uly }}</ULY>
+        <XDIM>30</XDIM>
+        <YDIM>-30</YDIM>
+      </Geoposition>
+      <!-- end for prisma -->
+      <Geoposition resolution="60">
+        <ULX>{{ product.ulx }}</ULX>
+        <ULY>{{ product.uly }}</ULY>
+        <XDIM>60</XDIM>
+        <YDIM>-60</YDIM>
+      </Geoposition>
+    </Tile_Geocoding>
+    <Tile_Angles metadataLevel="Standard">
+      <Sun_Angles_Grid>
+        <Zenith>
+          <COL_STEP unit="m">5000</COL_STEP>
+          <ROW_STEP unit="m">5000</ROW_STEP>
+          <Values_List>
+            {%- for row in product.sun_angle_grid.zenith_angle %}
+            <VALUES>{{ row | join(' ') }}</VALUES>
+            {%- endfor %}
+          </Values_List>
+        </Zenith>
+        <Azimuth>
+          <COL_STEP unit="m">5000</COL_STEP>
+          <ROW_STEP unit="m">5000</ROW_STEP>
+          <Values_List>
+            {%- for row in product.sun_angle_grid.azimuth_angle %}
+            <VALUES>{{ row | join(' ') }}</VALUES>
+            {%- endfor %}
+          </Values_List>
+        </Azimuth>
+      </Sun_Angles_Grid>
+      <Mean_Sun_Angle>
+        <ZENITH_ANGLE unit="deg">{{ product.mean_sun_angle.zenith_angle }}</ZENITH_ANGLE>
+        <AZIMUTH_ANGLE unit="deg">{{ product.mean_sun_angle.azimuth_angle }}</AZIMUTH_ANGLE>
+      </Mean_Sun_Angle>
+      {%- for band in range(13) %}
+        {%- for detector in range(1,4) %}
+      <Viewing_Incidence_Angles_Grids bandId="{{ band }}" detectorId="{{ detector }}">
+        <Zenith>
+          <COL_STEP unit="m">5000</COL_STEP>
+          <ROW_STEP unit="m">5000</ROW_STEP>
+          <Values_List>
+            {%- for row in product.viewing_angle_grid.zenith_angle %}
+            <VALUES>{{ row | join(' ') }}</VALUES>
+            {%- endfor %}
+          </Values_List>
+        </Zenith>
+        <Azimuth>
+          <COL_STEP unit="m">5000</COL_STEP>
+          <ROW_STEP unit="m">5000</ROW_STEP>
+          <Values_List>
+            {%- for row in product.viewing_angle_grid.azimuth_angle %}
+            <VALUES>{{ row | join(' ') }}</VALUES>
+            {%- endfor %}
+          </Values_List>
+        </Azimuth>
+      </Viewing_Incidence_Angles_Grids>
+        {%- endfor %}
+      {%- endfor %}
+      <Mean_Viewing_Incidence_Angle_List>
+        {%- for band in range(13) %}
+        <Mean_Viewing_Incidence_Angle bandId="{{ band }}">
+          <ZENITH_ANGLE unit="deg">{{ product.mean_viewing_angle.zenith_angle }}</ZENITH_ANGLE>
+          <AZIMUTH_ANGLE unit="deg">{{ product.mean_viewing_angle.azimuth_angle }}</AZIMUTH_ANGLE>
+        </Mean_Viewing_Incidence_Angle>
+        {%- endfor %}
+      </Mean_Viewing_Incidence_Angle_List>
+    </Tile_Angles>
+  </n1:Geometric_Info>
+
+  <n1:Quality_Indicators_Info metadataLevel="Standard">
+    <Image_Content_QI>
+      <CLOUDY_PIXEL_PERCENTAGE>{{ product.cloudy_pixel_percentage }}</CLOUDY_PIXEL_PERCENTAGE>
+      <DEGRADED_MSI_DATA_PERCENTAGE>0</DEGRADED_MSI_DATA_PERCENTAGE>
+      <SNOW_PIXEL_PERCENTAGE>{{ product.snow_pixel_percentage }}</SNOW_PIXEL_PERCENTAGE>
+    </Image_Content_QI>
+    <Pixel_Level_QI geometry="FULL_RESOLUTION">
+      {%- for mask in mask_files %}
+      <MASK_FILENAME {%- if mask.band_id_attr %} bandId="{{ mask.band_id_attr }}" {% endif %} type="{{ mask.type_attr }}">{{ granule_qi_path }}/{{ mask.value }}</MASK_FILENAME>
+      {%- endfor %}
+    </Pixel_Level_QI>
+    <PVI_FILENAME>{{ granule_qi_path }}/{{product.pvi_filename}}</PVI_FILENAME>
+  </n1:Quality_Indicators_Info>
+
+</n1:Level-1C_Tile_ID>

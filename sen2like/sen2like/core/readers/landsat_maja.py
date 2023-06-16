@@ -1,14 +1,35 @@
+# Copyright (c) 2023 ESA.
+#
+# This file is part of sen2like.
+# See https://github.com/senbox-org/sen2like for further info.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
 """Module for Landsat Maja product"""
 import logging
 import os
 import re
 
-from osgeo import ogr
 import shapely
 import shapely.geometry
 import shapely.wkt
+from osgeo import ogr
 
-from core.metadata_extraction import compute_earth_solar_distance, get_in_band_solar_irrandiance_value, from_date_to_doy
+from core.metadata_extraction import (
+    compute_earth_solar_distance,
+    from_date_to_doy,
+    get_in_band_solar_irrandiance_value,
+)
 from core.readers.maja_reader import MajaReader
 
 log = logging.getLogger('Sen2Like')
@@ -69,7 +90,8 @@ class LandsatMajaMTL(MajaReader):
         self.path = self.root.findtext('.//Product_Characteristics/ORBIT_NUMBER[@type="Path"]')
 
         self.relative_orbit = self.path
-        self.absolute_orbit = 'N/A'
+        # hardcoded as we can't have it
+        self.absolute_orbit = '000000'
 
         observation_date = self.root.findtext('.//Product_Characteristics/ACQUISITION_DATE')
         self.observation_date = observation_date.split('T')[0]

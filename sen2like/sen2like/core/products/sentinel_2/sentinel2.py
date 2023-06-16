@@ -1,8 +1,26 @@
+# Copyright (c) 2023 ESA.
+#
+# This file is part of sen2like.
+# See https://github.com/senbox-org/sen2like for further info.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
 import glob
 import os
 import re
+from datetime import datetime
 
-from core.products.product import S2L_Product
+from core.products.product import DATE_WITH_MILLI_FORMAT, ProcessingContext, S2L_Product
 
 
 class Sentinel2Product(S2L_Product):
@@ -20,10 +38,17 @@ class Sentinel2Product(S2L_Product):
     s2_date_regexp = re.compile(r"S2._.+?_(\d{8}T\d{6})_.*")
     s2_date_regexp_long_name = re.compile(r"S2._.+?_\d{8}T\d{6}_R\d{3}_V(\d{8}T\d{6})_\d{8}T\d{6}.*")
     s2_processing_level_regexp = re.compile(r"S2._([^_]+)_.*")
+    # override S2L_Product
+    apply_sbaf_param = False
+    # override S2L_Product
+    # S2 products already in mgrs frame, so that as angle file does need reframing
+    reframe_angle_file = False
 
-    def __init__(self, path):
-        super().__init__(path)
+    def __init__(self, path, context: ProcessingContext):
+        super().__init__(path, context)
         self.read_metadata()
+        self._dt_sensing_start = None
+        self._ds_sensing_start = None
 
     @classmethod
     def date_format(cls, name):
@@ -54,13 +79,60 @@ class Sentinel2Product(S2L_Product):
 
     def get_smac_filename(self, band):
         # select S2A or S2B coef
-        name = 'S' + self.mtl.mission[-2:]  # S2A or S2B
-        return 'Coef_{}_CONT_{}.dat'.format(name, band.replace('0', '').replace('8A', '8a'))
+        return 'Coef_{}_CONT_{}.dat'.format(self.sensor_name, band.replace('0', '').replace('8A', '8a'))
 
     @property
     def sensor_name(self):
-        return 'S' + self.mtl.mission[-2:]  # S2A or S2B
+        return self.mtl.product_name[:3]
+        # return 'S' + self.mtl.mission[-2:]  # S2A or S2B
 
     @staticmethod
     def can_handle(product_name):
-        return os.path.basename(product_name).startswith('S2')
+        return os.path.basename(product_name).startswith(('S2A', 'S2B'))
+
+    @property
+    def dt_sensing_start(self) -> datetime:
+        """S2 Datatake sensing start
+
+        Returns:
+            datetime: Datatake sensing start
+        """
+
+        if self._dt_sensing_start:
+            return self._dt_sensing_start
+
+        self._dt_sensing_start = datetime.strptime(
+            self.mtl.dt_sensing_start,
+            DATE_WITH_MILLI_FORMAT
+        )
+
+        return self._dt_sensing_start
+
+    @property
+    def ds_sensing_start(self) -> datetime:
+        """S2 Datastrip sensing start
+
+        Returns:
+            datetime: Datastrip sensing start
+        """
+        if self._ds_sensing_start:
+            return self._ds_sensing_start
+
+        self._ds_sensing_start = datetime.strptime(
+            self.mtl.ds_sensing_start,
+            DATE_WITH_MILLI_FORMAT
+        )
+
+        return self._ds_sensing_start
+
+class PrismaProduct(Sentinel2Product):
+    sensor = 'Prisma'
+    geometry_correction_strategy = "polynomial"
+
+    @staticmethod
+    def can_handle(product_name):
+        return os.path.basename(product_name).startswith('S2P')
+
+    def get_smac_filename(self, band):
+        # select S2A
+        return 'Coef_{}_CONT_{}.dat'.format("S2A", band.replace('0', '').replace('8A', '8a'))

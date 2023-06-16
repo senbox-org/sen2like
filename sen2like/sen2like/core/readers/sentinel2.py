@@ -1,3 +1,20 @@
+# Copyright (c) 2023 ESA.
+#
+# This file is part of sen2like.
+# See https://github.com/senbox-org/sen2like for further info.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
 import glob
 import logging
 import os
@@ -6,8 +23,8 @@ import sys
 from xml import parsers as pars
 from xml.dom import minidom
 
-import numpy as np
 import mgrs
+import numpy as np
 
 from core.metadata_extraction import from_date_to_doy
 from core.readers.reader import BaseReader, compute_scene_boundaries
@@ -28,6 +45,8 @@ def node_value(dom, node_name):
 
 class Sentinel2MTL(BaseReader):
     """Object for S2 product metadata extraction"""
+
+    mask_resolution = 20
 
     def __init__(self, product_path, mtd_file=None):
         super().__init__(product_path)
@@ -82,6 +101,7 @@ class Sentinel2MTL(BaseReader):
         datastrip_path = glob.glob(os.path.join(self.product_path, 'DATASTRIP', '*', '*MTD*.xml'))
         datastrip_metadata = datastrip_path[0] if len(datastrip_path) != 0 else None
         if datastrip_metadata:
+            log.debug("Read %s", datastrip_metadata)
             dom_ds = minidom.parse(datastrip_metadata)
             self.datastrip_metadata = datastrip_metadata
             self.dt_sensing_start = node_value(dom_ds, 'DATATAKE_SENSING_START')
@@ -129,7 +149,7 @@ class Sentinel2MTL(BaseReader):
             file_path = None
             self.file_extension = '.jp2'
             for node in node1:
-                if node.hasAttribute('imageFormat') and node.attributes['imageFormat'] == 'GEOTIFF':
+                if node.hasAttribute('imageFormat') and node.attributes['imageFormat'].value == 'GEOTIFF':
                     self.file_extension = '.TIF'
                 for rec in node.childNodes:
                     if rec.nodeType == 1:  # Select DOM Text Node
@@ -156,6 +176,8 @@ class Sentinel2MTL(BaseReader):
 
             if 'SCL_20m' in self.bands.keys():
                 self.scene_classif_band = self.bands['SCL_20m']
+            elif 'SCL_30m' in self.bands.keys(): # L2A PRISMA
+                self.scene_classif_band = self.bands['SCL_30m']
 
             # Collection not applicable for Landsat
             self.collection = ' '
@@ -334,9 +356,10 @@ class Sentinel2MTL(BaseReader):
     @staticmethod
     def can_read(product_name):
         name = os.path.basename(product_name)
-        S2L_structure_check = os.path.isdir(os.path.join(product_name, 'GRANULE')) and \
-                              ('L2F_' in name or 'LS8_' in name or 'LS9_' in name)
-        return name.startswith('S2') or (name.startswith('L2F') and '_S2' in name) or S2L_structure_check
+        # S2L_structure_check = os.path.isdir(os.path.join(product_name, 'GRANULE')) and \
+        #                       ('L2F_' in name or 'LS8_' in name or 'LS9_' in name)
+        # return name.startswith('S2') or (name.startswith('L2F') and '_S2' in name) or S2L_structure_check
+        return name.startswith('S2A_MSIL') or name.startswith('S2B_MSIL')
 
     def get_scene_center_coordinates(self):
         m = mgrs.MGRS()
@@ -360,16 +383,26 @@ class Sentinel2MTL(BaseReader):
         """
 
         # try L2 case first, never present in L1
-        radio_add_offset_list = dom.getElementsByTagName('BOA_ADD_OFFSET_VALUES_LIST')
+        radio_add_offset_list = dom.getElementsByTagName('BOA_ADD_OFFSET')
         if len(radio_add_offset_list) == 0:
             # L1 case, never present in L2
             radio_add_offset_list = dom.getElementsByTagName('RADIO_ADD_OFFSET')
 
         self.radiometric_offset_dic = None
         if len(radio_add_offset_list) > 0:
-            log.debug('Radiometric offsets are finded.')
+            log.debug('Radiometric offsets are found.')
             self.radiometric_offset_dic = {}
             for _, node in enumerate(radio_add_offset_list):
                 band_id = node.attributes['band_id'].value
                 radio_add_offset = node.childNodes[0].data
                 self.radiometric_offset_dic[int(band_id)] = radio_add_offset
+
+class Sentinel2PrismaMTL(Sentinel2MTL):
+    """Sentinel2MTL specialisation for S2P (Prisma input product)"""
+
+    mask_resolution = 30
+
+    @staticmethod
+    def can_read(product_name):
+        name = os.path.basename(product_name)
+        return name.startswith('S2P_MSIL1C') or name.startswith('S2P_MSIL2A')

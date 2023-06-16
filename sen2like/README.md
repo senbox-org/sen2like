@@ -23,7 +23,6 @@ TOC Generated with markdown all in one: https://github.com/yzhang-gh/vscode-mark
     - [Downloader](#downloader)
       - [Local](#local)
       - [Creodias API](#creodias-api)
-    - [DemDownloader](#demdownloader)
     - [Geometry](#geometry)
     - [Atmcor](#atmcor)
     - [Nbar](#nbar)
@@ -79,7 +78,7 @@ We recommend to use miniconda.
 
 To install miniconda, please refer to the miniconda documentation : https://docs.conda.io/en/latest/miniconda.html#
 
-**As sen2like is based on python 3.7 it is recommended to install miniconda with python 3.7 but it is fine with conda having another version of python**
+**As sen2like is based on python 3.10 it is recommended to install miniconda with python 3.10 but it is fine with conda having another version of python**
 
 ![miniconda](docs/resources/miniconda_version.png)
 
@@ -101,7 +100,7 @@ conda activate sen2like
 
 ```bash
 python sen2like.py 
-[INFO    ] 2023-01-11 14:50:54 - sen2like             - Run Sen2like 4.2.0
+[INFO    ] 2023-01-11 14:50:54 - sen2like             - Run Sen2like 4.3.0
 usage: sen2like.py [-h] [--version] [--refImage PATH] [--wd PATH]
                    [--conf PATH] [--confParams STRLIST] [--bands STRLIST]
                    [--allow-other-srs] [--no-run] [--intermediate-products]
@@ -150,7 +149,7 @@ Create a tag TARGET_IMAGE that refers to SOURCE_IMAGE
 Example
 
 ```bash
-docker image tag sen2like my-internal-docker-registry-url/sen2like:4.2
+docker image tag sen2like my-internal-docker-registry-url/sen2like:4.3
 ```
 
 Push the image on a registry with the command `docker push NAME[:TAG]`
@@ -158,7 +157,7 @@ Push the image on a registry with the command `docker push NAME[:TAG]`
 Example
 
 ```bash
-docker push my-internal-docker-registry-url/sen2like:4.2
+docker push my-internal-docker-registry-url/sen2like:4.3
 ```
 
 ## Running the tool
@@ -182,15 +181,15 @@ Build sen2like docker image or pull it from a registry with the command `docker 
 Example :
 
 ```bash
-docker pull https://my-internal-docker-registry-url/sen2like:4.2
+docker pull https://my-internal-docker-registry-url/sen2like:4.3
 ```
 
 You can run it directly without entering into the container: 
 
 ```bash
-docker run --rm my-internal-docker-registry-url/sen2like/sen2like:4.2
+docker run --rm my-internal-docker-registry-url/sen2like/sen2like:4.3
 
-[INFO    ] 2023-01-11 14:50:54 - sen2like             - Run Sen2like 4.2.0
+[INFO    ] 2023-01-11 14:50:54 - sen2like             - Run Sen2like 4.3.0
 usage: sen2like.py [-h] [--version] [--refImage PATH] [--wd PATH]
                    [--conf PATH] [--confParams STRLIST] [--bands STRLIST]
                    [--allow-other-srs] [--no-run] [--intermediate-products]
@@ -211,7 +210,7 @@ In the following examples **local** folder `/data` is supposed to exist and cont
 ```bash
 docker run --rm \
   --mount type=bind,source="/data",target=/data \
-  my-internal-docker-registry-url/sen2like/sen2like:4.2 \
+  my-internal-docker-registry-url/sen2like/sen2like:4.3 \
   single-tile-mode 31TFJ \
   --conf "/data/config.ini" \
   --start-date 2017-10-30 --end-date 2017-10-31 \
@@ -225,7 +224,7 @@ Python script `sen2like.py` could be accessed from a docker container.
 Launch the docker binding **local** `/data` folder to the container `/data` folder, example: 
 
 ```bash
-docker run --rm -it --mount type=bind,source="/data",target=/data --entrypoint=/bin/bash my-internal-docker-registry-url/sen2like/sen2like:4.2
+docker run --rm -it --mount type=bind,source="/data",target=/data --entrypoint=/bin/bash my-internal-docker-registry-url/sen2like/sen2like:4.3
 
 root@15a2f44ddd70:/usr/local/sen2like
 
@@ -345,20 +344,6 @@ url_parameters_pattern_Sentinel2 = /data/PRODUCTS/Sentinel2/31TFJ
 * `cloud_cover_property`: Path in result json where cloud cover is stored
 * `gml_geometry_property`:  Path in result json where gml geometry is stored
 
-#### DemDownloader
-
-This section presents the configuration for the DEM downloader. It is not yet integrated into the sen2like workflow but can be
-used by itself.
-
-* `download_if_unavailable`: Download DEM at need if unavalaible (`True`or `False`)
-* `dem_dataset_name`: The name of the DEM dataset
-* `dem_local_url`: Path of local DEM storage
-* `dem_tmp_local_url`:  Path of local temporary storage for downloaded tiles and mosaic
-* `archive_format`: Format of the DEM archive to download
-* `dem_product_name`: Name of the DEM product on server
-* `dem_server_url`: Server url where DEM are retrieved
-
-*Note: No compatible dem_server_url is available yet to the public.*
 
 #### Geometry
 

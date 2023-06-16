@@ -1,0 +1,10 @@
+# This file may be used to update an environment using:
+# conda install -n prisma -c conda-forge --file requirements_dev.txt
+bandit==1.7.5
+isort==5.12.0
+black==23.1.0
+pre-commit==3.2.0
+pydocstyle==6.3.0
+pylint==2.17.1
+pytest==7.2.2
+pytest-cov==4.0.0

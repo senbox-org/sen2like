@@ -1,3 +1,20 @@
+# Copyright (c) 2023 ESA.
+#
+# This file is part of sen2like.
+# See https://github.com/senbox-org/sen2like for further info.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
 """Input product file extractor module for the needs of the S2L output product
 This is where the business is to create files like mask for output product from input product
 """
@@ -5,29 +22,25 @@ import abc
 import datetime
 import logging
 import os
-
 from dataclasses import dataclass
-from typing import Optional
 from xml.dom import minidom
 
 import numpy as np
-
-from fmask import landsatangles
 from fmask import config as fmask_config
+from fmask import landsatangles
 from osgeo import gdal
 from rios import fileinfo
-from skimage.morphology import square, erosion
+from skimage.morphology import erosion, square
 from skimage.transform import resize as skit_resize
 
 from atmcor import get_s2_angles as s2_angles
-
-from core.image_file import S2L_ImageFile
-from core.readers.reader import BaseReader
-from core.readers.sentinel2 import Sentinel2MTL
-from core.readers.landsat import LandsatMTL
-from core.readers.sentinel2_maja import Sentinel2MajaMTL
-from core.readers.landsat_maja import LandsatMajaMTL
 from core.file_extractor.landsat_utils import downsample_coarse_image, make_angles_image
+from core.image_file import S2L_ImageFile
+from core.readers.landsat import LandsatMTL
+from core.readers.landsat_maja import LandsatMajaMTL
+from core.readers.reader import BaseReader
+from core.readers.sentinel2 import Sentinel2MTL, Sentinel2PrismaMTL
+from core.readers.sentinel2_maja import Sentinel2MajaMTL
 
 log = logging.getLogger("Sen2Like")
 
@@ -89,6 +102,10 @@ class MaskInfo:
         Returns:
             float: valid pixel percentage
         """
+        if self.nb_valid_pixel == 0:
+            return self.nb_valid_pixel
+        if self.mask_size == self.nb_nodata_pixel:
+            return 0
         return (self.nb_valid_pixel * 100) / (self.mask_size - self.nb_nodata_pixel)
 
     def get_nodata_pixel_percentage(self) -> float:
@@ -134,7 +151,7 @@ class InputFileExtractor(abc.ABC):
             str: output filename, if 'out_file' is None implementation should set to 'ANGLE_IMAGE_FILE_NAME' in the input product folder
         """
 
-    def get_valid_pixel_mask(self, mask_filename, roi_file_path: str = None) -> Optional[ImageMasks]:
+    def get_valid_pixel_mask(self, mask_filename, roi_file_path: str = None) -> ImageMasks|None:
         """Create validity mask and nodata pixel mask.
         nodata pixel mask name is nodata_pixel_mask.tif in the same folder of the valid pixel mask.
         `MaskInfo` are save in the current instance
@@ -223,7 +240,7 @@ class S2FileExtractor(InputFileExtractor):
         super().__init__(input_product)
 
     def _create_masks_from_scl(self, mask_filename: str, res: int) -> ImageMasks:
-        """Create validity mask and nodata pixel mask from LSC image.
+        """Create validity mask and nodata pixel mask from SCL image.
         Consider as valid pixels :
             - VEGETATION and NOT_VEGETATED (values 4 et 5)
             - UNCLASSIFIED (7)
@@ -240,7 +257,7 @@ class S2FileExtractor(InputFileExtractor):
         scl = S2L_ImageFile(self._input_product.scene_classif_band)
         scl_array = scl.array
         if scl.xRes != res:
-            shape = (int(scl_array.shape[0] * - scl.yRes / res),
+            shape = (int(scl_array.shape[0] * - scl.yRes / res), # pylint: disable=invalid-unary-operand-type
                      int(scl_array.shape[1] * scl.xRes / res))
             log.debug(shape)
             scl_array = skit_resize(scl_array, shape, order=0, preserve_range=True).astype(np.uint8)
@@ -340,9 +357,9 @@ class S2FileExtractor(InputFileExtractor):
             dataset = None
             log.info('Written: %s', mask_filename)
             return MaskImage(None, valid_px_mask, mask_filename, res)
-        else:
-            # no cloud mask, copy nodata mask
-            return MaskImage(nodata_mask.orig_image, nodata_mask.mask_array, mask_filename, res)
+
+        # no cloud mask, copy nodata mask
+        return MaskImage(nodata_mask.orig_image, nodata_mask.mask_array, mask_filename, res)
 
     def _create_valid_mask_form_l1c_jp2(
             self, mask_filename: str, image: S2L_ImageFile, nodata: np.ndarray, res: int) -> MaskImage:
@@ -410,7 +427,7 @@ class S2FileExtractor(InputFileExtractor):
             if ext == '.gml':
                 validity_mask = self._create_valid_mask_form_l1c_gml(mask_filename, nodata_mask, res)
 
-            elif ext == '.jp2':
+            elif ext in ['.jp2', '.tif']:
                 validity_mask = self._create_valid_mask_form_l1c_jp2(mask_filename, image, nodata_mask.mask_array, res)
 
         if not validity_mask:
@@ -429,15 +446,20 @@ class S2FileExtractor(InputFileExtractor):
         Returns:
             ImageMasks: masks container for future writing
         """
-        res = 20
         image_masks = None
         log.debug('get valid pixel mask')
         if self._input_product.scene_classif_band:
-            image_masks = self._create_masks_from_scl(mask_filename, res)
+            image_masks = self._create_masks_from_scl(
+                mask_filename,
+                self._input_product.mask_resolution
+            )
         # L1C case for instance -> No SCL, but NODATA and CLD mask
         else:
             log.debug('L1C Case')
-            image_masks = self._create_masks_from_l1c(mask_filename, res)
+            image_masks = self._create_masks_from_l1c(
+                mask_filename,
+                self._input_product.mask_resolution
+            )
 
         return image_masks
 
@@ -569,7 +591,7 @@ class LandsatFileExtractor(InputFileExtractor):
         scl_array = scl.array
         res = 30
         if scl.xRes != res:
-            shape = (int(scl_array.shape[0] * - scl.yRes / res), int(scl_array.shape[1] * scl.xRes / res))
+            shape = (int(scl_array.shape[0] * - scl.yRes / res), int(scl_array.shape[1] * scl.xRes / res)) # pylint: disable=invalid-unary-operand-type
             log.debug(shape)
             scl_array = skit_resize(scl_array, shape, order=0, preserve_range=True).astype(np.uint8)
 
@@ -903,6 +925,7 @@ class LandsatMajaFileExtractor(InputFileExtractor):
 
 extractor_class = {
     Sentinel2MTL.__name__: S2FileExtractor,
+    Sentinel2PrismaMTL.__name__: S2FileExtractor,
     LandsatMTL.__name__: LandsatFileExtractor,
     Sentinel2MajaMTL.__name__: S2MajaFileExtractor,
     LandsatMajaMTL.__name__: LandsatMajaFileExtractor,

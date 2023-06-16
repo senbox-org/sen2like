@@ -1,3 +1,20 @@
+# Copyright (c) 2023 ESA.
+#
+# This file is part of sen2like.
+# See https://github.com/senbox-org/sen2like for further info.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
 """Geometry correction processing block module"""
 
 import logging
@@ -6,11 +23,10 @@ import os
 import numpy as np
 
 from core import S2L_config
-from core.QI_MTD.mtd import metadata
 from core.image_file import S2L_ImageFile
 from core.products.product import S2L_Product
+from core.reference_image import get_resampled_ref_image
 from grids import mgrs_framing
-from klt import klt
 from klt.klt import KLTMatcher, KTLResult
 from s2l_processes.S2L_Process import S2L_Process
 
@@ -28,13 +44,12 @@ def reframe_mask(product: S2L_Product, product_mask_filename_attr: str, output_f
     Returns:
         S2L_ImageFile : mask image
     """
-    filepath_out = os.path.join(S2L_config.config.get(
-        'wd'), product.name, output_filename)
+    filepath_out = os.path.join(product.working_dir, output_filename)
 
     mask_file_path = getattr(product, product_mask_filename_attr, None)
     image = S2L_ImageFile(mask_file_path)
 
-    out_image = mgrs_framing.reframe(image, product.mtl.mgrs, filepath_out, product.dx, product.dy, order=0)
+    out_image = mgrs_framing.reframe(image, product.mgrs, filepath_out, product.dx, product.dy, order=0)
 
     out_image.write(creation_options=['COMPRESS=LZW'], **kwargs)
 
@@ -45,7 +60,8 @@ def reframe_mask(product: S2L_Product, product_mask_filename_attr: str, output_f
 
 class S2L_Geometry(S2L_Process):
 
-    def initialize(self):
+    def __init__(self):
+        super().__init__()
         self._output_file = None
         # avoid process related product when process is called from preprocess for "main" product
         self._process_related_product = False
@@ -92,7 +108,7 @@ class S2L_Geometry(S2L_Process):
         # attempt to preprocess related
         self._preprocess_related(product)
 
-        self._set_qi_information()
+        self._set_qi_information(product)
 
     def _pre_reframe_aux_files(self, product: S2L_Product):
         """Reframe product angle file and validity mask to the product MGRS tile
@@ -100,10 +116,13 @@ class S2L_Geometry(S2L_Process):
         Args:
             product (S2L_Product): product having file to reframe
         """
-        # Reframe angles, only once because very low resolution
-        if product.sensor != 'S2':
-            filepath_out = os.path.join(S2L_config.config.get('wd'), product.name, 'tie_points_REFRAMED.TIF')
-            mgrs_framing.reframe_multiband(product.angles_file, product.mtl.mgrs, filepath_out,
+        # Reframe angles, only once without correction because very low resolution
+        if product.reframe_angle_file:
+            filepath_out = os.path.join(
+                product.working_dir,
+                'tie_points_REFRAMED.TIF'
+            )
+            mgrs_framing.reframe_multiband(product.angles_file, product.mgrs, filepath_out,
                                       product.dx, product.dy, order=0)
             # update product angles_images
             product.angles_file = filepath_out
@@ -127,7 +146,7 @@ class S2L_Geometry(S2L_Process):
         if product.ndvi_filename is not None:
             reframe_mask(product, "ndvi_filename", 'ndvi_REFRAMED_GEOM_CORRECTED.TIF', DCmode=True)
 
-    def _set_qi_information(self):
+    def _set_qi_information(self, product):
         """Set COREGISTRATION_BEFORE_CORRECTION, INPUT_RMSE_X, INPUT_RMSE_Y in QI report.
         If the processed product have a related product, the information is set for the product and its related one
         """
@@ -147,13 +166,13 @@ class S2L_Geometry(S2L_Process):
                 stats["rmse_x"].append(np.round(np.sqrt(np.mean(np.power(klt_result.dx_array, 2))), 1))
                 stats["rmse_y"].append(np.round(np.sqrt(np.mean(np.power(klt_result.dy_array, 2))), 1))
 
-            self._set_formatted_qi("COREGISTRATION_BEFORE_CORRECTION", stats["dist_means"])
-            self._set_formatted_qi("INPUT_RMSE_X", stats["rmse_x"])
-            self._set_formatted_qi("INPUT_RMSE_Y", stats["rmse_y"])
+            self._set_formatted_qi(product, "COREGISTRATION_BEFORE_CORRECTION", stats["dist_means"])
+            self._set_formatted_qi(product, "INPUT_RMSE_X", stats["rmse_x"])
+            self._set_formatted_qi(product, "INPUT_RMSE_Y", stats["rmse_y"])
 
-    def _set_formatted_qi(self, qi_name, qi_values):
+    def _set_formatted_qi(self, product, qi_name, qi_values):
         formatted = " ".join(f"{val:.3f}" for val in qi_values)
-        metadata.qi.update({qi_name: formatted})
+        product.metadata.qi.update({qi_name: formatted})
 
     def _preprocess_related(self, product: S2L_Product):
         """
@@ -197,10 +216,9 @@ class S2L_Geometry(S2L_Process):
 
         log.info('Start S2L_Geometry process for %s band %s' , product.name, band)
 
-        # MGRS reframing for Landsat8
-        if product.sensor in ('L8', 'L9', 'S2'):
-            log.debug('Product dx / dy : %s / %s', product.dx, product.dy)
-            image = self._reframe(product, image, product.dx, product.dy)
+        # MGRS reframing
+        log.debug('Product dx / dy : %s / %s', product.dx, product.dy)
+        image = self._reframe(product, image, product.dx, product.dy)
 
         log.info('End')
 
@@ -237,7 +255,7 @@ class S2L_Geometry(S2L_Process):
             log.warning("Matching correction is disabled")
             return
 
-        if not S2L_config.config.get('refImage'):
+        if not product.ref_image:
             log.warning("No reference configured for matching correction, abort")
             return
 
@@ -247,19 +265,21 @@ class S2L_Geometry(S2L_Process):
         reframed_image = self.process(product, image, band)
 
         # get ref image at the same resolution
-        ref_image = klt.get_ref_image(reframed_image)
+        ref_image = get_resampled_ref_image(reframed_image, product.ref_image)
         if not ref_image:
             log.warning("Cannot do matching correction, no reference image found for image %s", reframed_image.filepath)
             return
-
-        work_dir = os.path.join(S2L_config.config.get('wd'), product.name)
 
         # open validity mask
         mask = S2L_ImageFile(product.mask_filename)
 
         # matching to compute product dx/dy
         # Fine resolution of correlation grid (for accurate dx dy computation)
-        klt_result = self._klt_matcher.do_matching(work_dir, ref_image, reframed_image, mask.array)
+        klt_result = self._klt_matcher.do_matching(
+            product.working_dir,
+            ref_image,
+            reframed_image, mask.array
+        )
 
         # save values for future correction process on bands
         product.dx = klt_result.dx_array.mean()
@@ -285,7 +305,15 @@ class S2L_Geometry(S2L_Process):
         log.info('MGRS Framing: Start...')
 
         # reframe on MGRS
-        image_out = mgrs_framing.reframe(image_in, product.mtl.mgrs, self._output_file, dx, dy, dtype=np.float32)
+        image_out = mgrs_framing.reframe(
+            image_in,
+            product.mgrs,
+            self._output_file,
+            dx,
+            dy,
+            dtype=np.float32,
+            method=product.geometry_correction_strategy
+        )
 
         # display
         if S2L_config.config.getboolean('generate_intermediate_products'):

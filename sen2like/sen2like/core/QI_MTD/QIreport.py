@@ -1,14 +1,35 @@
 #! /usr/bin/env python
 # -*- coding: utf-8 -*-
-# G. Cavaro (TPZ-F) 2020
+# Copyright (c) 2023 ESA.
+#
+# This file is part of sen2like.
+# See https://github.com/senbox-org/sen2like for further info.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
 
 import datetime as dt
 import logging
 import os
 
-from core.QI_MTD.generic_writer import remove_namespace, chg_elm_with_tag, change_elm, create_child, XmlWriter
-from core.QI_MTD.mtd import metadata
 import version
+from core.QI_MTD.generic_writer import (
+    XmlWriter,
+    change_elm,
+    chg_elm_with_tag,
+    create_child,
+    remove_namespace,
+)
 
 log = logging.getLogger('Sen2Like')
 
@@ -31,10 +52,11 @@ class QiWriter(XmlWriter):
 
     def manual_replaces(self, product):
 
+        metadata = product.metadata
         # Saving all values which are present in the input QI report (L2A_QUALITY.xml) if any.
         # This is done to retrieve all values from init_qi_path (input_xml_path in XmlWriter)
         # that are not in metadata.qi (computed by S2L) and put them in metadata.qi
-        self._feed_values_dict()
+        self._feed_values_dict(metadata)
 
         # Replace all 'value' nodes from mtd dict
         self._replace_values(metadata.qi)
@@ -83,7 +105,7 @@ class QiWriter(XmlWriter):
         change_elm(self.root_out, rpath='./Data_Block/report/checkList/item', attr_to_change='name',
                    new_value=metadata.mtd.get(granule_name_field))
 
-    def _feed_values_dict(self):
+    def _feed_values_dict(self, metadata):
         """
         Function only used by the QI report writer
         Reads the input QI report if it exists, put all 'value' nodes text into the metadata.qi dictionary

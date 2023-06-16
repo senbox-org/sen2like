@@ -1,10 +1,27 @@
+# Copyright (c) 2023 ESA.
+#
+# This file is part of sen2like.
+# See https://github.com/senbox-org/sen2like for further info.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
 import glob
 import os
 import re
-from typing import List
+from datetime import datetime
 
 import core.product_archive.tile_db as tile_db
-from core.products.product import S2L_Product
+from core.products.product import ProcessingContext, S2L_Product
 
 
 class Landsat8Product(S2L_Product):
@@ -26,10 +43,11 @@ class Landsat8Product(S2L_Product):
     l8_date_regexp_old_format = re.compile(r"L[CTOEM][8-9]\d{6}(\d{7}).*")
     l8_date_regexp_sc_format = re.compile(r"L[CTOEM]0[8-9]\d{6}(\d{8}).*")
 
-    def __init__(self, path):
-        super().__init__(path)
+    def __init__(self, path, context: ProcessingContext):
+        super().__init__(path, context)
         self.read_metadata()
         self.sensor = f'L{self.mtl.mission.split("_")[-1]}'
+        self._mgrs = None
 
     @classmethod
     def date_format(cls, name):
@@ -43,13 +61,6 @@ class Landsat8Product(S2L_Product):
             regexp = cls.l8_date_regexp
             date_format = "%Y%m%d"
         return regexp, date_format
-
-    def _update_site_info(self, tile=None):
-        if tile is None:
-            tiles = tile_db.wrs_to_mgrs((self.mtl.path, self.mtl.row))
-            self.mtl.mgrs = tiles[0] if len(tiles) else "NO_TILE"
-        else:
-            self.mtl.mgrs = tile
 
     def band_files(self, band):
         if band != 'B10':
@@ -73,7 +84,7 @@ class Landsat8Product(S2L_Product):
         return date_format.match(basename)
 
     @staticmethod
-    def best_product(products: List[str]):
+    def best_product(products: list[str]):
         """Get best consolidated products from a list.
         RT->T1/T2."""
         suffix = [prod.split('_')[-1] if '_' in prod else None for prod in products]
@@ -85,3 +96,42 @@ class Landsat8Product(S2L_Product):
     @property
     def sensor_name(self):
         return self.sensor_names[self.sensor]
+
+    @property
+    def mgrs(self) -> str:
+        """Override S2L_Product mgrs property.
+        It is not retrieve from reader but construct from path/row.
+
+        Returns:
+            str: mgrs tile name
+        """
+        # return if _mgrs is init
+        if self._mgrs:
+            return self._mgrs
+
+        # otherwise set _mgrs and return
+        if self.context.tile is None:
+            tiles = tile_db.wrs_to_mgrs((self.mtl.path, self.mtl.row))
+            self._mgrs = tiles[0] if len(tiles) else "NO_TILE"
+        else:
+            self._mgrs = self.context.tile
+
+        return self._mgrs
+
+    @property
+    def dt_sensing_start(self) -> datetime:
+        """S2 Datatake sensing start interpretation
+
+        Returns:
+            datetime: Datatake sensing start
+        """
+        return self.acqdate
+
+    @property
+    def ds_sensing_start(self) -> datetime:
+        """S2 Datastrip sensing start interpretation
+
+        Returns:
+            datetime: Datastrip sensing start
+        """
+        return self.acqdate
