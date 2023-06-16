@@ -24,7 +24,7 @@ Regardless Missions, Product Type, __Gridded__ data are delivered, the S2 tiling
 the Military Grid Reference System (MGRS).
 
 Since __Sen2Like 4.3.0__, in addition to Sentinel-2 and Landsat missions, there have been an effort to integrate the PRISMA Earth Observation mission, which is a medium-resolution hyperspectral imaging satellite, developed, owned and operated by ASI (Agenzia Spaziale Italiana).  
-Sen2like software supports the PRISMA L1 products through the usage of a pre-processor named prisma4sen2like" that transforms PRISMA L1 products into an internal format: Sentinel-2 PRISMA (S2P) L1C products, spectrally aggregated into 13 Sentinel-2 bands and projected into L1C Sentinel-2 geometry (without refinement on Sentinel-2 GRI).
+Sen2like software supports the PRISMA L1 products through the usage of a pre-processor named "prisma4sen2like" that transforms PRISMA L1 products into an internal format: Sentinel-2 PRISMA (S2P) L1C products, spectrally aggregated into 13 Sentinel-2 bands and projected into L1C Sentinel-2 geometry (without refinement on Sentinel-2 GRI).
 
 The __processing workflow__ is based on following algorithms:
 *	Geometric Corrections including registration to common reference & the stitching [4],
