@@ -1,0 +1,50 @@
+repos:
+- repo: https://github.com/pre-commit/pre-commit-hooks
+  rev: v4.4.0
+  hooks:
+   - id: fix-encoding-pragma
+   - id: check-docstring-first
+- repo: https://github.com/johann-petrak/licenseheaders.git
+  rev: 'master'
+  hooks:
+    - id: licenseheaders
+      pass_filenames: false # avoid files to be passed to pytest as args
+      entry: licenseheaders
+      args: [
+        "-cy", 
+        "-o", "ESA", 
+        "-n", "Prisma4sen2like", 
+        "-t", "apache-2.tmpl", 
+        "-u", "https://github.com/senbox-org/sen2like/prisma4sen2like", 
+        "-d", "prisma",
+        "-x", "prisma/sen2like/**/*.*",
+        "-E", "*.py"
+      ]
+      require_serial: true
+- repo: local
+  hooks:
+   - id: env
+     name: env
+     entry: python -c 'import os; assert os.environ["CONDA_DEFAULT_ENV"] == "prisma", "Not in prisma conda env"'
+     language: system
+     require_serial: true   
+   - id: isort
+     name: isort
+     entry: isort --check --profile black .
+     language: system
+     types: [python]
+     require_serial: true
+   - id: black
+     name: black
+     entry: black -l 120 --check .
+     language: system
+     types: [python]
+     require_serial: true
+   - id: bandit
+     name: bandit
+     description: 'Bandit is a tool for finding common security issues in Python code'
+     entry: bandit .
+     language: system
+     types: [python]
+
+
