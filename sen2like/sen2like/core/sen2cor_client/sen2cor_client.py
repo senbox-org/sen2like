@@ -19,10 +19,8 @@
 
 import logging
 import os
-import shutil
 import subprocess
-import xml.etree.ElementTree as ET
-
+import lxml.etree as ET
 from core import S2L_config
 from grids.mgrs_framing import pixel_center
 
@@ -45,14 +43,15 @@ class Sen2corClient:
         "Prisma" : ["--Hyper_MS",  "--resolution", "30"]
     }
 
-    def __init__(self, sen2cor_command, out_mgrs):
+    def __init__(self, sen2cor_command, out_mgrs, enable_topo_corr=False):
         """
         :params sen2cor_command: main sen2cor python script
         :params out_mgrs: out mgrs tile code, sen2cor will only compute value on this tile
-        :params wd: work directory
+        :params enable_topo_corr: activate or not topographic correction
         """
         self.sen2cor_command = sen2cor_command
         self.out_mgrs = out_mgrs
+        self.enable_topo_corr = enable_topo_corr
 
     def run(self, product):
         """
@@ -107,30 +106,33 @@ class Sen2corClient:
 
         logger.debug('GIPP template : %s', self.gipp_template_file)
 
+        with open(self.gipp_template_file, mode='r', encoding='utf-8') as template:
+            tree = ET.parse(template)#, parser = _CommentedTreeBuilder())
+
+        # configure topo correction
+        root = tree.getroot()
+        dem_correction_node = root.find('Atmospheric_Correction/Flags/DEM_Terrain_Correction')
+        dem_correction_node.text = "TRUE" if self.enable_topo_corr else "FALSE"
+
         # ref_band = None is considered as S2 product format (S2A, S2B, S2P prisma)
         ref_band = self.roi_ref_band.get(product.mtl.mission, None)
 
         if ref_band is None:
-            shutil.copyfile(self.gipp_template_file, gipp_path)
             logger.debug("For sentinel, sen2cor don't use ROI")
+            ET.ElementTree(root).write(gipp_path, encoding='utf-8', xml_declaration=True)
             return gipp_path
 
-        y, x = pixel_center(ref_band, self.out_mgrs)
+        ref_band_file = product.get_band_file(ref_band)
+
+        y, x = pixel_center(ref_band_file, self.out_mgrs)
         logger.debug('Pixel center : (%s, %s)', y, x)
 
-        with open(self.gipp_template_file, mode='r', encoding='utf-8') as template:
-            tree = ET.parse(template)
-
-        root = tree.getroot()
         row0 = root.find('Common_Section/Region_Of_Interest/row0')
         row0.text = str(y)
         col0 = root.find('Common_Section/Region_Of_Interest/col0')
         col0.text = str(x)
 
-        out_string = ET.tostring(root)
-
-        with open(gipp_path, mode='wb') as gipp:
-            gipp.write(out_string)
+        ET.ElementTree(root).write(gipp_path, encoding='utf-8', xml_declaration=True)
 
         logger.info('GIPP L2A : %s', gipp_path)
         return gipp_path

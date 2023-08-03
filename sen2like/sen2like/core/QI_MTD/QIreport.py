@@ -30,6 +30,7 @@ from core.QI_MTD.generic_writer import (
     create_child,
     remove_namespace,
 )
+from core.QI_MTD.mtd import Metadata
 
 log = logging.getLogger('Sen2Like')
 
@@ -82,15 +83,7 @@ class QiWriter(XmlWriter):
         chg_elm_with_tag(self.root_out, tag='value', new_value=metadata.qi.get('MEAN', 'None'),
                          attrs={"name": "COREGISTRATION_AFTER_CORRECTION"})
 
-        # # Removing unchanged SBAF values and inserting new ones
-        ns = self.remove_children('./Data_Block/report/checkList[parentID="L2H_SBAF"]/check/extraValues', tag='value',
-                                  attrs={'name': 'SBAF_'})
-
-        for key, item in sorted(metadata.qi.items()):
-            if 'SBAF_' in key:
-                create_child(self.root_out, './Data_Block/report/checkList[parentID="L2H_SBAF"]/check/extraValues',
-                             tag=ns + 'value', text=str(item),
-                             attribs={"name": key})
+        self._sbaf_replace(metadata)
 
         # Change all 'item' urls and names
         product_name_field = f"product_{self.H_F}_name"
@@ -104,6 +97,24 @@ class QiWriter(XmlWriter):
                    new_value=url_aux)
         change_elm(self.root_out, rpath='./Data_Block/report/checkList/item', attr_to_change='name',
                    new_value=metadata.mtd.get(granule_name_field))
+
+    def _sbaf_replace(self, metadata: Metadata):
+        extra_values_elem = './Data_Block/report/checkList[parentID="L2H_SBAF"]/check/extraValues'
+        # # Removing unchanged SBAF values and inserting new ones
+        ns = self.remove_children(
+            extra_values_elem,
+            tag='value',
+            attrs={'name': 'SBAF_COEFFICIENT_'}
+        )
+        self.remove_children(extra_values_elem, tag='value', attrs={'name': 'SBAF_OFFSET_'})
+
+        for key, item in sorted(metadata.qi.items()):
+            if 'SBAF_COEFFICIENT_' in key or 'SBAF_OFFSET_' in key:
+                create_child(
+                    self.root_out, extra_values_elem,
+                    tag=ns + 'value', text=str(item),
+                    attribs={"name": key}
+                )
 
     def _feed_values_dict(self, metadata):
         """

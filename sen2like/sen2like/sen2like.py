@@ -54,41 +54,63 @@ def filter_product(product: S2L_Product):
     return True
 
 
-def pre_process_atmcor(s2l_product: S2L_Product, tile, do_atmcor: bool) -> S2L_Product|None:
+def pre_process_atmcor(s2l_product: S2L_Product, tile) -> S2L_Product|None:
     """
     Adapt processing parameters for atmo corr processing to use.
-    THIS FUNCTION MODIFY SOME `s2l_product.context` PARAMETERS (use_sen2cor, use_smac, doStitching, doInterCalibration)
-    Run sen2cor if configured for (do_atmcor activated and use_sen2cor=True) and if product is compatible.
-    Otherwise, configures exec parameters to use smac if product is compatible in case do_atmcor activated
+    THIS FUNCTION MODIFY SOME `s2l_product.context` PARAMETERS (use_sen2cor, doAtmcor, doStitching, doInterCalibration)
+    Run sen2cor if configured for (doAtmcor=True activated and use_sen2cor=True) and if product is compatible.
+    Otherwise, configures exec parameters to use smac if product is compatible in case doAtmcor is activated
     Args:
         s2l_product (S2L_Product): s2l_product to check atmo corr compatibility and run sen2cor on
         tile (str): tile name for sen2cor
-        do_atmcor (bool): if atmospheric correction must be done
 
     Returns:
         s2l_product after sen2cor if executed or provided s2l_product, or None if fail or too many cloud cover
     """
-    use_sen2cor = do_atmcor and s2l_product.context.use_sen2cor
-    # only landsat collection 1
+    use_sen2cor = s2l_product.context.doAtmcor and s2l_product.context.use_sen2cor
+
+    # Avoid sen2cor for very old LS products (not collection product)
     if 'L8' in s2l_product.sensor and not s2l_product.mtl.collection_number.isdigit():
         # can only use SMAC for these product_urls, so force SMAC in case doAtmcor=True
         use_sen2cor = False
         s2l_product.context.use_sen2cor = use_sen2cor
-        s2l_product.context.use_smac = True
         logger.info("For Landsat 8-9, apply sen2cor only on collection 1 & 2 product_urls")
 
     if use_sen2cor:
         logger.info("Use sen2cor instead of Atmcor SMAC")
+
+        do_sen2cor_topo_corr = (
+            s2l_product.context.doTopographicCorrection and
+            s2l_product.context.sen2cor_topographic_correction
+        )
+
+        sen2cor = Sen2corClient(
+            os.path.abspath(config.get('sen2cor_path')),
+            tile,
+            do_sen2cor_topo_corr
+        )
+
         # Disable SMAC Atmospheric correction
-        s2l_product.context.use_smac = False
+        s2l_product.context.doAtmcor = False
+
+        # For now, do not enable stitching when sen2cor is used
         s2l_product.context.doStitching = False
+        # Should be done before atmospheric correction
+        # and only for S2B with baseline before 4, so disable it.
         s2l_product.context.doInterCalibration = False
 
-        sen2cor = Sen2corClient(os.path.abspath(config.get('sen2cor_path')), tile)
+        # Disable sen2like topographic correction processing block if enabled in sen2cor
+        if (s2l_product.context.doTopographicCorrection and
+            s2l_product.context.sen2cor_topographic_correction):
+            logger.info(
+                "Disable sen2like topographic correction processing block because done with sen2cor"
+            )
+            s2l_product.context.doTopographicCorrection = False
 
         try:
             orig_processing_sw = s2l_product.mtl.processing_sw
 
+            # run sen2cor on product and instantiate a new one from result
             s2l_product = s2l_product.__class__(
                 sen2cor.run(s2l_product),
                 s2l_product.context
@@ -98,6 +120,9 @@ def pre_process_atmcor(s2l_product: S2L_Product, tile, do_atmcor: bool) -> S2L_P
             # however L1 "orig" processing version information could be needed for future processing block.
             # example: for intercalibration to know if S2B intercalibration was already applied, not to apply it twice
             s2l_product.mtl.processing_sw = orig_processing_sw
+
+            # set AC QI param
+            s2l_product.metadata.qi["AC_PROCESSOR"] = "SEN2COR"
 
         except Sen2corError:
             logger.warning("sen2cor raises an error", exc_info=True)
@@ -113,11 +138,14 @@ def pre_process_atmcor(s2l_product: S2L_Product, tile, do_atmcor: bool) -> S2L_P
         return None
 
     # Disable Atmospheric correction for Level-2A product_urls
+    # override s2_processing_level because it could be use later for related product search
+    # (see product_archive)
     if s2l_product.mtl.data_type in ('Level-2A', 'L2TP', 'L2A'):
         config.overload('s2_processing_level=LEVEL2A')
         logger.info("Processing Level-2A product: Atmospheric correction is disabled.")
-        # do not run SMAC even if doAtmo=True
-        s2l_product.context.use_smac = False
+        # do not run SMAC doAtmcor processing block,
+        s2l_product.context.doAtmcor = False
+        # intercalibration only for L1C, so disable it
         s2l_product.context.doInterCalibration = False
     else:
         config.overload('s2_processing_level=LEVEL1C')
@@ -188,7 +216,7 @@ def process_tile(tile: str, search_urls: list[tuple], args: Namespace, start_dat
         )
 
         # run sen2cor if any and update s2l_product.context
-        s2l_product = pre_process_atmcor(s2l_product, tile, config.get('doAtmcor'))
+        s2l_product = pre_process_atmcor(s2l_product, tile)
 
         if not s2l_product:
             continue

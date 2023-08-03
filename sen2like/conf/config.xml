@@ -10,6 +10,7 @@
         <doAtmcor>True</doAtmcor>
         <doNbar>True</doNbar>
         <doSbaf>True</doSbaf>
+        <doTopographicCorrection>False</doTopographicCorrection>
         <doFusion>True</doFusion>
         <doPackagerL2H>False</doPackagerL2H>
         <doPackagerL2F>True</doPackagerL2F>
@@ -20,7 +21,6 @@
         <cams_daily_dir>/data/CAMS/daily</cams_daily_dir>
         <cams_hourly_dir>/data/CAMS/hourly</cams_hourly_dir>
         <cams_climatology_dir>/data/CAMS/climatology/v1</cams_climatology_dir>
-        <dem_dir>/data/AUX_DATA/DEM</dem_dir>
         <scl_dir>/data/AUX_DATA/SCL_maps_2.10</scl_dir>
     </Directories>
     <InputProductArchive>
@@ -78,9 +78,13 @@
         <sen2cor_path>../sen2cor/process.py</sen2cor_path>
     </Atmcor>
     <Nbar>
-        <nbar_methode>VJB</nbar_methode>
+        <nbar_methode>ROY</nbar_methode>
         <vjb_coeff_matrice_dir>/data/Belen</vjb_coeff_matrice_dir>
     </Nbar>
+    <Sbaf>
+        <adaptative>False</adaptative>
+        <adaptative_band_candidates>B04,B11,B12</adaptative_band_candidates>
+    </Sbaf>
     <Fusion>
         <predict_method>predict</predict_method>
         <predict_nb_products>2</predict_nb_products>
@@ -90,6 +94,16 @@
     <Stitching>
         <same_utm_only>True</same_utm_only>
     </Stitching>
+    <TopographicCorrection>
+        <topographic_correction_limiter>4.0</topographic_correction_limiter>
+        <apply_valid_pixel_mask>False</apply_valid_pixel_mask>
+        <sen2cor_topographic_correction>True</sen2cor_topographic_correction>
+    </TopographicCorrection>
+    <DEMRepository>
+        <dem_folder>/data/AUX_DATA/</dem_folder>
+        <dem_dataset>COP-DEM_GLO-90-DGED__2022_1</dem_dataset>
+        <src_dem_resolution>90</src_dem_resolution>
+    </DEMRepository>
     <OutputFormat>
         <gain>10000</gain>
         <offset>1000</offset>

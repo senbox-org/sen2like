@@ -31,16 +31,16 @@
     <Product_Generator>NONE</Product_Generator>
     <!-- should be either a directory in the sen2cor home folder or 'NONE'. If NONE, Toolbox mode of
     operation will be used-->
-    <DEM_Directory>dem/srtm</DEM_Directory>
+    <DEM_Directory>dem/CopernicusDEM90</DEM_Directory>
     <!-- should be either a directory in the sen2cor home folder or 'NONE'. If NONE, no DEM will be
     used -->
-    <DEM_Reference>http://srtm.csi.cgiar.org/wp-content/uploads/files/srtm_5x5/TIFF/</DEM_Reference>
-    <!--
-    DEM_Reference>http://srtm.csi.cgiar.org/wp-content/uploads/files/srtm_5x5/TIFF/</DEM_Reference
-         disable / enable the upper two rows if you want to use an SRTM DEM
-         The SRTM DEM will then be downloaded from this reference, if no local DEM is available
-         if you use Planet DEM you can optionally add the local path instead,
-         which then will be inserted in the datastrip metadata -->
+    <DEM_Reference>https://prism-dem-open.copernicus.eu/pd-desk-open-access/prismDownload/COP-DEM_GLO-90-DGED__2022_1/</DEM_Reference>
+    <!-- DEM_Reference>online-dem-repository</DEM_Reference
+    If DEM_Directory is not set to NONE, replace online-dem-repository with:
+    http://srtm.csi.cgiar.org/wp-content/uploads/files/srtm_5x5/TIFF/ for SRTM DEM download
+    or for download of more accurate Copernicus DEM at 90 m resolution:
+    https://prism-dem-open.copernicus.eu/pd-desk-open-access/prismDownload/COP-DEM_GLO-90-DGED__2022_1
+    -->
     <Generate_DEM_Output>FALSE</Generate_DEM_Output>
     <!-- FALSE: no DEM output, TRUE: store DEM in the AUX data directory -->
     <Force_Exit_On_DEM_Error>FALSE</Force_Exit_On_DEM_Error>

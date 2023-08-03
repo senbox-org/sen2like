@@ -1,0 +1,18 @@
+# sen2like-base docker image is based on miniconda image (debian:latest)
+ARG SEN2LIKE_BUILD_IMAGE_TAG
+FROM ${SEN2LIKE_BUILD_IMAGE_TAG}
+LABEL stage=sen2like_tests
+
+# Update the environment:
+# copy dev/tests requirements from sources to docker image
+COPY ./requirements_dev.txt .
+
+# update sen2like env
+RUN conda install -n sen2like --file requirements_dev.txt -c conda-forge
+
+# install system dependencies in curent docker image mesa-glx
+RUN apt-get update \
+    && apt-get install -y libgl1-mesa-glx \
+    && rm -rf /var/lib/apt/lists/*
+    
+# image is ready for tests, usage must activate sen2like conda env

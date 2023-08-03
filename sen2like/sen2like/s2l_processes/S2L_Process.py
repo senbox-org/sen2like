@@ -30,8 +30,18 @@ class S2L_Process(ABC):
     Implementation MUST implements 'process' and SHOULD override 'preprocess' and 'postprocess'
     """
 
-    def __init__(self):
-        self.ext = S2L_config.PROC_BLOCKS.get(self.__class__.__name__, {}).get('extension')
+    def __init__(self, generate_intermediate_products: bool = False):
+        """Default constructor.
+
+        Args:
+            generate_intermediate_products (bool, optional): flag to generate or not intermediate image products.
+            Concrete implementation is responsible to use it and generate the intermediate image.
+            Defaults to False.
+        """
+        self.generate_intermediate_products = generate_intermediate_products
+        self.ext = S2L_config.PROC_BLOCKS.get(self.__class__.__name__, {}).get(
+            "extension"
+        )
 
     def preprocess(self, product: S2L_Product):
         """Do some preprocess on / for the product
@@ -42,7 +52,9 @@ class S2L_Process(ABC):
         # deliberately empty
 
     @abstractmethod
-    def process(self, product: S2L_Product, image: S2L_ImageFile, band: str) -> S2L_ImageFile:
+    def process(
+        self, product: S2L_Product, image: S2L_ImageFile, band: str
+    ) -> S2L_ImageFile:
         """Process the product/image/band
 
         Args:
@@ -69,5 +81,5 @@ class S2L_Process(ABC):
             extension = self.ext
         return os.path.join(
             product.working_dir,
-            product.get_band_file(band).rootname + extension
+            product.get_band_file(band).rootname + extension,
         )

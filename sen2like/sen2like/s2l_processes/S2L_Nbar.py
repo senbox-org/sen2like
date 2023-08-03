@@ -195,11 +195,12 @@ class VJBMatriceBRDFCoefficient(BRDFCoefficient):
         "S2(.)_(.{4})_(.{3})_(.{6})_(.{4})_(\\d{8}T\\d{6})_V(\\d{8}T\\d{6})_(\\d{8}T\\d{6})_T(.{5})_(.{5})_(.{2})\\.nc"
     )
 
-    def __init__(self, product, image, band, vr_matrix_dir):
+    def __init__(self, product, image, band, vr_matrix_dir, generate_intermediate_products):
 
         super().__init__(product, image, band)
 
         self.vr_matrix = None
+        self._generate_intermediate_products = generate_intermediate_products
         self.vr_matrix_file = self._select_vr_file(vr_matrix_dir)
 
         if self.vr_matrix_file:
@@ -298,7 +299,7 @@ class VJBMatriceBRDFCoefficient(BRDFCoefficient):
 
         _working_dir = self.product.working_dir
 
-        if S2L_config.config.getboolean('generate_intermediate_products'):
+        if self._generate_intermediate_products:
             ndvi_clip_img_path = os.path.join(_working_dir, 'ndvi_clipped.tif')
             if not os.path.isfile(ndvi_clip_img_path):
                 ndvi_clip_img = ndvi_img.duplicate(
@@ -315,7 +316,7 @@ class VJBMatriceBRDFCoefficient(BRDFCoefficient):
         log.debug("c_vol have %s NaN", np.isnan(c_vol).sum())
         np.nan_to_num(c_geo, copy=False)
         np.nan_to_num(c_vol, copy=False)
-        if S2L_config.config.getboolean('generate_intermediate_products'):
+        if self._generate_intermediate_products:
             c_geo_image = self.image.duplicate(
                 filepath=os.path.join(_working_dir, f'c_geo_{self.band}.tif'),
                 array=c_geo,
@@ -400,8 +401,8 @@ class BandParam:
 
 class S2L_Nbar(S2L_Process):
 
-    def __init__(self):
-        super().__init__()
+    def __init__(self, generate_intermediate_products: bool):
+        super().__init__(generate_intermediate_products)
         self._theta_s = None
         self._mean_delta_azimuth = []
         self._band_param = {}
@@ -425,7 +426,7 @@ class S2L_Nbar(S2L_Process):
         # brdf coefficiant class
         if S2L_config.config.get('nbar_methode') == 'VJB' and product.ndvi_filename is not None:
             _band_param.brdf_coeff = VJBMatriceBRDFCoefficient(
-                product, image, band, S2L_config.config.get('vjb_coeff_matrice_dir'))
+                product, image, band, S2L_config.config.get('vjb_coeff_matrice_dir'), self.generate_intermediate_products)
             if not _band_param.brdf_coeff.check():
                 _band_param.brdf_coeff = ROYBRDFCoefficient(product, image, band)
                 log.info(
@@ -453,7 +454,7 @@ class S2L_Nbar(S2L_Process):
 
             # Format Output : duplicate, link  to product as parameter
             image_out = image.duplicate(self.output_file(product, band), array=OUT.astype(np.float32))
-            if S2L_config.config.getboolean('generate_intermediate_products'):
+            if self.generate_intermediate_products:
                 image_out.write(creation_options=['COMPRESS=LZW'])
 
         log.info('End')

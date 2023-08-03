@@ -60,16 +60,15 @@ def get_smac_coefficients(product, band):
 
 class S2L_Atmcor(S2L_Process):
     """
-    Atmo Correction processing block class.
+    Atmospheric Correction processing block class.
     Only able to run SMAC atmo corr as sen2cor cannot be run by band.
-    If use_sen2cor=True in the config, then this class set S2A_AC AC_PROCESSOR quality parameter.
-    If use_smac=True in the config, then run SMAC atmo corr and set S2A_AC quality parameters.
-    Notice that use_sen2cor and use_smac can be overridden depending on the type of product to process.
+    If use_sen2cor=True in the config, then this processing block should be disabled
+    Notice that use_sen2cor and doAtmcor can be overridden depending on the type of product to process.
     See sen2like module about
     """
 
-    def __init__(self):
-        super().__init__()
+    def __init__(self, generate_intermediate_products: bool):
+        super().__init__(generate_intermediate_products)
         self._mgrs = GridsConverter()
         # default params
         self.uH2O = 2.0  # Water Vapor content - unit: g.cm-2
@@ -147,6 +146,7 @@ class S2L_Atmcor(S2L_Process):
     def preprocess(self, product: S2L_Product):
 
         log.debug("SMAC Correction")
+
         mtl = product.mtl
 
         extent = self._mgrs.get_corners(product.mgrs, out_epsg=4326)
@@ -215,18 +215,13 @@ class S2L_Atmcor(S2L_Process):
     def process(self, product: S2L_Product, image: S2L_ImageFile, band: str) -> S2L_ImageFile:
         log.info('Start')
 
-        out_image = image
-
-        if product.context.use_smac:
-            # SMAC correction
-            array_in = image.array
-            array_out = self.smac_correction(product, array_in, band)
-            out_image = image.duplicate(self.output_file(product, band), array_out)
-            if S2L_config.config.getboolean('generate_intermediate_products'):
-                image.write(creation_options=['COMPRESS=LZW'])
-        else:
-            log.info("Atmo corr already done with sen2cor")
-
+        # SMAC correction
+        array_in = image.array
+        array_out = self.smac_correction(product, array_in, band)
+        out_image = image.duplicate(self.output_file(product, band), array_out)
+        if self.generate_intermediate_products:
+            image.write(creation_options=['COMPRESS=LZW'])
+        
         log.info('End')
 
         return out_image
@@ -237,13 +232,10 @@ class S2L_Atmcor(S2L_Process):
         Args:
             product (S2L_Product): product to post process
         """
-        if product.context.use_sen2cor:
-            product.metadata.qi["AC_PROCESSOR"] = "SEN2COR"
 
-        elif product.context.use_smac:
-            product.metadata.qi["AC_PROCESSOR"] = "SMAC"
-            # TODO: put config param in self ?
-            product.metadata.qi["GRANULE_MEAN_WV"] = self.uH2O
-            product.metadata.qi["OZONE_VALUE"] = self.uO3
-            product.metadata.qi["PRESSURE"] = self.pressure
-            product.metadata.qi["GRANULE_MEAN_AOT"] = self.taup550
+        product.metadata.qi["AC_PROCESSOR"] = "SMAC"
+        # TODO: put config param in self ?
+        product.metadata.qi["GRANULE_MEAN_WV"] = self.uH2O
+        product.metadata.qi["OZONE_VALUE"] = self.uO3
+        product.metadata.qi["PRESSURE"] = self.pressure
+        product.metadata.qi["GRANULE_MEAN_AOT"] = self.taup550

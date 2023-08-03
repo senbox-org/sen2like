@@ -1,0 +1,13 @@
+# docker image based on miniconda image (debian:latest)
+# ARG MINICONDA_DOCKER_VERSION
+# FROM continuumio/miniconda3:${MINICONDA_DOCKER_VERSION}
+FROM continuumio/miniconda3:23.3.1-0
+
+# set the working dir to /usr/local/sen2like
+WORKDIR /usr/local/sen2like
+
+# Create the environment:
+# copy requirements.txt from sources to docker image
+COPY ./requirements.txt .
+# create sen2like env from requirement
+RUN conda create -n sen2like --file requirements.txt -c conda-forge

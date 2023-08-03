@@ -45,5 +45,5 @@ class S2L_PackagerL2H(S2L_Product_Packager):
     S2H product packager
     """
 
-    def __init__(self):
-        super().__init__(packager_config)
+    def __init__(self, generate_intermediate_products: bool):
+        super().__init__(generate_intermediate_products, packager_config)

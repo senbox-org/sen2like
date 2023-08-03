@@ -1,9 +1,26 @@
 # -*- coding: utf-8 -*-
+# Copyright (c) 2023 ESA.
+#
+# This file is part of sen2like.
+# See https://github.com/senbox-org/sen2like for further info.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
 import logging
 import re
 import sys
 import xml.parsers as pars
-from typing import Union
+from typing import NamedTuple
 from xml.dom import minidom
 
 import numpy as np
@@ -14,7 +31,7 @@ log = logging.getLogger("Sen2Like")
 re_band = re.compile(r'B0?(\d{1,2})$')
 
 
-def get_angles_band_index(band: str) -> Union[int, None]:
+def get_angles_band_index(band: str) -> int|None:
     """
     Convert the band index into the S2 angles indexing convention
     B1->B8 : indices from 0 to 7
@@ -67,7 +84,7 @@ def reduce_angle_matrix(x_size, y_size, a_dict):
         for i in range(0, x_size, 1):
             for j in range(0, x_size, 1):
                 A = u["Values"]
-                if A[i][j] == A[i][j]:  # test if value is not nan
+                if not np.isnan(A[i][j]):
                     M[i][j] = A[i][j] + M[i][j]
                     CPT[i][j] += 1
     #                if i == 2 and j == 6 :
@@ -84,20 +101,20 @@ def reduce_angle_matrix(x_size, y_size, a_dict):
     return N
 
 
-def extract_sun_angle(src_file, dst_file, angle_type):
-    # Open the 'MTD_TL.xml' file, and read information in     <Sun_Angles_Grid>
-    # Depending on angle_type value, {'Zenith' , 'Azimuth'  }
-    # select  <Values_List> in  the corresponding xml section
-    # save image file in dst_file - do not apply resampling
+def _get_geo_info(xml_tl_file: str) -> tuple:
+    """extract ULX, ULY, SRS as WKT and DOM of MTD_TL XML file
 
-    xml_tl_file = src_file
+    Args:
+        xml_tl_file (str): MTD_TL file path
+
+    Returns:
+        tuple: dom, ulx, uly, wkt
+    """
+
     try:
         dom = minidom.parse(xml_tl_file)
     except pars.expat.ExpatError:
         sys.exit(' Invalid XML TL File')
-
-    # gdal parameter :
-    NoData_value = -9999
 
     # Load xmlf file and retrieve projection parameter :
     node_name = 'Tile_Geocoding'  # Level-1C / Level-2A ?
@@ -113,6 +130,59 @@ def extract_sun_angle(src_file, dst_file, angle_type):
     srs.ImportFromEPSG(int(epsg_code.replace('EPSG:', '')))
     wkt = srs.ExportToWkt()
 
+    return dom, ulx, uly, wkt
+
+class _GeoInfo(NamedTuple):
+    x_res: int
+    y_res: int
+    x_pixel_size: int
+    y_pixel_size: int
+    ul_x: int
+    ul_y: int
+    wkt: str
+
+
+def _save_angle_as_img(dst_file, arr, geo_info: _GeoInfo, description: str):
+
+    # gdal parameter :
+    nodata_value = -9999
+
+    # scale between -180 and 180 deg.
+    if arr.max() > 180.0:
+        arr[arr > 180] = arr[arr > 180] - 360
+
+    target_ds = gdal.GetDriverByName('GTiff').Create(
+        dst_file,
+        geo_info.x_res,
+        geo_info.y_res,
+        1,
+        gdal.GDT_Int16
+    )
+    target_ds.SetGeoTransform(
+        (geo_info.ul_x, geo_info.x_pixel_size, 0, geo_info.ul_y, 0, -geo_info.y_pixel_size)
+    )
+    band = target_ds.GetRasterBand(1)
+    band.SetNoDataValue(nodata_value)
+    band.SetDescription(description)
+    band.WriteArray((arr * 100).astype(np.int16), 0, 0)  # int16 with scale factor 100
+    target_ds.SetProjection(geo_info.wkt)
+    band = None
+    target_ds = None
+
+
+def extract_sun_angle(src_file: str, dst_file: str, angle_type: str):
+    """Read the 'MTD_TL.xml' file, and read information in <Sun_Angles_Grid>.
+    Depending on angle_type value, {'Zenith' , 'Azimuth'}, 
+    it selects  <Values_List> in the corresponding xml section
+    save image file in dst_file - do not apply resampling
+
+    Args:
+        src_file (str): MTD_TL.xml file path
+        dst_file (str): destination angle image file path
+        angle_type (str): angle type to extract
+    """
+    dom, ulx, uly, wkt = _get_geo_info(src_file)
+
     # Load xml file and extract parameter for sun zenith :
     node_name = 'Sun_Angles_Grid'  # Level-1C / Level-2A ?
     sun_angle_node = dom.getElementsByTagName(node_name)[0]
@@ -121,60 +191,42 @@ def extract_sun_angle(src_file, dst_file, angle_type):
 
     x_size, y_size, col_step, row_step, arr = from_values_list_to_array(selected_node)
 
-    # scale between -180 and 180 deg.
-    if arr.max() > 180.0:
-        arr[arr > 180] = arr[arr > 180] - 360
+    log.debug(' Save in %s', dst_file)
 
-    # Create gdal dataset
-    x_res = int(x_size)
-    y_res = int(y_size)
-
-    x_pixel_size = int(col_step)
-    y_pixel_size = int(row_step)
-
-    log.debug(' Save in {}'.format(dst_file))
-    target_ds = gdal.GetDriverByName('GTiff').Create(dst_file, x_res, y_res, 1, gdal.GDT_Int16)
-    target_ds.SetGeoTransform((int(ulx), x_pixel_size, 0, int(uly), 0, -y_pixel_size))
-    band = target_ds.GetRasterBand(1)
-    band.SetNoDataValue(NoData_value)
-    band.SetDescription('Solar_' + angle_type)
-    band.WriteArray((arr * 100).astype(np.int16), 0, 0)  # int16 with scale factor 100
-    target_ds.SetProjection(wkt)
-    band = None
-    target_ds = None
+    geo_info = _GeoInfo(
+        int(x_size),
+        int(y_size),
+        int(col_step),
+        int(row_step),
+        int(ulx),
+        int(uly),
+        wkt
+    )
+    _save_angle_as_img(dst_file, arr, geo_info, f'Solar_{angle_type}')
 
 
-def extract_viewing_angle(src_file, dst_file, angle_type):
-    # Access to MTL and extract vieing angles depending on the angletype
-    # Return the list of files that have been generated, out_list
+def extract_viewing_angle(src_file: str, dst_file: str, angle_type: str) -> list[str]:
+    """Access to MTL and extract viewing angles depending on the angle type for each band
+
+    Args:
+        src_file (str): MTD_TL.xml file path
+        dst_file (str): destination angle image file path, will be updated for each band
+        angle_type (str): angle type to extract
+
+    Returns:
+        list[str]: list of file path that have been generated
+    """
     out_list = []  # Store the path of all outputs
     log.debug('extact viewing angle')
-    xml_tl_file = src_file
-    try:
-        dom = minidom.parse(xml_tl_file)
-    except pars.expat.ExpatError:
-        sys.exit(' Invalid XML TL File')
 
-    # gdal parameter :
-    NoData_value = -9999
-
-    # Load xmlf file and retrieve projection parameter :
-    node_name = 'Tile_Geocoding'  # Level-1C / Level-2A?
-    geocoding_node = dom.getElementsByTagName(node_name)[0]
-    epsg_code = geocoding_node.getElementsByTagName('HORIZONTAL_CS_CODE')[0].childNodes[0].data
-    geo_position = geocoding_node.getElementsByTagName('Geoposition')[0]
-    ulx = geo_position.getElementsByTagName('ULX')[0].childNodes[0].data
-    uly = geo_position.getElementsByTagName('ULY')[0].childNodes[0].data
-    # Call gdalsrs info to generate wkt for the projection :
-    # Replaced by gdal python api:
-    srs = osr.SpatialReference()
-    srs.ImportFromEPSG(int(epsg_code.replace('EPSG:', '')))
-    wkt = srs.ExportToWkt()
+    dom, ulx, uly, wkt = _get_geo_info(src_file)
 
     # Load xml file and extract parameter for sun zenith :
     node_name = 'Viewing_Incidence_Angles_Grids'  # Level-1C / Level-2A ?
     viewing_angle_node = dom.getElementsByTagName(node_name)
+    
     v_dico = {}
+
     for cpt in range(0, len(viewing_angle_node), 1):
         band_id = viewing_angle_node[cpt].attributes["bandId"].value
         detector = viewing_angle_node[cpt].attributes["detectorId"].value
@@ -189,33 +241,26 @@ def extract_viewing_angle(src_file, dst_file, angle_type):
         a = {k: v for k, v in dic.items() if v["Band_id"] == str(rec)}
         arr = reduce_angle_matrix(x_size, y_size, a)
 
-        # scale between -180 and 180 deg.
-        if arr.max() > 180.0:
-            arr[arr > 180] = arr[arr > 180] - 360
-
-        # Create gdal dataset
-        x_res = int(x_size)
-        y_res = int(y_size)
-
-        x_pixel_size = int(col_step)
-        y_pixel_size = int(row_step)
-
         # Decoding of band number :
         # CF : https: // earth.esa.int / web / sentinel / user - guides / sentinel - 2 - msi / resolutions / radiometric
         # Band 8A <=> Band 9 in the mtl
 
         dst_file_bd = dst_file.replace('.tif', '_band_' + str(rec + 1) + '.tif')
         out_list.append(dst_file_bd)
-        log.debug(' Save in {}'.format(dst_file_bd))
-        target_ds = gdal.GetDriverByName('GTiff').Create(dst_file_bd, x_res, y_res, 1, gdal.GDT_Int16)
-        target_ds.SetGeoTransform((int(ulx), x_pixel_size, 0, int(uly), 0, -y_pixel_size))
-        band = target_ds.GetRasterBand(1)
-        band.SetNoDataValue(NoData_value)
-        band.SetDescription('Viewing_' + angle_type + '_band_' + str(rec + 1))  # This sets the band name!
-        target_ds.GetRasterBand(1).WriteArray((arr * 100).astype(np.int16), 0, 0)  # int16 with scale factor 100
-        target_ds.SetProjection(wkt)
-        band = None
-        target_ds = None
+        log.debug(' Save in %s',dst_file_bd)
+
+        geo_info = _GeoInfo(
+            int(x_size),
+            int(y_size),
+            int(col_step),
+            int(row_step),
+            int(ulx),
+            int(uly),
+            wkt
+        )
+        _save_angle_as_img(dst_file_bd, arr, geo_info, f'Viewing_{angle_type}_band_{str(rec + 1)}')
+
+        # clean
         arr = None
         a = None
 

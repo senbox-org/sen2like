@@ -36,10 +36,10 @@ from core.S2L_config import S2L_Config
 logger = logging.getLogger("Sen2Like")
 
 
-_LS_SENSOR_MISSION_MAPPING = {"L8": "Landsat8","L9": "Landsat9"}
+_LS_SENSOR_MISSION_MAPPING = {"L8": "Landsat8", "L9": "Landsat9"}
 
 
-class ProductPreparator:
+class ProductPreparator: # pylint: disable=too-few-public-methods
     """Product preparator class"""
 
     def __init__(self, config: S2L_Config, args: Namespace, ref_image: str):
@@ -50,9 +50,7 @@ class ProductPreparator:
             args (Namespace): program arguments
         """
         self._config = config
-        self._roi_file = (
-            args.roi if args.operational_mode == Mode.ROI_BASED else None
-        )
+        self._roi_file = args.roi if args.operational_mode == Mode.ROI_BASED else None
         self._ref_image = ref_image
 
     def prepare(self, product: S2L_Product):
@@ -72,12 +70,15 @@ class ProductPreparator:
         # search and attach related product to product
         # only if S2L_Stitching activated
         if product.context.doStitching:
-            logger.debug("Stitching Enable, look for related product for %s", product.name)
+            logger.debug(
+                "Stitching Enable, look for related product for %s", product.name
+            )
             self._set_related_product(product)
         else:
             logger.debug("Stitching Disable, skip looking for related product")
 
         # prepare the product
+        logger.info("Extract product files for product %s", product.name)
         self._extract_product_files(product)
 
     def _search_interrelated_product(
@@ -109,33 +110,37 @@ class ProductPreparator:
                 row = product.mtl.row
                 logger.debug("Search product on path [%s, %s]", product.mtl.path, row)
 
-            search_urls.extend([
-                (
-                    archive.construct_url(
-                        _LS_SENSOR_MISSION_MAPPING.get(product.sensor),
-                        path=product.mtl.path,
-                        row=row,
-                        start_date=start_date,
-                        end_date=end_date,
-                        cloud_cover=100,
-                    ),
-                    None,
-                )
-            ])
+            search_urls.extend(
+                [
+                    (
+                        archive.construct_url(
+                            _LS_SENSOR_MISSION_MAPPING.get(product.sensor),
+                            path=product.mtl.path,
+                            row=row,
+                            start_date=start_date,
+                            end_date=end_date,
+                            cloud_cover=100,
+                        ),
+                        None,
+                    )
+                ]
+            )
         else:
             logger.debug("Search product on same tile [%s]", _tile)
-            search_urls.extend([
-                (
-                    archive.construct_url(
-                        "Sentinel2",
-                        tile=_tile,
-                        start_date=start_date,
-                        end_date=end_date,
-                        cloud_cover=100,
-                    ),
-                    None,
-                )
-            ])
+            search_urls.extend(
+                [
+                    (
+                        archive.construct_url(
+                            "Sentinel2",
+                            tile=_tile,
+                            start_date=start_date,
+                            end_date=end_date,
+                            cloud_cover=100,
+                        ),
+                        None,
+                    )
+                ]
+            )
 
         # get products as InputProduct
         logger.debug("Urls: %s", search_urls)
@@ -149,7 +154,6 @@ class ProductPreparator:
         )
 
     def _get_s2_interrelated_product(self, product: S2L_Product) -> InputProduct:
-
         related_product = None
 
         logger.debug("Product is located on %s", product.mgrs)
@@ -157,7 +161,7 @@ class ProductPreparator:
         logger.debug("Products on same date:")
         logger.debug(products_found)
         if len(products_found):
-            # verify instrument as S2A/B cannot be stitched with S2P 
+            # verify instrument as S2A/B cannot be stitched with S2P
             # S2P product archive is the same as S2A/B, so we must check
             for rel_product in products_found:
                 if product.sensor == rel_product.instrument:
@@ -166,7 +170,6 @@ class ProductPreparator:
         return related_product
 
     def _get_l8_interrelated_product(self, product: S2L_Product) -> InputProduct:
-
         related_product = None
 
         _same_utm_only = self._config.getboolean("same_utm_only")
@@ -233,14 +236,12 @@ class ProductPreparator:
             logger.info("No product found for stitching")
         else:
             product.related_product = related_input_product.s2l_product_class(
-                related_input_product.path,
-                product.context
+                related_input_product.path, product.context
             )
 
             # set related product working dir
             product.related_product.working_dir = os.path.join(
-                self._config.get("wd"),
-                product.related_product.name
+                self._config.get("wd"), product.related_product.name
             )
 
             # set ref image to the related product
@@ -248,6 +249,7 @@ class ProductPreparator:
 
     def _extract_aux_product_files(self, product: S2L_Product):
         """Extract aux product files of the product and its related product if any.
+        Theses files must be extracted before image processing as they could need to be geo corrected and stitched.
         - angle images (see 'S2L_Product.get_angle_images' impl)
         - valid and no data pixel masks (see 'S2L_Product.get_valid_pixel_mask' impl)
         - NDVI image
@@ -266,8 +268,18 @@ class ProductPreparator:
             os.path.join(working_dir, "valid_pixel_mask.tif"), self._roi_file
         )
 
-        # extract NDVI
-        if self._config.get("nbar_methode") == "VJB":
+        # extract NDVI processing blocks that need it (NBAR with VJB or Adaptative SBAF)
+        if (
+            (self._config.getboolean("doNbar") and self._config.get("nbar_methode") == "VJB")
+            or
+            (
+                self._config.getboolean("doSbaf")
+                and
+                product.apply_sbaf_param
+                and
+                self._config.getboolean("adaptative")
+            )
+        ):
             product.get_ndvi_image(os.path.join(working_dir, "ndvi.tif"))
 
     def _extract_product_files(self, product: S2L_Product):
@@ -315,6 +327,7 @@ class ProductPreparator:
 
         # extract aux files of related product if any
         if product.related_product is not None:
+            logger.info("Extract product files for related product %s", product.related_product.name)
             self._extract_product_files(product.related_product)
 
     def _get_scl_map(self, scl_dir: str, product: S2L_Product):
@@ -328,7 +341,9 @@ class ProductPreparator:
             acq_date = datetime.datetime.strftime(product.acqdate, "%Y%m%dT%H%M%S")
 
         result = glob.glob(
-            os.path.join(scl_dir, product.mgrs, f"T{product.mgrs}_{acq_date}_SCL_60m.tif")
+            os.path.join(
+                scl_dir, product.mgrs, f"T{product.mgrs}_{acq_date}_SCL_60m.tif"
+            )
         )
         if result:
             scl_map = result[0]
