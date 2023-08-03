@@ -90,7 +90,7 @@ def get_fractional_year(ad):
 
 class S2L_Fusion(S2L_Process):
 
-    def __init__(self):
+    def __init__(self, generate_intermediate_products: bool):
         super().__init__()
         self.reference_products : list(S2L_HLS_Product) = []
         self._predict_method = None
@@ -173,7 +173,7 @@ class S2L_Fusion(S2L_Process):
             array_L2H_predict, array_L2F_predict = self._predict(product, band_s2, qa_mask, output_shape)
 
             # save
-            if S2L_config.config.getboolean('generate_intermediate_products'):
+            if self.generate_intermediate_products:
                 self._save_as_image_file(image_file_L2F, qa_mask, product, band, '_FUSION_QA.TIF')
                 self._save_as_image_file(image_file_L2F, array_L2H_predict, product, band, '_FUSION_L2H_PREDICT.TIF')
                 self._save_as_image_file(image_file_L2F, array_L2F_predict, product, band, '_FUSION_L2F_PREDICT.TIF')
@@ -184,7 +184,7 @@ class S2L_Fusion(S2L_Process):
             array_L2H_predict, array_L2F_predict = self._composite(band_s2, output_shape)
 
             # save
-            if S2L_config.config.getboolean('generate_intermediate_products'):
+            if self.generate_intermediate_products:
                 self._save_as_image_file(image_file_L2F, array_L2H_predict, product, band, '_FUSION_L2H_COMPO.TIF')
                 self._save_as_image_file(image_file_L2F, array_L2F_predict, product, band, '_FUSION_L2F_COMPO.TIF')
 
@@ -205,7 +205,7 @@ class S2L_Fusion(S2L_Process):
                 image, image_out, S2L_ImageFile(mask_filename), nodata_value=nodata_value)
             log.debug('Fusion auto check proportional difference of L2F from L2H')
             out_stat(proportion_diff * proportion_diff_mask, log, 'proportional diff')
-            if S2L_config.config.getboolean('generate_intermediate_products'):
+            if self.generate_intermediate_products:
                 proportion_diff_img = image.duplicate(
                     filepath=os.path.join(
                         product.working_dir,
@@ -253,7 +253,7 @@ class S2L_Fusion(S2L_Process):
             product.get_band_file(band).rootname + extension
         )
         image_file = image_template.duplicate(path, array=array)
-        if S2L_config.config.getboolean('generate_intermediate_products'):
+        if self.generate_intermediate_products:
             image_file.write(creation_options=['COMPRESS=LZW'])
         return image_file
 

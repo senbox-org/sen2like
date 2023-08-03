@@ -70,8 +70,8 @@ class PackagerConfig:
 class S2L_Product_Packager(S2L_Process):
     """Base class for S2L product packaging"""
 
-    def __init__(self, config: PackagerConfig):
-        super().__init__()
+    def __init__(self, generate_intermediate_products: bool, config: PackagerConfig):
+        super().__init__(generate_intermediate_products)
         self.images = {}
         self.product_type_name = config.product_type_name
         self.mtd_mask_field = config.mtd_mask_field

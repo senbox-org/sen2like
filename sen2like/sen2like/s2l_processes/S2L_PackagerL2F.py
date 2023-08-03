@@ -48,8 +48,8 @@ class S2L_PackagerL2F(S2L_Product_Packager):
     S2F product packager
     """
 
-    def __init__(self):
-        super().__init__(packager_config)
+    def __init__(self, generate_intermediate_products: bool):
+        super().__init__(generate_intermediate_products, packager_config)
 
     def postprocess_quicklooks(self, qi_data_dir, product: S2L_Product):
         """

@@ -20,7 +20,6 @@
 
 import logging
 
-from core import S2L_config
 from core.image_file import S2L_ImageFile
 from core.products.product import S2L_Product
 from core.toa_reflectance import convert_to_reflectance_from_reflectance_cal_product
@@ -31,6 +30,9 @@ log = logging.getLogger("Sen2Like")
 
 class S2L_Toa(S2L_Process):
 
+    def __init__(self, generate_intermediate_products: bool):
+        super().__init__(generate_intermediate_products)
+
     def process(self, product: S2L_Product, image: S2L_ImageFile, band: str) -> S2L_ImageFile:
         log.info('Start')
 
@@ -38,7 +40,7 @@ class S2L_Toa(S2L_Process):
         array_in = image.array
         array_out = convert_to_reflectance_from_reflectance_cal_product(product.mtl, array_in, band)
         image = image.duplicate(self.output_file(product, band), array=array_out)
-        if S2L_config.config.getboolean('generate_intermediate_products'):
+        if self.generate_intermediate_products:
             image.write(creation_options=['COMPRESS=LZW'])
 
         log.info('End')

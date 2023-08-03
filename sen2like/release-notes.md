@@ -1,5 +1,28 @@
 # Sen2Like Release Notes
 
+## v4.4.0
+
+### **Breaking changes**
+
+* New mandatory parameters in GIPP XML and INI configuration file:
+  * new section with new params : `DEMRepository`
+  * new section with new params : `TopographicCorrection`
+  * new section with new params : `Sbaf`
+* Docker image build is now done in two step. [`Dockerfile`](Dockerfile) is based on a docker image that comes from [`Dockerfile-base`](Dockerfile-base) for reuse purpose.
+
+### New features
+
+* Add topographic correction (Experimental)
+* Add DEM Downloader aux data utility to generate DEM in MGRS extent for topographic correction
+* New adaptative SBAF capability (Experimental)
+
+### Fix
+
+### Improvements
+
+* Design : Change the way to initialise processing block and to allow dependency injection in processing block classes.
+
+
 ## v4.3.0
 
 ### **Breaking changes**

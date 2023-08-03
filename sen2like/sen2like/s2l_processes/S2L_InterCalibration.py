@@ -22,7 +22,6 @@ import logging
 
 import numpy as np
 
-from core import S2L_config
 from core.image_file import S2L_ImageFile
 from core.products.product import S2L_Product
 from s2l_processes.S2L_Process import S2L_Process
@@ -61,6 +60,9 @@ class S2L_InterCalibration(S2L_Process):
     (It is the SPACECRAFT_NAME (for sentinel) or SPACECRAFT_ID (for landsats))
     """
 
+    def __init__(self, generate_intermediate_products: bool):
+        super().__init__(generate_intermediate_products)
+
     def process(self, product: S2L_Product, image: S2L_ImageFile, band: str) -> S2L_ImageFile:
         log.info('Start')
 
@@ -90,7 +92,7 @@ class S2L_InterCalibration(S2L_Process):
             new[image.array == 0] = 0
             # Format Output : duplicate, link  to product as parameter
             image = image.duplicate(self.output_file(product, band), array=new.astype(np.float32))
-            if S2L_config.config.getboolean('generate_intermediate_products'):
+            if self.generate_intermediate_products:
                 image.write(creation_options=['COMPRESS=LZW'])
 
         log.info('End')

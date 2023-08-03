@@ -230,6 +230,8 @@
 					<message contentType="text/plain">"SBAF correction"</message>
 					<extraValues>
 						<value name="REFERENCE_DOI_SBAF">Claverie and al. 2018</value>
+						<value name="SBAF_ADAPTATIVE">False</value>
+						<value name="SBAF_ADAPTED_BANDS">NONE</value>
 						<value name="SBAF_COEFFICIENT_B01">NONE</value>
 						<value name="SBAF_COEFFICIENT_B02">NONE</value>
 						<value name="SBAF_COEFFICIENT_B03">NONE</value>
@@ -244,6 +246,26 @@
 						<value name="SBAF_OFFSET_B8A">NONE</value>
 						<value name="SBAF_OFFSET_B11">NONE</value>
 						<value name="SBAF_OFFSET_B12">NONE</value>
+					</extraValues>
+				</check>
+			</checkList>
+			<checkList>
+				<parentID>L2H_TOPOGRAPHIC_CORRECTION</parentID>
+				<name>L2H_TOPOGRAPHIC_CORRECTION</name>
+				<version>1.0</version>
+				<item class="http://www.esa.int/s2#pdi_level_2f_tile_container"
+					  className="PDI Level 2F Tile Folder"
+					  name="NONE"
+					  url="NONE"
+				/>
+				<check>
+					<message contentType="text/plain">"TOPOGRAPHIC correction"</message>
+					<extraValues>
+						<value name="DEM_DATASET">NONE</value>
+						<value name="MIN_TOPOGRAPHIC_CORRECTION_FACTOR">NONE</value>
+						<value name="MAX_TOPOGRAPHIC_CORRECTION_FACTOR">NONE</value>
+						<value name="AVERAGE_TOPOGRAPHIC_CORRECTION_FACTOR">NONE</value>
+						<value name="STD_TOPOGRAPHIC_CORRECTION_FACTOR">NONE</value>
 					</extraValues>
 				</check>
 			</checkList>

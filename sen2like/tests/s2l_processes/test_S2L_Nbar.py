@@ -35,7 +35,7 @@ class TestS2L_Nbar(TestCase):
         product = Sentinel2Product(_product_path, context)
         # deliberately set false aux data folder (test_folder_path)
         # to not have error during object init
-        vjb = VJBMatriceBRDFCoefficient(product, None, "B04", test_folder_path)
+        vjb = VJBMatriceBRDFCoefficient(product, None, "B04", test_folder_path, False)
 
         # pylint: disable=protected-access
         assert vjb._select_vr_file(aux_data_dir) == os.path.join(

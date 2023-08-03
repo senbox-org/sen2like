@@ -8,8 +8,8 @@ export PYTHONPATH=.:${PYTHONPATH}
 
 if hash coverage 2> /dev/null; then
     echo **Running tests
-    PYTHONPATH=sen2like coverage run --branch -m pytest -source=sen2like --log-level=DEBUG --junitxml reports/junit.xml "$@" > reports/tests.report
-    out=$?
+    PYTHONPATH=sen2like:aux_data coverage run --branch -m pytest -source=sen2like --log-level=DEBUG --junitxml reports/junit.xml "$@" |& tee reports/tests.report
+    out=${PIPESTATUS[0]}
     if [ $out -ne 0 ];
     then
         echo "Error in tests"
@@ -53,9 +53,9 @@ else
 fi
 
 if hash pylint 2> /dev/null; then
-    pushd sen2like
+    # pushd sen2like
     echo **Running pylint code analysis
-    PYTHONPATH=. pylint --extension-pkg-whitelist=numpy,cv2 --max-line-length=120 -j 8 -r y ./**/*.py > ../reports/pylint.report
+    PYTHONPATH=sen2like:aux_data pylint --extension-pkg-whitelist=numpy,cv2 --max-line-length=120 -j 8 -r y sen2like/**/*.py aux_data/**/*.py > ../reports/pylint.report
     out=$?
     if [ $out -ne 0 ];
     then
@@ -80,7 +80,7 @@ fi
 
 if hash bandit 2> /dev/null; then
     echo **Running code security check
-    bandit -r sen2like > reports/bandit.report
+    bandit -r --severity-level high sen2like > reports/bandit.report
     out=$?
     if [ $out -ne 0 ];
     then

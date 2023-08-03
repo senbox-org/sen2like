@@ -13,6 +13,7 @@
             <xs:element type="StringBoolType" name="doAtmcor"/>
             <xs:element type="StringBoolType" name="doNbar"/>
             <xs:element type="StringBoolType" name="doSbaf"/>
+            <xs:element type="StringBoolType" name="doTopographicCorrection"/>
             <xs:element type="StringBoolType" name="doFusion"/>
             <xs:element type="StringBoolType" name="doPackagerL2H"/>
             <xs:element type="StringBoolType" name="doPackagerL2F"/>
@@ -25,7 +26,6 @@
             <xs:element type="xs:string" name="cams_daily_dir"/>
             <xs:element type="xs:string" name="cams_hourly_dir"/>
             <xs:element type="xs:string" name="cams_climatology_dir"/>
-            <xs:element type="xs:string" name="dem_dir"/>
             <xs:element type="xs:string" name="scl_dir"/>
         </xs:sequence>
     </xs:complexType>
@@ -110,10 +110,30 @@
             <xs:element type="StringBoolType" name="same_utm_only"/>
         </xs:sequence>
     </xs:complexType>
+    <xs:complexType name="TopographicCorrectionType">
+        <xs:sequence>
+            <xs:element type="xs:float" name="topographic_correction_limiter"/>
+            <xs:element type="StringBoolType" name="apply_valid_pixel_mask"/>
+            <xs:element type="StringBoolType" name="sen2cor_topographic_correction"/>
+        </xs:sequence>
+    </xs:complexType>
+    <xs:complexType name="DEMRepositoryType">
+        <xs:sequence>
+            <xs:element type="xs:string" name="dem_folder"/>
+            <xs:element type="xs:string" name="dem_dataset"/>
+            <xs:element type="xs:integer" name="src_dem_resolution"/>
+        </xs:sequence>
+    </xs:complexType>
     <xs:complexType name="NbarType">
         <xs:sequence>
             <xs:element type="xs:string" name="nbar_methode"/>
             <xs:element type="xs:string" name="vjb_coeff_matrice_dir"/>
+        </xs:sequence>
+    </xs:complexType>
+    <xs:complexType name="SbafType">
+        <xs:sequence>
+            <xs:element type="StringBoolType" name="adaptative"/>
+            <xs:element type="xs:string" name="adaptative_band_candidates"/>
         </xs:sequence>
     </xs:complexType>
     <xs:complexType name="FusionType">
@@ -166,7 +186,6 @@
         <xs:sequence>
             <xs:element type="xs:integer" name="dx"/>
             <xs:element type="xs:integer" name="dy"/>
-            <xs:element type="StringBoolType" name="use_smac" minOccurs="0"/>
         </xs:sequence>
     </xs:complexType>
     <xs:complexType name="Level-2A_Ground_Image_Processing_ParameterType">
@@ -177,8 +196,11 @@
             <xs:element type="GeometryType" name="Geometry"/>
             <xs:element type="AtmcorType" name="Atmcor"/>
             <xs:element type="NbarType" name="Nbar"/>
+            <xs:element type="SbafType" name="Sbaf"/>
             <xs:element type="FusionType" name="Fusion"/>
             <xs:element type="StitchingType" name="Stitching"/>
+            <xs:element type="TopographicCorrectionType" name="TopographicCorrection"/>
+            <xs:element type="DEMRepositoryType" name="DEMRepository"/>
             <xs:element type="OutputFormatType" name="OutputFormat"/>
             <xs:element type="COGoptionsType" name="COGoptions"/>
             <xs:element type="JPEG2000optionsType" name="JPEG2000options"/>

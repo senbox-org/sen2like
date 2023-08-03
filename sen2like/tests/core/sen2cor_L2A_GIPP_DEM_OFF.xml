@@ -1,6 +1,5 @@
-<?xml version="1.0" encoding="UTF-8"?>
-<Level-2A_Ground_Image_Processing_Parameter xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
-  xsi:noNamespaceSchemaLocation="L2A_GIPP.xsd">
+<?xml version='1.0' encoding='UTF-8'?>
+<Level-2A_Ground_Image_Processing_Parameter xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="L2A_GIPP.xsd">
   <Common_Section>
     <Log_Level>INFO</Log_Level>
     <!-- can be: NOTSET, DEBUG, INFO, WARNING, ERROR, CRITICAL -->

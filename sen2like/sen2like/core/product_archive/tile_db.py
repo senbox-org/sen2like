@@ -229,7 +229,7 @@ def _select_tiles_by_spatial_relationships(relation, roi):
     Returns:
         list of tile ids
     """
-    with sqlite3.connect(_database_path("s2tiles.db")) as connection:
+    with sqlite3.connect(_database_path(S2_TILE_DB)) as connection:
         logging.debug("ROI: %s", roi)
         connection.enable_load_extension(True)
         connection.load_extension("mod_spatialite")
@@ -271,6 +271,32 @@ def tiles_contains_roi(roi):
     return _select_tiles_by_spatial_relationships("contains", roi)
 
 
+def get_mgrs_def(tile: str) -> dict|None:
+    """Get MGRS tile definition
+
+    Args:
+        tile (str): MGRS tile code
+
+    Returns:
+        dict|None: MGRS def having keys: 
+        'index', 'TILE_ID', 'EPSG', 'UTM_WKT', 'MGRS_REF', 'LL_WKT', 'geometry'
+        None if mgrs tile is not found
+    """
+
+    with sqlite3.connect(_database_path(S2_TILE_DB)) as connection:
+        logging.debug("TILE: %s", tile)
+        sql = f"select * from s2tiles where TILE_ID='{tile}'"
+        logging.debug("SQL request: %s", sql)
+        connection.row_factory = sqlite3.Row
+        cur = connection.execute(sql)
+        res = cur.fetchall()
+        if len(res) > 0:
+            return res[0]
+        
+        logging.error("tile %s not found in database", tile)
+        return None
+
+
 def mgrs_to_wkt(tile, utm=False):
     """Get the MGRS tile geom as WKT in LL or UTM.
 
@@ -281,7 +307,7 @@ def mgrs_to_wkt(tile, utm=False):
     Returns:
         tile geom as WKT or None if no tile match
     """
-    with sqlite3.connect(_database_path("s2tiles.db")) as connection:
+    with sqlite3.connect(_database_path(S2_TILE_DB)) as connection:
         logging.debug("TILE: %s", tile)
         sql = f"select {'UTM_WKT' if utm else 'LL_WKT'} from s2tiles where TILE_ID='{tile}'"
         logging.debug("SQL request: %s", sql)

@@ -35,6 +35,9 @@ log = logging.getLogger("Sen2Like")
 
 class S2L_Stitching(S2L_Process):
 
+    def __init__(self, generate_intermediate_products: bool):
+        super().__init__(generate_intermediate_products)
+
     def _output_file(self, product, band=None, image=None, extension=None):
         if band is None and image is not None:
             return os.path.join(

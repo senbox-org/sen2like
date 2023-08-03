@@ -40,29 +40,41 @@ DATE_WITH_MILLI_FORMAT = "%Y-%m-%dT%H:%M:%S.%fZ"
 class ProcessingContext:
     """
     Processing context class to store conf parameters
-    that could need to be modified to properly process a product
+    that could need to be modified to properly process a product.
+    It allows to override processing block activation flag (doStitching for example)
+    that are used by `ProductProcess` to run or not a processing block.
+    See `ProductProcess._init_block_list` implementation for more details.
     """
     def __init__(self, config: S2L_Config, tile: str):
         self.tile = tile
+
+        self.doStitching = config.getboolean('doStitching') # pylint: disable=invalid-name
+        self.doInterCalibration = config.getboolean('doInterCalibration') # pylint: disable=invalid-name
+
+        self.doAtmcor = config.getboolean('doAtmcor') # pylint: disable=invalid-name
         self.use_sen2cor = config.getboolean('use_sen2cor')
-        # pylint: disable=invalid-name
-        self.doStitching = config.getboolean('doStitching')
-        self.doInterCalibration = config.getboolean('doInterCalibration')
+
+        self.doTopographicCorrection = config.getboolean('doTopographicCorrection') # pylint: disable=invalid-name
+        self.sen2cor_topographic_correction = config.getboolean('sen2cor_topographic_correction')
+
+        if self.doAtmcor and config.get('s2_processing_level') == 'LEVEL2A':
+            logger.warning("Disable atmospheric correction (SMAC and sen2cor) because process L2A product")
+            self.doAtmcor = False
+            self.use_sen2cor = False
+
+        if not self.doTopographicCorrection:
+            logger.warning("Disable sen2cor topographic correction because main topographic correction is disabled")
+            self.sen2cor_topographic_correction = False
+        elif config.get('s2_processing_level') == 'LEVEL2A': # only for log
+            logger.warning("Will apply topographic correction on L2A product, please verify that the input L2A does not yet have topographic correction")
 
         if not config.getboolean('doFusion') and config.getboolean('doPackagerL2F'):
-            logger.warning("Disable L2F packager because Fusion is disable")
-            self.doPackagerL2F = False
+            logger.warning("Disable L2F packager because Fusion is disabled")
+            self.doPackagerL2F = False # pylint: disable=invalid-name
 
         if config.getboolean('doFusion') and not config.getboolean('doPackagerL2F'):
-            logger.warning("Disable Fusion because L2F Packaging is disable")
-            self.doFusion = False
-
-        _use_smac = config.getboolean('use_smac')
-        # use_smac could not be in conf, meaning we want to use it (default behavior)
-        if _use_smac is None:
-            # force True as default for usage in S2L_Atmcor
-            _use_smac = True
-        self.use_smac = _use_smac
+            logger.warning("Disable Fusion because L2F Packaging is disabled")
+            self.doFusion = False # pylint: disable=invalid-name
 
 
 class ClassPropertyDescriptor(object):
@@ -278,6 +290,7 @@ class S2L_Product():
         return cls.reverse_bands_mapping.get(s2_band)
 
     def get_ndvi_image(self, ndvi_filepath):
+        logger.info("Extract NDVI to %s", ndvi_filepath)
         B04_image = self.get_band_file(self.reverse_bands_mapping['B04'])
         B8A_image = self.get_band_file(self.reverse_bands_mapping['B8A'])
         B04 = B04_image.array
@@ -363,3 +376,11 @@ class S2L_Product():
             str: product absolute orbit
         """
         return self.mtl.absolute_orbit
+
+    @property
+    def sun_zenith_angle(self) -> float:
+        return float(self.mtl.sun_zenith_angle)
+
+    @property
+    def sun_azimuth_angle(self) -> float:
+        return float(self.mtl.sun_azimuth_angle)

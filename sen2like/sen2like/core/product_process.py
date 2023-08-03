@@ -19,69 +19,40 @@
 Module for 'S2L_Product' process with multiple 'S2L_Process'.
 IMPORTANT : Note that multithreading can used, see 'ProductProcess'
 """
-import importlib
 import logging
-import os
-import sys
 from concurrent.futures import ThreadPoolExecutor
 
-from core import S2L_config
 from core.product_preparation import ProductPreparator
 from core.products.product import S2L_Product
-from core.S2L_config import config
-from s2l_processes.S2L_Process import S2L_Process
+from core.S2L_config import config, PROC_BLOCKS
+from s2l_processes import S2L_Process, create_process_block
 
-logger = logging.getLogger('Sen2Like')
-
-
-_PROCESS_INSTANCES = {} # for parallelization
-_PROCESS_BLOCK_CLASSES = {}  # OPTIM
+logger = logging.getLogger("Sen2Like")
 
 
 # list of the blocks that are available
-_list_of_blocks = tuple(S2L_config.PROC_BLOCKS.keys())
-# Add building blocks package to Python path
-sys.path.append(os.path.join(os.path.dirname(__file__), "..", "s2l_processes"))
-
-
-def _get_processing_block(block_name: str) -> S2L_Process:
-    """Get process class associated to block_name.
-    If class does not have yet been imported, import it, save it and return it,
-    otherwise, return class.
-
-    Args:
-        block_name (str): The name of the process block.
-
-    Returns:
-        S2L_Process: S2L_Process class
-    """
-    # import module and class
-    _processing_block_class = _PROCESS_BLOCK_CLASSES.get(block_name)
-    if _processing_block_class is None:
-        module = importlib.import_module(block_name)
-        _processing_block_class = getattr(module, block_name)
-        _PROCESS_BLOCK_CLASSES[block_name] = _processing_block_class
-
-    return _processing_block_class
+_list_of_blocks = tuple(PROC_BLOCKS.keys())
 
 
 # pylint: disable=too-few-public-methods
 class ProductProcess:
     """
-    Class to process a S2L product.
+    Class to process a S2L S2L_Product.
     The main function 'run' execute eligible processing blocks for the product
-    based on the configuration and product context (see 'core.products.productProcessingContext').
+    based on the configuration and product context (see 'core.products.ProcessingContext').
 
     MultiThreading is used for parallelization if enabled. If parallelization is enabled,
     'S2L_Product' object to process and 'S2L_Process' instances are SHARED in memory.
     So 'S2L_Process' concrete classes MUST be coded in consequences.
     """
 
-    def __init__(self,
+    def __init__(
+        self,
         product: S2L_Product,
         product_preparator: ProductPreparator,
         parallelize_bands: bool,
-        bands: list[str]):
+        bands: list[str],
+    ):
         """Constructor.
         It initializes list of processing block with new instances of eligible concrete S2L_Process
 
@@ -107,7 +78,7 @@ class ProductProcess:
         """
 
         # displays
-        logger.info('=' * 50)
+        logger.info("=" * 50)
         logger.info("Process : %s %s", self._product.sensor, self._product.path)
 
         # Search and attach related product to product
@@ -142,7 +113,7 @@ class ProductProcess:
         for proc_block in self._processing_block_list:
             proc_block.postprocess(self._product)
 
-    def _init_block_list(self):
+    def _init_block_list(self) -> list[S2L_Process]:
         """Instantiate eligible S2L_Process concrete class (processing bloc).
         A processing bloc is eligible if:
         - Its config param is set to True (doS2Lxxxx=True) in config file.
@@ -154,7 +125,7 @@ class ProductProcess:
         """
         processing_block = []
         for block_name in _list_of_blocks:
-            _param = 'do' + block_name.split('_')[-1]
+            _param = "do" + block_name.split("_")[-1]
 
             # disable in conf and not override in context
             if not config.getboolean(_param) and not hasattr(self._product.context, _param):
@@ -162,16 +133,18 @@ class ProductProcess:
                 continue
 
             # override in context and False
-            if hasattr(self._product.context, _param) and not getattr(self._product.context, _param):
+            if hasattr(self._product.context, _param) and not getattr(
+                self._product.context, _param
+            ):
                 logger.debug("%s disable by configuration", block_name)
                 continue
 
             # check if block is applicable to the sensor (L8, L9 or S2)
-            if self._product.sensor not in S2L_config.PROC_BLOCKS[block_name]['applicability']:
+            if self._product.sensor not in PROC_BLOCKS[block_name]["applicability"]:
                 logger.debug("%s not applicable to %s", block_name, self._product.sensor)
                 continue
 
-            proc_block_instance = _get_processing_block(block_name)()
+            proc_block_instance = create_process_block(block_name)
             processing_block.append(proc_block_instance)
 
         return processing_block
@@ -179,7 +152,7 @@ class ProductProcess:
     def _run_parallel(self, bands):
         # Concurrent call of _process_band for each band using Thread
 
-        number_of_process = int(config.get('number_of_process', 1))
+        number_of_process = int(config.get("number_of_process", 1))
 
         bands_filenames = []
         with ThreadPoolExecutor(number_of_process) as executor:
@@ -189,7 +162,6 @@ class ProductProcess:
         return bands_filenames
 
     def _get_bands(self):
-
         bands = self._bands
         # For each band or a selection of bands:
         if bands is None:
@@ -201,7 +173,7 @@ class ProductProcess:
 
         return bands
 
-    def _process_band(self, band: str) -> str|None:
+    def _process_band(self, band: str) -> str | None:
         """Run all the blocks over one band of a product.
 
         Args:
@@ -211,7 +183,7 @@ class ProductProcess:
             str: Last file path of the image generated by the processing chain.
             None if no image for band
         """
-        logger.info('--- Process band %s ---', band)
+        logger.info("--- Process band %s ---", band)
 
         # get band file path
         image = self._product.get_band_file(band)
@@ -220,8 +192,8 @@ class ProductProcess:
 
         # iterate on blocks
         for proc_block in self._processing_block_list:
-            logger.info('----- Start %s for band %s -----', proc_block.__class__.__name__, band)
+            logger.info("----- Start %s for band %s -----", proc_block.__class__.__name__, band)
             image = proc_block.process(self._product, image, band)
-            logger.info('----- Finish %s for band %s -----', proc_block.__class__.__name__, band)
+            logger.info("----- Finish %s for band %s -----", proc_block.__class__.__name__, band)
 
         return image.filename
