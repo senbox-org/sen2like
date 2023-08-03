@@ -43,7 +43,7 @@ refer to the [Product Format Specification](sen2like/docs/source/S2-PDGS-MPC-L2H
 
 ## Publications and Contacts
 **Yearning to know more ? Check out**
-*	poster [Sen2Like, a tool to generate Sentinel-2 Harmonised Surface Reflectance Products, First Results With Landsat-8, 3rd S2 Validation Team Meeting](https://www.researchgate.net/publication/332428332_Sen2like_a_Tool_to_Generate_Sentinel-2_Harmonised_Surface_Reflectance_Products_-_First_Results_With_Landsat-8)
+*	poster [Sen2like: A solution for Harmonization and Fusion of Sentinel-2 and Landsat 8/9 data, JACIE 2023](https://www.researchgate.net/publication/372831217_Sen2like_A_solution_for_Harmonization_and_Fusion_of_Sentinel-2_and_Landsat_89_data)
 *	A [Sen2Like Relaxing Video](https://youtu.be/KBSYYBShyos) prepared for [ESA EO PHI-WEEK 2020](https://www.youtube.com/playlist?list=PLvT7fd9OiI9XELZXcljYTftUtJ_NFWRrY)
 *	A [Sen2Like Time Lapse including NDVI graphic](https://youtu.be/yEObvI1KQBg) prepared for QWG#12
 
