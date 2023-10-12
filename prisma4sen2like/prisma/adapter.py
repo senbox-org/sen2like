@@ -95,7 +95,6 @@ def interpolate_gps_position(v):
     for rec in u[1:]:
         i = np.where(v == rec)[0][0]
         indice.append(i)
-    print(indice)
     x_0 = np.linspace(1, v.shape[0], v.shape[0])
     # linear interpolation :
     x = np.array(indice)
@@ -357,9 +356,9 @@ class ProductAdapter:
             dest_mask[mask == val] = 1
             logger.debug(dest_mask[dest_mask == val])
 
-        logger.info("NB maked px %s", len(dest_mask[dest_mask >= 1]))
+        logger.debug("NB maked px %s", len(dest_mask[dest_mask >= 1]))
 
-        logger.info("maked px %s", dest_mask[dest_mask >= 1])
+        logger.debug("maked px %s", dest_mask[dest_mask >= 1])
 
         image = Image.fromarray(dest_mask)
         image.save(output_file_path)
@@ -472,8 +471,6 @@ class ProductAdapter:
         pos_y = interpolate_gps_position(np.array(list(self._product.product["Info/Ancillary/PVSdata/Wgs84_pos_y"])))
         pos_z = interpolate_gps_position(np.array(list(self._product.product["Info/Ancillary/PVSdata/Wgs84_pos_z"])))
 
-        print(pos_x[0], pos_y[0], pos_z[0])
-
         lat_lon_grids = self._product.lat_lon_grids
 
         lat = np.pi / 180.0 * np.rot90(lat_lon_grids[0], k=-1)
@@ -511,7 +508,6 @@ class ProductAdapter:
         r = res / res2
         zenith = (np.arccos(res / res2)) * 180 / np.pi
         # zenith -> off nadir
-        print(f"zenith {np.mean(zenith)}")
 
         # compute azimuth:
         # consider directionnal vector (d)
@@ -528,13 +524,8 @@ class ProductAdapter:
 
         azimuth[azimuth < 0] = azimuth[azimuth < 0] + 360
 
-        print(f"azimuth {np.mean(azimuth)}")
-
         self._viewing_zenith_angle = np.mean(zenith)
         self._viewing_azimuth_angle = np.mean(azimuth)
-
-        print(f"Sun_azimuth_angle {self._product.product.attrs['Sun_azimuth_angle']}")
-        print(f"Sun_zenith_angle {self._product.product.attrs['Sun_zenith_angle']}")
 
     @property
     def viewing_angle_grid(self) -> AngleGrid:

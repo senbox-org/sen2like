@@ -130,26 +130,6 @@ def pre_process_atmcor(s2l_product: S2L_Product, tile) -> S2L_Product|None:
     else:
         logger.info("sen2cor disabled")
 
-    # FIXME : ask to the team why we do this because the same call is done before
-    # if s2l_product is None:
-    #     s2l_product = product.s2l_product_class(product.path)
-
-    if not filter_product(s2l_product):
-        return None
-
-    # Disable Atmospheric correction for Level-2A product_urls
-    # override s2_processing_level because it could be use later for related product search
-    # (see product_archive)
-    if s2l_product.mtl.data_type in ('Level-2A', 'L2TP', 'L2A'):
-        config.overload('s2_processing_level=LEVEL2A')
-        logger.info("Processing Level-2A product: Atmospheric correction is disabled.")
-        # do not run SMAC doAtmcor processing block,
-        s2l_product.context.doAtmcor = False
-        # intercalibration only for L1C, so disable it
-        s2l_product.context.doInterCalibration = False
-    else:
-        config.overload('s2_processing_level=LEVEL1C')
-
     return s2l_product
 
 
@@ -215,10 +195,12 @@ def process_tile(tile: str, search_urls: list[tuple], args: Namespace, start_dat
             processing_context
         )
 
-        # run sen2cor if any and update s2l_product.context
-        s2l_product = pre_process_atmcor(s2l_product, tile)
+        if processing_context.doAtmcor:
+            # run sen2cor if any and update s2l_product.context
+            s2l_product = pre_process_atmcor(s2l_product, tile)
 
-        if not s2l_product:
+        # sen2cor fail or cloud cover condition not fulfilled
+        if not s2l_product or not filter_product(s2l_product):
             continue
 
         # Configure a product preparator

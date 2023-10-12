@@ -33,9 +33,9 @@
         <url_parameters_pattern_Landsat9>{base_url}/{mission}/{path}/{row}</url_parameters_pattern_Landsat9>
 
         <!-- Creodias -->
-<!--        <base_url>https://finder.creodias.eu/resto/api/collections</base_url>-->
-<!--        <location_Landsat8>path={path}&amp;row={row}</location_Landsat8>-->
-<!--        <location_Landsat9>path={path}&amp;row={row}</location_Landsat9>-->
+<!--        <base_url>https://datahub.creodias.eu/resto/api/collections</base_url>-->
+<!--        <location_Landsat8>path={path}&amp;row={row}&amp;productType=L1TP</location_Landsat8>-->
+<!--        <location_Landsat9>path={path}&amp;row={row}&amp;productType=L1TP</location_Landsat9>-->
 <!--        <location_Sentinel2>productIdentifier=%25T{tile}%25</location_Sentinel2>-->
 <!--        <url_parameters_pattern>{base_url}/{mission}/search.json?maxRecords=100&amp;_pretty=true&amp;cloudCover=%5B0%2C{cloud_cover}%5D&amp;startDate={start_date}&amp;completionDate={end_date}&amp;sortParam=startDate&amp;sortOrder=ascending&amp;status=all&amp;{location}&amp;dataset=ESA-DATASET</url_parameters_pattern>-->
 <!--        <thumbnail_property>properties/productIdentifier</thumbnail_property>-->
@@ -43,7 +43,7 @@
 <!--        <gml_geometry_property>properties/gmlgeometry</gml_geometry_property>-->
 
         <!-- mixed landsat local, remote s2 -->
-<!--        <base_url_s2>https://finder.creodias.eu/resto/api/collections</base_url_s2>-->
+<!--        <base_url_s2>https://datahub.creodias.eu/resto/api/collections</base_url_s2>-->
 <!--        <base_url_landsat>/data/PRODUCTS</base_url_landsat>-->
 <!--        <location_Sentinel2>productIdentifier=%25T{tile}%25</location_Sentinel2>-->
 <!--        <url_parameters_pattern_Landsat8>{base_url_landsat}/{mission}/{path}/{row}</url_parameters_pattern_Landsat8>-->
@@ -56,10 +56,10 @@
 
         <!-- mixed landsat s2, remote landsat -->
 <!--        <base_url_s2>/data/PRODUCTS</base_url_s2>-->
-<!--        <base_url_landsat>https://finder.creodias.eu/resto/api/collections</base_url_landsat>-->
+<!--        <base_url_landsat>https://datahub.creodias.eu/resto/api/collections</base_url_landsat>-->
 <!--        <url_parameters_pattern_Sentinel2>{base_url_s2}/{mission}/{tile}</url_parameters_pattern_Sentinel2>-->
-<!--        <location_Landsat8>path={path}&amp;row={row}</location_Landsat8>-->
-<!--        <location_Landsat9>path={path}&amp;row={row}</location_Landsat9>-->
+<!--        <location_Landsat8>path={path}&amp;row={row}&amp;productType=L1TP</location_Landsat8>-->
+<!--        <location_Landsat9>path={path}&amp;row={row}&amp;productType=L1TP</location_Landsat9>-->
 <!--        <url_parameters_pattern>{base_url_landsat}/{mission}/search.json?maxRecords=100&amp;_pretty=true&amp;cloudCover=%5B0%2C{cloud_cover}%5D&amp;startDate={start_date}&amp;completionDate={end_date}&amp;sortParam=startDate&amp;sortOrder=ascending&amp;status=all&amp;{location}&amp;dataset=ESA-DATASET</url_parameters_pattern>-->
 <!--        <thumbnail_property>properties/productIdentifier</thumbnail_property>-->
 <!--        <cloud_cover_property>properties/cloudCover</cloud_cover_property>-->

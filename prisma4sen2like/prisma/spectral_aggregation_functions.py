@@ -36,14 +36,31 @@ def generate_aggregation_coefficients_prisma_s2(product_file):
     n_detectors = 1000
 
     # Compute spectral aggregation coefficients (PRISMA => S2-MSI-A)
-    index_start_vnir = 96
-    index_stop_vnir = 162
-    index_start_swir = 81
-    index_stop_swir = 254
-    prisma_vnir_wl = product_file["KDP_AUX/Cw_Vnir_Matrix"][:, index_start_vnir:index_stop_vnir]
-    prisma_vnir_fwhm = product_file["KDP_AUX/Fwhm_Vnir_Matrix"][:, index_start_vnir:index_stop_vnir]
-    prisma_swir_wl = product_file["KDP_AUX/Cw_Swir_Matrix"][:, index_start_swir:index_stop_swir]
-    prisma_swir_fwhm = product_file["KDP_AUX/Fwhm_Swir_Matrix"][:, index_start_swir:index_stop_swir]
+
+    # Read matrix of central wavelength and fwhm for each detector (case of not coregistered products)
+    # This part is commented as not used when working with coregistered products (HCO)
+    # This part could be uncommented in future if working with not coregistered products.
+    # index_start_vnir = 96
+    # index_stop_vnir = 162
+    # index_start_swir = 81
+    # index_stop_swir = 254
+    # prisma_vnir_wl = product_file["KDP_AUX/Cw_Vnir_Matrix"][:, index_start_vnir:index_stop_vnir]
+    # prisma_vnir_fwhm = product_file["KDP_AUX/Fwhm_Vnir_Matrix"][:, index_start_vnir:index_stop_vnir]
+    # prisma_swir_wl = product_file["KDP_AUX/Cw_Swir_Matrix"][:, index_start_swir:index_stop_swir]
+    # prisma_swir_fwhm = product_file["KDP_AUX/Fwhm_Swir_Matrix"][:, index_start_swir:index_stop_swir]
+
+    # For coregistered cubes (HCO), read central wavelength and fwhm (VNIR & SWIR) using
+    # the GLOBAL attributes: List_Cw_Vnir, List_Fwhm_Vnir, List_Cw_Swir, List_Fwhm_Swir
+    prisma_vnir_wl_list = np.float32(product_file.attrs.get("List_Cw_Vnir"))
+    prisma_vnir_fwhm_list = np.float32(product_file.attrs.get("List_Fwhm_Vnir"))
+    prisma_swir_wl_list = np.float32(product_file.attrs.get("List_Cw_Swir"))
+    prisma_swir_fwhm_list = np.float32(product_file.attrs.get("List_Fwhm_Swir"))
+
+    # Replicate prisma_vnir_wl values per column with single List_cw_vnir value
+    prisma_vnir_wl = np.tile(prisma_vnir_wl_list, (n_detectors, 1))
+    prisma_vnir_fwhm = np.tile(prisma_vnir_fwhm_list, (n_detectors, 1))
+    prisma_swir_wl = np.tile(prisma_swir_wl_list, (n_detectors, 1))
+    prisma_swir_fwhm = np.tile(prisma_swir_fwhm_list, (n_detectors, 1))
 
     n_bands_prisma_vnir = prisma_vnir_wl.shape[1]
     n_bands_prisma_swir = prisma_swir_wl.shape[1]

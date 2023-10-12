@@ -105,7 +105,7 @@ conda activate sen2like
 
 ```bash
 python sen2like.py 
-[INFO    ] 2023-01-11 14:50:54 - sen2like             - Run Sen2like 4.4.0
+[INFO    ] 2023-01-11 14:50:54 - sen2like             - Run Sen2like 4.4.1
 usage: sen2like.py [-h] [--version] [--refImage PATH] [--wd PATH]
                    [--conf PATH] [--confParams STRLIST] [--bands STRLIST]
                    [--allow-other-srs] [--no-run] [--intermediate-products]
@@ -132,7 +132,7 @@ From the sen2like root directory (the one containing `Dockerfile`)
 First build the base image : 
 
 ```bash
-docker build -t sen2like --build-arg sen2like_base .
+docker build -t sen2like_base -f Dockerfile-base .
 ```
 
 Then the final image : 
@@ -184,7 +184,7 @@ Python script sen2like.py could be found in cloned git repository, or unzipped f
 For example if git cloned in home directory:
 
 ```bash
-/opt/anaconda3/bin/python "$HOME/sen2like/sen2like/sen2like.py" single-tile-mode 31TFJ --conf "./config.ini" --start-date 2017-10-30 --end-date 2017-10-31 --wd "/data/production" --refImage "/data/References/GRI/S2A_OPER_MSI_L1C_TL_MPS__20161018T120000_A000008_T31TFJ_N01.01/IMG_DATA/S2A_OPER_MSI_L1C_TL_MPS__20161018T120000_A000008_T31TFJ_B04.jp2" --bands B04
+python "$HOME/sen2like/sen2like/sen2like.py" single-tile-mode 31TFJ --conf "./config.ini" --start-date 2017-10-30 --end-date 2017-10-31 --wd "/data/production" --refImage "/data/References/GRI/S2A_OPER_MSI_L1C_TL_MPS__20161018T120000_A000008_T31TFJ_N01.01/IMG_DATA/S2A_OPER_MSI_L1C_TL_MPS__20161018T120000_A000008_T31TFJ_B04.jp2" --bands B04
 ```
 
 ### Docker
@@ -202,7 +202,7 @@ You can run it directly without entering into the container:
 ```bash
 docker run --rm my-internal-docker-registry-url/sen2like/sen2like:4.4
 
-[INFO    ] 2023-01-11 14:50:54 - sen2like             - Run Sen2like 4.4.0
+[INFO    ] 2023-01-11 14:50:54 - sen2like             - Run Sen2like 4.4.1
 usage: sen2like.py [-h] [--version] [--refImage PATH] [--wd PATH]
                    [--conf PATH] [--confParams STRLIST] [--bands STRLIST]
                    [--allow-other-srs] [--no-run] [--intermediate-products]
@@ -357,6 +357,11 @@ url_parameters_pattern_Sentinel2 = /data/PRODUCTS/Sentinel2/31TFJ
 * `cloud_cover_property`: Path in result json where cloud cover is stored
 * `gml_geometry_property`:  Path in result json where gml geometry is stored
 
+**For Landsat8 L1 product selection, you MUST have `productType` or `processingLevel` URL parameter set in `location_Landsat8`**
+
+Possible values for these parameters can be found [here](https://datahub.creodias.eu/resto/api/collections/Landsat8/describe.xml)
+
+Notice that at the time of writing this it seems that `processingLevel=LEVEL1` select only L1TP product type.
 
 #### Geometry
 
