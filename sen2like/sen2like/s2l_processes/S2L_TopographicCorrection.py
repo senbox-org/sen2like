@@ -195,8 +195,9 @@ class S2L_TopographicCorrection(S2L_Process):
         return out_image
 
     def postprocess(self, product: S2L_Product):
-        product.metadata.qi["DEM_DATASET"] = self._dem_repository.dataset_name
-        product.metadata.qi.update(self._stats.val)
+        if self._stats:
+            product.metadata.qi["DEM_DATASET"] = self._dem_repository.dataset_name
+            product.metadata.qi.update(self._stats.val)
 
     def _set_stats(self, factor: NDArray, res: float):
         """Set stats at the given resolution

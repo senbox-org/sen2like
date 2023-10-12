@@ -1,5 +1,21 @@
 # Sen2Like Release Notes
 
+## v4.4.1
+
+### Important information about sen2like on Creodias
+
+If you are using sen2like on Creodias you should update your sen2like configuration to properly filter Landsat products due to changes in Creodias Opensearch catalog API.
+
+Please refer to [Creodias config parameters chapter](README.md#creodias-api) and take a look at [default configuration sample file](conf/config.ini)
+
+### Fix
+
+* sen2cor was applied only to first product when enable to process a L1 stack
+* Fix docker image build instructions in [README.md](README.md)
+* TopographicCorrection post process fail if DEM is not present
+* Replace finder catalog url by datahub catalog url and update landsat L1 product selection config sample, see [config parameters](README.md#creodias-api)
+* Force 2D coordinates for roi file with 3D coordinates
+
 ## v4.4.0
 
 ### **Breaking changes**

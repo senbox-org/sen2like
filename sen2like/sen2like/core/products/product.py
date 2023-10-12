@@ -57,10 +57,16 @@ class ProcessingContext:
         self.doTopographicCorrection = config.getboolean('doTopographicCorrection') # pylint: disable=invalid-name
         self.sen2cor_topographic_correction = config.getboolean('sen2cor_topographic_correction')
 
-        if self.doAtmcor and config.get('s2_processing_level') == 'LEVEL2A':
-            logger.warning("Disable atmospheric correction (SMAC and sen2cor) because process L2A product")
-            self.doAtmcor = False
-            self.use_sen2cor = False
+        if config.get('s2_processing_level') == 'LEVEL2A':
+
+            if self.doAtmcor:
+                logger.warning("Disable atmospheric correction (SMAC and sen2cor) because process L2A product")
+                self.doAtmcor = False
+                self.use_sen2cor = False
+            
+            if self.doInterCalibration:
+                logger.warning("Disable inter calibration because process L2A product")
+                self.doInterCalibration = False
 
         if not self.doTopographicCorrection:
             logger.warning("Disable sen2cor topographic correction because main topographic correction is disabled")

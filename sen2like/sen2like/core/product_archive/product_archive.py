@@ -286,6 +286,10 @@ class InputProductArchive:
             is_product_valid = self.filter_on_date(input_product, start_date, end_date)
 
             if input_product.instrument == 'S2' and processing_level_filter is not None:
+                # select S2 L1C or L2A depending processing_level_filter
+                # if l2a program arg is used, selected only L2A
+                # otherwise select only L1C
+                # TODO : find a better way for product selection.
                 is_product_valid &= input_product.s2l_product_class.processing_level(
                     os.path.basename(input_product.path)) == processing_level_filter
 
@@ -307,7 +311,7 @@ class InputProductArchive:
         :param end_date: End of the period
         :param product_mode: Indicates if we are in product or tile mode
         :param exclude: List of products to exclude
-        :param processing_level: Add processing level for filtering
+        :param processing_level: Add processing level for filtering if s2_processing_level is not set in config (l2a program arg)
         :return: list of selected InputProduct
         """
         input_product_list = self._load_input_product(urls, product_mode)

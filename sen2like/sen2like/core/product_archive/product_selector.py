@@ -36,6 +36,7 @@ def _read_polygon_from_json(json_file):
     if feature is None:
         logging.error("No features in json file: %s", json_file)
         return None
+    feature.GetGeometryRef().FlattenTo2D()
     export = feature.GetGeometryRef().ExportToWkt()
     dataset = None
     return export
