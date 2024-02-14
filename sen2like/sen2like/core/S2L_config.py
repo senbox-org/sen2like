@@ -1,14 +1,27 @@
 #! /usr/bin/env python
 # -*- coding: utf-8 -*-
-# V. Debaecker (TPZ-F) 2018
+# Copyright (c) 2023 ESA.
+#
+# This file is part of sen2like.
+# See https://github.com/senbox-org/sen2like for further info.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
 
 import configparser
 import datetime
-import hashlib
-import json
 import logging
 import os
-
 from argparse import Namespace
 from collections import OrderedDict
 from xml.etree import ElementTree
@@ -23,17 +36,18 @@ import xmlschema
 # define here all the blocks that are implemented, then user to choose
 # which blocks are to be run through the on/off switches in the config.ini file
 PROC_BLOCKS = OrderedDict()
-PROC_BLOCKS['S2L_Geometry'] = {'extension': '_REFRAMED.TIF', 'applicability': 'L8_L9_S2'}
-PROC_BLOCKS['S2L_Stitching'] = {'extension': '_STITCHED.TIF', 'applicability': 'L8_L9_S2'}
-PROC_BLOCKS['S2L_GeometryCheck'] = {'extension': None, 'applicability': 'L8_L9_S2'}
-PROC_BLOCKS['S2L_Toa'] = {'extension': '_TOA.TIF', 'applicability': 'L8_L9_S2'}
-PROC_BLOCKS['S2L_InterCalibration'] = {'extension': '_INTERCAL.TIF', 'applicability': 'L8_L9_S2'}
-PROC_BLOCKS['S2L_Atmcor'] = {'extension': '_SURF.TIF', 'applicability': 'L8_L9_S2'}
-PROC_BLOCKS['S2L_Nbar'] = {'extension': '_BRDF.TIF', 'applicability': 'L8_L9_S2'}
-PROC_BLOCKS['S2L_Sbaf'] = {'extension': '_SBAF.TIF', 'applicability': 'L8_L9_S2'}
-PROC_BLOCKS['S2L_PackagerL2H'] = {'extension': None, 'applicability': 'L8_L9_S2'}
-PROC_BLOCKS['S2L_Fusion'] = {'extension': '_FUSION.TIF', 'applicability': 'L8_L9'}
-PROC_BLOCKS['S2L_PackagerL2F'] = {'extension': None, 'applicability': 'L8_L9_S2'}
+PROC_BLOCKS['S2L_Geometry'] = {'extension': '_REFRAMED.TIF', 'applicability': 'L8_L9_S2_Prisma'}
+PROC_BLOCKS['S2L_Stitching'] = {'extension': '_STITCHED.TIF', 'applicability': 'L8_L9_S2_Prisma'}
+PROC_BLOCKS['S2L_GeometryCheck'] = {'extension': None, 'applicability': 'L8_L9_S2_Prisma'}
+PROC_BLOCKS['S2L_Toa'] = {'extension': '_TOA.TIF', 'applicability': 'L8_L9_S2_Prisma'}
+PROC_BLOCKS['S2L_InterCalibration'] = {'extension': '_INTERCAL.TIF', 'applicability': 'L8_L9_S2_Prisma'}
+PROC_BLOCKS['S2L_Atmcor'] = {'extension': '_SURF.TIF', 'applicability': 'L8_L9_S2_Prisma'}
+PROC_BLOCKS['S2L_Nbar'] = {'extension': '_BRDF.TIF', 'applicability': 'L8_L9_S2_Prisma'}
+PROC_BLOCKS['S2L_Sbaf'] = {'extension': '_SBAF.TIF', 'applicability': 'L8_L9_S2_Prisma'}
+PROC_BLOCKS['S2L_TopographicCorrection'] = {'extension': '_TOPOCORR.TIF', 'applicability': 'L8_L9_S2_Prisma'}
+PROC_BLOCKS['S2L_PackagerL2H'] = {'extension': None, 'applicability': 'L8_L9_S2_Prisma'}
+PROC_BLOCKS['S2L_Fusion'] = {'extension': '_FUSION.TIF', 'applicability': 'L8_L9_Prisma'}
+PROC_BLOCKS['S2L_PackagerL2F'] = {'extension': None, 'applicability': 'L8_L9_S2_Prisma'}
 
 logger = logging.getLogger("Sen2Like")
 
@@ -287,39 +301,11 @@ class S2L_Config:
             return getattr(self.parser, item)
         raise AttributeError(f"'S2L_Config' object has no attribute '{item}'")
 
-    def _compute_config_hash(self, args):
-        """Compute hash from arguments and configuration.
-
-        :param args: Tool arguments.
-        :param _config: Configuration
-        :return: Hexdigest of the hash.
-        """
-
-        # debug
-        import copy
-        exclude_list = ['parallelize_bands']
-        dc = copy.deepcopy(args.__dict__)
-        for exc in exclude_list:
-            dc.pop(exc)
-        dc = str(dc)
-
-        # Prod
-        # dc = str(args.__dict__)
-
-        # Configuration hash
-        if self.parser.config_file is not None:
-            with open(self.parser.config_file) as file:
-                file_content = file.read()
-        _hash = hashlib.md5(file_content.encode())
-        _hash.update(dc.encode())
-        return _hash.hexdigest()
-
-    def update_with_args(self, args: Namespace, tile=None):
+    def update_with_args(self, args: Namespace):
         """update config with the given arguments
 
         Args:
             args (Namespace): parsed program args
-            tile (str, optional): tile name. Defaults to None.
         """
         # init S2L_config and save to wd
         if not self.initialize(args.S2L_configfile):
@@ -329,25 +315,8 @@ class S2L_Config:
             self.overload(args.confParams)
 
         # set working dir
-        date_now = datetime.datetime.utcnow().strftime('%Y%m%dT_%H%M%S')
-        output_folder = f'{"" if args.no_log_date else f"{date_now}_"}{self._compute_config_hash(args)}'
+        output_folder = str(int(datetime.datetime.utcnow().timestamp()))
         self.set('wd', os.path.join(args.wd, output_folder))
-
-        references_map_file = self.get('references_map')
-        if args.refImage:
-            self.set('refImage', args.refImage)
-        elif references_map_file and tile:
-            if os.path.isfile(references_map_file):
-                # load dataset
-                with open(references_map_file) as j:
-                    references_map = json.load(j)
-                self.set('refImage', references_map.get(tile))
-            else:
-                logger.warning("The reference path %s doesn't exist. So it is considered as None.", references_map_file)
-                self.set('refImage', None)
-        else:
-            self.set('refImage', None)
-        self.set('hlsplus', self.getboolean('doPackagerL2F'))
         self.set('debug', args.debug)
         self.set('generate_intermediate_products', args.generate_intermediate_products)
         if hasattr(args, 'l2a'):

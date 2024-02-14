@@ -1,12 +1,27 @@
 #! /usr/bin/env python
 # -*- coding: utf-8 -*-
-# G. Cavaro (TPZ-F) 2020
+# Copyright (c) 2023 ESA.
+#
+# This file is part of sen2like.
+# See https://github.com/senbox-org/sen2like for further info.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
 import abc
 import logging
 import math
 import os
 import re
-
 from datetime import datetime
 
 import numpy as np
@@ -14,11 +29,19 @@ from osgeo import gdal
 from shapely.wkt import loads
 
 import version
-from core.QI_MTD.generic_writer import XmlWriter, chg_elm_with_tag, change_elm, copy_children, create_child, \
-    copy_elements, search_db, rm_elm_with_tag, find_element_by_path
-from core.QI_MTD.mtd import metadata
-from core.S2L_config import config
 from core.products.product import S2L_Product
+from core.QI_MTD.generic_writer import (
+    XmlWriter,
+    change_elm,
+    chg_elm_with_tag,
+    copy_children,
+    copy_elements,
+    create_child,
+    find_element_by_path,
+    rm_elm_with_tag,
+    search_db,
+)
+from core.S2L_config import config
 
 log = logging.getLogger('Sen2Like')
 
@@ -40,6 +63,10 @@ _template_dict = {
             "product": "xml_backbones/MTD_MSIL2H_S2.xml",
             "tile": "xml_backbones/MTD_TL_L2H_S2.xml"
         },
+        "Prisma": {
+            "product": "xml_backbones/MTD_MSIL2H_S2.xml",
+            "tile": "xml_backbones/MTD_TL_L2H_S2.xml"
+        },
         "Landsat": {
             "product": "xml_backbones/MTD_OLIL2H_L8.xml",
             "tile": "xml_backbones/MTD_TL_L2H_L8.xml"
@@ -47,6 +74,10 @@ _template_dict = {
     },
     "F": {
         "S2": {
+            "product": "xml_backbones/MTD_MSIL2F_S2.xml",
+            "tile": "xml_backbones/MTD_TL_L2F_S2.xml"
+        },
+        "Prisma": {
             "product": "xml_backbones/MTD_MSIL2F_S2.xml",
             "tile": "xml_backbones/MTD_TL_L2F_S2.xml"
         },
@@ -87,6 +118,8 @@ class S2LProductMtdWriter(XmlWriter, abc.ABC):
             product (S2L_Product): concerned product
         """
 
+        metadata = product.metadata
+        
         change_elm(self.root_out, rpath='./General_Info/Product_Info/PRODUCT_URI',
                    new_value=metadata.mtd.get(f'product_{self.H_F}_name'))
         change_elm(self.root_out, rpath='./General_Info/Product_Info/PROCESSING_LEVEL',
@@ -117,7 +150,7 @@ class S2LProductMtdWriter(XmlWriter, abc.ABC):
 
         #  Geometric_info
         # ---------------
-        tile_code = product.mtl.mgrs
+        tile_code = product.mgrs
         if tile_code.startswith('T'):
             tile_code = tile_code[1:]
 
@@ -155,7 +188,7 @@ class Sentinel2ToS2LProductMtdWriter(S2LProductMtdWriter):
     """
 
     def _generate_tile_id(self, product: S2L_Product):
-        return _generate_sentinel2_tile_id(product, self.H_F, metadata.mtd['S2_AC'])
+        return _generate_sentinel2_tile_id(product, self.H_F, product.metadata.mtd['S2_AC'])
 
     def _specific_replaces(self, product: S2L_Product):
 
@@ -173,7 +206,7 @@ class Sentinel2ToS2LProductMtdWriter(S2LProductMtdWriter):
 
         archive_center = self.root_in.findall('.//ARCHIVING_CENTRE')
         if archive_center:
-            metadata.mtd['S2_AC'] = archive_center[0].text
+            product.metadata.mtd['S2_AC'] = archive_center[0].text
 
         # If Sbaf is done, we keep the values inside the backbone (S2A values)
         if not config.getboolean('doSbaf'):
@@ -254,7 +287,7 @@ class LandsatToS2LProductMtdWriter(S2LProductMtdWriter):
         change_elm(self.root_out, rpath='./General_Info/Product_Info/Datatake/DATATAKE_SENSING_START',
                    new_value=acq_date)
         change_elm(self.root_out, rpath='./General_Info/Product_Info/Datatake/SENSING_ORBIT_NUMBER',
-                   new_value=config.get('relative_orbit'))
+                   new_value=product.mtl.relative_orbit)
 
         if not config.getboolean('doSbaf'):
             # FIXME : get product image characteristics from origin sensor (LS8 here),
@@ -282,6 +315,7 @@ class LandsatToS2LProductMtdWriter(S2LProductMtdWriter):
 
 _product_mtl_writer_class_dict = {
     "S2": Sentinel2ToS2LProductMtdWriter,
+    "Prisma": Sentinel2ToS2LProductMtdWriter,
     "L8": LandsatToS2LProductMtdWriter,
     "L9": LandsatToS2LProductMtdWriter,
 }
@@ -309,7 +343,9 @@ class S2LTileMtdWriter(XmlWriter, abc.ABC):
 
     def manual_replaces(self, product: S2L_Product):
 
-        tile = loads(search_db(product.mtl.mgrs, search='UTM_WKT'))
+        metadata = product.metadata
+
+        tile = loads(search_db(product.mgrs, search='UTM_WKT'))
         ul_x = int(tile.bounds[0])
         ul_y = int(tile.bounds[3])
         change_elm(self.root_out, './Geometric_Info/Tile_Geocoding/Geoposition/ULX', new_value=str(ul_x))
@@ -360,6 +396,8 @@ class Sentinel2ToS2LTileMtdWriter(S2LTileMtdWriter):
     """
 
     def _specific_replaces(self, product: S2L_Product):
+
+        metadata = product.metadata
 
         # GENERAL_INFO
         # ------------
@@ -459,16 +497,15 @@ class LandsatToS2LTileMtdWriter(S2LTileMtdWriter):
         acq_date = datetime.strftime(product.acqdate, ISO_DATE_TIME_FORMAT)
         change_elm(self.root_out, './General_Info/SENSING_TIME', new_value=acq_date)
 
-        archive_center = metadata.hardcoded_values.get('L8_archiving_center')
+        archive_center = product.metadata.hardcoded_values.get('L8_archiving_center')
         change_elm(self.root_out, './General_Info/Archiving_Info/ARCHIVING_CENTRE', new_value=archive_center)
         change_elm(self.root_out, './General_Info/Archiving_Info/ARCHIVING_TIME',
                    new_value=datetime.strftime(product.file_date, ISO_DATE_TIME_FORMAT))
 
         # Geometric_info
         # ---------------
-        tile_code = product.mtl.mgrs
         cs_name = f'{product.mtl.datum} / {product.mtl.map_projection} {product.mtl.utm_zone}N'
-        cs_code = f'EPSG:{search_db(tile_code, search="EPSG")}'
+        cs_code = f'EPSG:{search_db(product.mgrs, search="EPSG")}'
         change_elm(self.root_out, './Geometric_Info/Tile_Geocoding/HORIZONTAL_CS_NAME', new_value=cs_name)
         change_elm(self.root_out, './Geometric_Info/Tile_Geocoding/HORIZONTAL_CS_CODE', new_value=cs_code)
 
@@ -498,6 +535,7 @@ class LandsatToS2LTileMtdWriter(S2LTileMtdWriter):
 
 _tile_mtl_writer_class_dict = {
     "S2": Sentinel2ToS2LTileMtdWriter,
+    "Prisma": Sentinel2ToS2LTileMtdWriter,
     "L8": LandsatToS2LTileMtdWriter,
     "L9": LandsatToS2LTileMtdWriter,
 }
@@ -542,26 +580,25 @@ def _distance_variation_corr(date):
     return 1 / math.pow((1 - 0.01672 * math.cos(0.0172 * (julian_day - t0 - 2))), 2)
 
 
-def _generate_landsat8_tile_id(product, H_F):
-    tile_code = product.mtl.mgrs
+def _generate_landsat8_tile_id(product: S2L_Product, H_F):
+    tile_code = product.mgrs
     if not tile_code.startswith('T'):
         tile_code = f"T{tile_code}"
 
-    archive_center = metadata.hardcoded_values.get('L8_archiving_center')
-    absolute_orbit = metadata.hardcoded_values.get('L8_absolute_orbit')
+    archive_center = product.metadata.hardcoded_values.get('L8_archiving_center')
     acq_date = datetime.strftime(product.acqdate, '%Y%m%dT%H%M%S')
 
     # LS8_OPER_OLI_TL L2H_ZZZ__20171114T102408_A000000_T31TFJ_N04.02
     tile_id = '_'.join(
-        [product.sensor_name, 'OPER', 'OLI', 'TL', f'L2{H_F}', archive_center, acq_date, f'A{absolute_orbit}', tile_code,
+        [product.sensor_name, 'OPER', 'OLI', 'TL', f'L2{H_F}', archive_center, acq_date, f'A{product.absolute_orbit}', tile_code,
          f'N{version.baseline_dotted}'])
 
     return tile_id
 
 
-def _generate_sentinel2_tile_id(product, H_F, archive_center):
+def _generate_sentinel2_tile_id(product: S2L_Product, H_F, archive_center):
 
-    tile_code = product.mtl.mgrs
+    tile_code = product.mgrs
     if not tile_code.startswith('T'):
         tile_code = f"T{tile_code}"
 
@@ -569,7 +606,7 @@ def _generate_sentinel2_tile_id(product, H_F, archive_center):
 
     # S2A_OPER_MSI_TL_L2H_SGS__20171030T104754_A012303_T31TFJ_N04.02
     tile_id = '_'.join(
-        [product.sensor_name, 'OPER', 'MSI', 'TL', f'L2{H_F}', archive_center, acq_date, f'A{config.get("absolute_orbit")}',
+        [product.sensor_name, 'OPER', 'MSI', 'TL', f'L2{H_F}', archive_center, acq_date, f'A{product.absolute_orbit}',
          tile_code, f'N{version.baseline_dotted}'])
 
     return tile_id

@@ -1,14 +1,30 @@
+# Copyright (c) 2023 ESA.
+#
+# This file is part of sen2like.
+# See https://github.com/senbox-org/sen2like for further info.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
 """Module dedicated to get search product URL"""
 import logging
-from typing import Dict, List, Tuple
 from argparse import Namespace
+
 from osgeo import gdal
 
 from core.argparser import DateRange, Mode
 from core.product_archive import tile_db
 from core.product_archive.product_archive import InputProductArchive
 from core.S2L_config import config
-
 
 logger = logging.getLogger('Sen2Like')
 
@@ -20,12 +36,13 @@ def _read_polygon_from_json(json_file):
     if feature is None:
         logging.error("No features in json file: %s", json_file)
         return None
+    feature.GetGeometryRef().FlattenTo2D()
     export = feature.GetGeometryRef().ExportToWkt()
     dataset = None
     return export
 
 
-def _get_search_url(polygon, date_range: DateRange, tiles: List[str]) -> Dict[str, List[Tuple]]:
+def _get_search_url(polygon, date_range: DateRange, tiles: list[str]) -> dict[str, list[tuple]]:
     """Get product search urls that intersect the polygon in date range for given mgrs tiles.
     - For local products, URL are directories that should contains products (tile or path/row folder),
         NOT the complete product path.
@@ -116,7 +133,7 @@ _get_search_urls_function = {
 }
 
 
-def get_search_url(args: Namespace, date_range: DateRange) -> Dict[str, List[Tuple[str, float]]]:
+def get_search_url(args: Namespace, date_range: DateRange) -> dict[str, list[tuple[str, float]]]|None:
     """Retrieve products search URL to process depending the selected mode.
     URLS are listed by tile coverage desc
 

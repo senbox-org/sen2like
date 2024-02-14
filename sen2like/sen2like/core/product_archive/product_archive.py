@@ -1,19 +1,34 @@
-from datetime import datetime
+# Copyright (c) 2023 ESA.
+#
+# This file is part of sen2like.
+# See https://github.com/senbox-org/sen2like for further info.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
 import json
 import logging
 import os
 import time
 import urllib
-from typing import List, Tuple
 from collections import defaultdict
+from datetime import datetime
 from urllib.request import urlopen
 
 from osgeo import ogr
 
 from core import S2L_config
-from core.products import get_s2l_product_class
 from core.product_archive import tile_db
-
+from core.products import get_s2l_product_class
 
 logger = logging.getLogger("Sen2Like")
 
@@ -44,16 +59,16 @@ class InputProductArchive:
     """Input product archive to retrieve products from there they are stored
     """
     def __init__(self, configuration: S2L_config, roi=None):
-        self.configuration = configuration
+        self.config = configuration
         self.roi = roi
 
     def construct_url(self, mission, tile=None, start_date=None, end_date=None, path=None, row=None, cloud_cover=None):
         # WARN : load variable to having them in the local scope when using **locals()
-        base_url_landsat = self.configuration.get('base_url_landsat')
-        base_url_s2 = self.configuration.get('base_url_s2')
-        base_url = self.configuration.get('base_url')
+        base_url_landsat = self.config.get('base_url_landsat')
+        base_url_s2 = self.config.get('base_url_s2')
+        base_url = self.config.get('base_url')
         # TODO : specific to s2, see how to avoid it here
-        s2_processing_level = self.configuration.get('s2_processing_level')
+        s2_processing_level = self.config.get('s2_processing_level')
 
         # Special formatting for date
         if start_date:
@@ -62,14 +77,14 @@ class InputProductArchive:
         if end_date:
             end_date = end_date.strftime("%Y-%m-%dT23:59:59")
 
-        parameter = self.configuration.get(f'url_parameters_pattern_{mission}')
+        parameter = self.config.get(f'url_parameters_pattern_{mission}')
         if parameter is None:
-            parameter = self.configuration.get('url_parameters_pattern')
+            parameter = self.config.get('url_parameters_pattern')
 
         # Get location parameter depending on mission, then format it with available local variable
-        location = self.configuration.get(f'location_{mission}', "").format(**locals())
+        location = self.config.get(f'location_{mission}', "").format(**locals())
         if cloud_cover is None:
-            cloud_cover = self.configuration.get('cloud_cover', 10)
+            cloud_cover = self.config.get('cloud_cover', 10)
 
         # fill url with variable in local scope
         url = parameter.format(**locals())
@@ -106,8 +121,8 @@ class InputProductArchive:
             return {}
 
 
-    def read_products_from_url(self, url, tile_coverage) -> List[InputProduct]:
-        input_product_list: List[InputProduct] = []
+    def read_products_from_url(self, url, tile_coverage) -> list[InputProduct]:
+        input_product_list: list[InputProduct] = []
         products = {}
         logger.debug("URL: %s", url)
 
@@ -130,15 +145,15 @@ class InputProductArchive:
         for product in products.get("features"):
             input_product = InputProduct(tile_coverage=tile_coverage)
             _product = product
-            for _property in self.configuration.get("thumbnail_property").split('/'):
+            for _property in self.config.get("thumbnail_property").split('/'):
                 _product = _product.get(_property, {})
             input_product.path = _product
             _cloud_cover = product
-            for _property in self.configuration.get("cloud_cover_property").split('/'):
+            for _property in self.config.get("cloud_cover_property").split('/'):
                 _cloud_cover = _cloud_cover.get(_property, {})
             input_product.cloud_cover = _cloud_cover
             _gml_geometry = product
-            for _property in self.configuration.get("gml_geometry_property").split('/'):
+            for _property in self.config.get("gml_geometry_property").split('/'):
                 _gml_geometry = _gml_geometry.get(_property, {})
             input_product.gml_geometry = _gml_geometry
             if input_product.path:
@@ -155,7 +170,7 @@ class InputProductArchive:
 
         return True
 
-    def get_search_url_from_tile(self, tile: str, start_date: datetime=None, end_date: datetime=None) -> List[Tuple]:
+    def get_search_url_from_tile(self, tile: str, start_date: datetime=None, end_date: datetime=None) -> list[tuple]:
         """Get products URL on tile on the provided time interval, sorted by tile coverage
         - For local URL, URLs are folder that should contains products, not full product path.
         - For remote URL, URLs are remote catalogue search URL.
@@ -177,10 +192,10 @@ class InputProductArchive:
              ]
         """
         # get path row for landsat product url to build
-        same_utm = not self.configuration.getboolean("allow_other_srs")
+        same_utm = not self.config.getboolean("allow_other_srs")
         # wrs tiles are sorted by coverage
         wrs = tile_db.mgrs_to_wrs(
-            tile, self.configuration.getfloat("coverage"),
+            tile, self.config.getfloat("coverage"),
             same_utm=same_utm
         )
 
@@ -203,10 +218,10 @@ class InputProductArchive:
 
             if add_url:
                 for mission in ['Landsat8', 'Landsat9']:
-                    parameter = self.configuration.get(f'url_parameters_pattern_{mission}')
+                    parameter = self.config.get(f'url_parameters_pattern_{mission}')
 
                     if parameter is None:
-                        parameter = self.configuration.get(f'location_{mission}')
+                        parameter = self.config.get(f'location_{mission}')
 
                     if parameter is not None:
                         urls.append((self.construct_url(mission, tile, start_date=start_date,
@@ -217,7 +232,7 @@ class InputProductArchive:
 
         return urls
 
-    def _load_input_product(self, urls: List[Tuple[str,float]], product_mode: bool) -> List[InputProduct]:
+    def _load_input_product(self, urls: list[tuple[str,float]], product_mode: bool) -> list[InputProduct]:
         """Looks for product in their archive and load founded ones
 
         Args:
@@ -246,7 +261,7 @@ class InputProductArchive:
 
         return input_product_list
 
-    def _filter_valid_products(self, input_product_list: List[InputProduct], start_date: datetime, end_date: datetime, processing_level_filter) -> List[InputProduct]:
+    def _filter_valid_products(self, input_product_list: list[InputProduct], start_date: datetime, end_date: datetime, processing_level_filter) -> list[InputProduct]:
         """Filter product by checking if it is in the given period and its processing level
 
         Args:
@@ -271,6 +286,10 @@ class InputProductArchive:
             is_product_valid = self.filter_on_date(input_product, start_date, end_date)
 
             if input_product.instrument == 'S2' and processing_level_filter is not None:
+                # select S2 L1C or L2A depending processing_level_filter
+                # if l2a program arg is used, selected only L2A
+                # otherwise select only L1C
+                # TODO : find a better way for product selection.
                 is_product_valid &= input_product.s2l_product_class.processing_level(
                     os.path.basename(input_product.path)) == processing_level_filter
 
@@ -282,21 +301,22 @@ class InputProductArchive:
 
     # FIXME remove exclusion, it exists only for stitching
     # see to manage that only where needed
-    def search_product(self, urls, start_date: datetime=None, end_date: datetime=None, product_mode=False, exclude=None,
-                               processing_level=None) -> List[InputProduct]:
+    def search_product(self, urls, tile, start_date: datetime=None, end_date: datetime=None, product_mode=False, exclude=None,
+                               processing_level=None) -> list[InputProduct]:
         """Get products on tile on the provided time interval.
-
-        :param processing_level: Add processing level for filtering
-        :param exclude: List of products to exclude
-        :param product_mode: Indicates if we are in product or tile mode
+        
         :param urls: list of search urls,coverage tuple
+        :param tile: tile for which search product
         :param start_date: Start of the period
         :param end_date: End of the period
+        :param product_mode: Indicates if we are in product or tile mode
+        :param exclude: List of products to exclude
+        :param processing_level: Add processing level for filtering if s2_processing_level is not set in config (l2a program arg)
         :return: list of selected InputProduct
         """
         input_product_list = self._load_input_product(urls, product_mode)
         
-        processing_level_filter = self.configuration.get('s2_processing_level')
+        processing_level_filter = self.config.get('s2_processing_level')
 
         if processing_level_filter is None:
             processing_level_filter = processing_level
@@ -311,10 +331,10 @@ class InputProductArchive:
             logger.debug("%s products excluded", len(valid_input_product_list) - len(filtered_products))
             valid_input_product_list = filtered_products
 
-        return self.filter_and_sort_products(valid_input_product_list)
+        return self._filter_and_sort_products(valid_input_product_list, tile)
 
     @staticmethod
-    def filter_product_composition(products: List[InputProduct]):
+    def filter_product_composition(products: list[InputProduct]):
         if products:
             s2l_product_class = get_s2l_product_class(products[0].path)
             filtered = s2l_product_class.best_product([p.path for p in products])
@@ -322,15 +342,15 @@ class InputProductArchive:
 
         return products
 
-    def filter_on_tile_coverage(self, input_products: List[InputProduct]) -> List[InputProduct]:
+    def filter_on_tile_coverage(self, input_products: list[InputProduct], tile: str) -> list[InputProduct]:
         input_products_filtered = []
         # update tile coverage and refilter
-        tile_wkt = tile_db.mgrs_to_wkt(self.configuration.get('tile'))
+        tile_wkt = tile_db.mgrs_to_wkt(tile)
         if tile_wkt is None:
             return input_products_filtered
 
         tile_polygon = ogr.CreateGeometryFromWkt(tile_wkt)
-        coverage = self.configuration.getfloat('coverage')
+        coverage = self.config.getfloat('coverage')
 
         if coverage is None:
             coverage = 0.1
@@ -358,9 +378,9 @@ class InputProductArchive:
 
         return input_products_filtered
 
-    def filter_and_sort_products(self, input_products: List[InputProduct]) -> List[InputProduct]:
+    def _filter_and_sort_products(self, input_products: list[InputProduct], tile) -> list[InputProduct]:
         # update tile coverage and filter
-        filtered_input_products = self.filter_on_tile_coverage(input_products)
+        filtered_input_products = self.filter_on_tile_coverage(input_products, tile)
 
         # Group products by dates
         flipped = defaultdict(lambda: defaultdict(list))

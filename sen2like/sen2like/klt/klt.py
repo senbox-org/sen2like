@@ -1,64 +1,35 @@
+# Copyright (c) 2023 ESA.
+#
+# This file is part of sen2like.
+# See https://github.com/senbox-org/sen2like for further info.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
 """
 KLT module
 """
-from dataclasses import dataclass
 import logging
 import os
+from dataclasses import dataclass
 
 import cv2
 import numpy as np
+from pandas import DataFrame
 from skimage.transform import resize as skit_resize
 
-from core import S2L_config
 from core.image_file import S2L_ImageFile
-from grids.mgrs_framing import resample
-
 
 log = logging.getLogger("Sen2Like")
-
-
-def get_ref_image(image: S2L_ImageFile) -> S2L_ImageFile:
-    """Get reference image file to use for matching
-    Try to adapt resolution, changing end of reference filename after resampling if needed
-
-    Args:
-        image (S2L_ImageFile): image for which we look for ref image
-
-    Returns:
-        S2L_ImageFile: reference image denoted by 'ref_image_path'
-        or a new one resample to 'image' X resolution if resolutions differ
-    """
-
-    # try to adapt resolution, changing end of reference filename
-
-    ref_image_path = S2L_config.config.get('refImage')
-    if not ref_image_path or not os.path.exists(ref_image_path):
-        return None
-
-    # open image ref
-    ref_image = S2L_ImageFile(ref_image_path)
-
-    # if refImage resolution does not fit
-    if ref_image.xRes != image.xRes:
-        # new refImage filepath
-        ref_image_no_ext = os.path.splitext(ref_image_path)[0]
-        if ref_image_no_ext.endswith(f"_{int(ref_image.xRes)}m"):
-            ref_image_no_ext = ref_image_no_ext[:-len(f"_{int(ref_image.xRes)}m")]
-        ref_image_path = ref_image_no_ext + f"_{int(image.xRes)}m.TIF"
-
-        # compute (resample), or load if exists
-        if not os.path.exists(ref_image_path):
-            log.info("Resampling of the reference image")
-            # compute
-            ref_image = resample(ref_image, image.xRes, ref_image_path)
-            # write for reuse
-            ref_image.write(DCmode=True, creation_options=['COMPRESS=LZW'])
-        else:
-            # or load if exists
-            log.info("Change reference image to: %s", ref_image_path)
-            ref_image = S2L_ImageFile(ref_image_path)
-
-    return ref_image
 
 
 @dataclass
@@ -112,7 +83,7 @@ class KLTMatcher:
         result = np.uint8(result.clip(min=0, max=255))
         return result
 
-    def do_matching(self, working_dir:str, ref_image: S2L_ImageFile, image: S2L_ImageFile, mask, matching_winsize=25) -> KTLResult:
+    def do_matching(self, working_dir:str, ref_image: S2L_ImageFile, image: S2L_ImageFile, mask, matching_winsize=25, assessment=False) -> KTLResult:
         """Process to KLT matching, then compute dx/dy.
         Write some results stats in `working_dir/correl_res.txt`
 
@@ -122,7 +93,9 @@ class KLTMatcher:
             image (S2L_ImageFile): image to match
             mask (ndarray): mask to use during matching
             matching_winsize (int, optional): _description_. Defaults to 25.
-
+            assessment: (bool, optional): flag to indicate if matching is done for assessment or not. 
+                If not, then a file KLT.csv is written in the working dir and it contains KLT matching dataframe results.
+                Defaults to False
         Returns:
             KTLResult: matching result
         """
@@ -185,6 +158,18 @@ class KLTMatcher:
         if nb_matching_point == 0:
             log.error("Not points for matching")
             return KTLResult()
+
+        # Mainly for PRISMA
+        # Save KLT result in workir folder as KLT.csv in order to allow
+        # mgrs reframing with polynomial strategy to have inputs to compute
+        # transformation. It could also be used for other transformation.
+        if not assessment:
+            data_frame = DataFrame.from_dict(
+                {"x0": x0, "y0": y0, "dx": dx, "dy": dy}
+            )
+            data_frame.sort_values(by=["x0", "y0"], inplace=True)
+            data_frame.to_csv(os.path.join(working_dir, "KLT.csv"), sep=";", index=False)
+        # End for PRISMA
 
         dx_res = np.array(dx) * ref_image.xRes
         dy_res = np.array(dy) * (- ref_image.yRes)

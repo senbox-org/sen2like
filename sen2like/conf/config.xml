@@ -10,6 +10,7 @@
         <doAtmcor>True</doAtmcor>
         <doNbar>True</doNbar>
         <doSbaf>True</doSbaf>
+        <doTopographicCorrection>False</doTopographicCorrection>
         <doFusion>True</doFusion>
         <doPackagerL2H>False</doPackagerL2H>
         <doPackagerL2F>True</doPackagerL2F>
@@ -20,7 +21,6 @@
         <cams_daily_dir>/data/CAMS/daily</cams_daily_dir>
         <cams_hourly_dir>/data/CAMS/hourly</cams_hourly_dir>
         <cams_climatology_dir>/data/CAMS/climatology/v1</cams_climatology_dir>
-        <dem_dir>/data/AUX_DATA/DEM</dem_dir>
         <scl_dir>/data/AUX_DATA/SCL_maps_2.10</scl_dir>
     </Directories>
     <InputProductArchive>
@@ -33,19 +33,19 @@
         <url_parameters_pattern_Landsat9>{base_url}/{mission}/{path}/{row}</url_parameters_pattern_Landsat9>
 
         <!-- Creodias -->
-<!--        <base_url>https://finder.creodias.eu/resto/api/collections</base_url>-->
-<!--        <location_Landsat8>path={path}&amp;row={row}</location_Landsat8>-->
-<!--        <location_Landsat9>path={path}&amp;row={row}</location_Landsat9>-->
-<!--        <location_Sentinel2>processingLevel={s2_processing_level}&amp;productIdentifier=%25{tile}%25</location_Sentinel2>-->
+<!--        <base_url>https://datahub.creodias.eu/resto/api/collections</base_url>-->
+<!--        <location_Landsat8>path={path}&amp;row={row}&amp;productType=L1TP</location_Landsat8>-->
+<!--        <location_Landsat9>path={path}&amp;row={row}&amp;productType=L1TP</location_Landsat9>-->
+<!--        <location_Sentinel2>productIdentifier=%25T{tile}%25</location_Sentinel2>-->
 <!--        <url_parameters_pattern>{base_url}/{mission}/search.json?maxRecords=100&amp;_pretty=true&amp;cloudCover=%5B0%2C{cloud_cover}%5D&amp;startDate={start_date}&amp;completionDate={end_date}&amp;sortParam=startDate&amp;sortOrder=ascending&amp;status=all&amp;{location}&amp;dataset=ESA-DATASET</url_parameters_pattern>-->
 <!--        <thumbnail_property>properties/productIdentifier</thumbnail_property>-->
 <!--        <cloud_cover_property>properties/cloudCover</cloud_cover_property>-->
 <!--        <gml_geometry_property>properties/gmlgeometry</gml_geometry_property>-->
 
         <!-- mixed landsat local, remote s2 -->
-<!--        <base_url_s2>https://finder.creodias.eu/resto/api/collections</base_url_s2>-->
+<!--        <base_url_s2>https://datahub.creodias.eu/resto/api/collections</base_url_s2>-->
 <!--        <base_url_landsat>/data/PRODUCTS</base_url_landsat>-->
-<!--        <location_Sentinel2>processingLevel={s2_processing_level}&amp;productIdentifier=%25{tile}%25</location_Sentinel2>-->
+<!--        <location_Sentinel2>productIdentifier=%25T{tile}%25</location_Sentinel2>-->
 <!--        <url_parameters_pattern_Landsat8>{base_url_landsat}/{mission}/{path}/{row}</url_parameters_pattern_Landsat8>-->
 <!--        <url_parameters_pattern_Landsat9>{base_url_landsat}/{mission}/{path}/{row}</url_parameters_pattern_Landsat9>-->
 <!--        <url_parameters_pattern>{base_url_s2}/{mission}/search.json?maxRecords=100&amp;_pretty=true&amp;cloudCover=%5B0%2C{cloud_cover}%5D&amp;startDate={start_date}&amp;completionDate={end_date}&amp;sortParam=startDate&amp;sortOrder=ascending&amp;status=all&amp;{location}&amp;dataset=ESA-DATASET</url_parameters_pattern>-->
@@ -56,10 +56,10 @@
 
         <!-- mixed landsat s2, remote landsat -->
 <!--        <base_url_s2>/data/PRODUCTS</base_url_s2>-->
-<!--        <base_url_landsat>https://finder.creodias.eu/resto/api/collections</base_url_landsat>-->
+<!--        <base_url_landsat>https://datahub.creodias.eu/resto/api/collections</base_url_landsat>-->
 <!--        <url_parameters_pattern_Sentinel2>{base_url_s2}/{mission}/{tile}</url_parameters_pattern_Sentinel2>-->
-<!--        <location_Landsat8>path={path}&amp;row={row}</location_Landsat8>-->
-<!--        <location_Landsat9>path={path}&amp;row={row}</location_Landsat9>-->
+<!--        <location_Landsat8>path={path}&amp;row={row}&amp;productType=L1TP</location_Landsat8>-->
+<!--        <location_Landsat9>path={path}&amp;row={row}&amp;productType=L1TP</location_Landsat9>-->
 <!--        <url_parameters_pattern>{base_url_landsat}/{mission}/search.json?maxRecords=100&amp;_pretty=true&amp;cloudCover=%5B0%2C{cloud_cover}%5D&amp;startDate={start_date}&amp;completionDate={end_date}&amp;sortParam=startDate&amp;sortOrder=ascending&amp;status=all&amp;{location}&amp;dataset=ESA-DATASET</url_parameters_pattern>-->
 <!--        <thumbnail_property>properties/productIdentifier</thumbnail_property>-->
 <!--        <cloud_cover_property>properties/cloudCover</cloud_cover_property>-->
@@ -78,9 +78,13 @@
         <sen2cor_path>../sen2cor/process.py</sen2cor_path>
     </Atmcor>
     <Nbar>
-        <nbar_methode>VJB</nbar_methode>
+        <nbar_methode>ROY</nbar_methode>
         <vjb_coeff_matrice_dir>/data/Belen</vjb_coeff_matrice_dir>
     </Nbar>
+    <Sbaf>
+        <adaptative>False</adaptative>
+        <adaptative_band_candidates>B04,B11,B12</adaptative_band_candidates>
+    </Sbaf>
     <Fusion>
         <predict_method>predict</predict_method>
         <predict_nb_products>2</predict_nb_products>
@@ -90,6 +94,16 @@
     <Stitching>
         <same_utm_only>True</same_utm_only>
     </Stitching>
+    <TopographicCorrection>
+        <topographic_correction_limiter>4.0</topographic_correction_limiter>
+        <apply_valid_pixel_mask>False</apply_valid_pixel_mask>
+        <sen2cor_topographic_correction>True</sen2cor_topographic_correction>
+    </TopographicCorrection>
+    <DEMRepository>
+        <dem_folder>/data/AUX_DATA/</dem_folder>
+        <dem_dataset>COP-DEM_GLO-90-DGED__2022_1</dem_dataset>
+        <src_dem_resolution>90</src_dem_resolution>
+    </DEMRepository>
     <OutputFormat>
         <gain>10000</gain>
         <offset>1000</offset>

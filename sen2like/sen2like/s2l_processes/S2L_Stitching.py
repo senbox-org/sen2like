@@ -1,3 +1,20 @@
+# Copyright (c) 2023 ESA.
+#
+# This file is part of sen2like.
+# See https://github.com/senbox-org/sen2like for further info.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
 """
 Stitching processing bloc module
 Stitching is made only with image coming from same acquisition,
@@ -6,10 +23,9 @@ meaning product with acquisition directly before or after the current product ac
 import logging
 import os
 
-from osgeo import gdal
 import numpy as np
+from osgeo import gdal
 
-from core import S2L_config
 from core.image_file import S2L_ImageFile
 from core.products.product import S2L_Product
 from s2l_processes.S2L_Process import S2L_Process
@@ -19,14 +35,17 @@ log = logging.getLogger("Sen2Like")
 
 class S2L_Stitching(S2L_Process):
 
+    def __init__(self, generate_intermediate_products: bool):
+        super().__init__(generate_intermediate_products)
+
     def _output_file(self, product, band=None, image=None, extension=None):
         if band is None and image is not None:
-            return os.path.join(S2L_config.config.get('wd'), product.name, image.rootname + extension)
-        return self.output_file(product, band, extension)
+            return os.path.join(
+                product.working_dir,
+                image.rootname + extension
+            )
 
-    @property
-    def tile(self):
-        return S2L_config.config.get('tile', '31TFJ')
+        return self.output_file(product, band, extension)
 
     def stitch(self, product, product_image, related_product_image, band=None, dtype=None):
         # Stitch images
@@ -49,7 +68,8 @@ class S2L_Stitching(S2L_Process):
         ds_product_src = gdal.Open(product_file)
         ds_related_product_src = gdal.Open(related_product_file)
 
-        filepath_out = os.path.join(S2L_config.config.get('wd'), product.name, 'tie_points_STITCHED.TIF')
+        filepath_out = os.path.join(product.working_dir, 'tie_points_STITCHED.TIF')
+
         for i in range(1, ds_product_src.RasterCount + 1):
             array_product = ds_product_src.GetRasterBand(i).ReadAsArray()
             array_related_product = ds_related_product_src.GetRasterBand(i).ReadAsArray()

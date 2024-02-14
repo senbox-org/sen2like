@@ -1,3 +1,20 @@
+# Copyright (c) 2023 ESA.
+#
+# This file is part of sen2like.
+# See https://github.com/senbox-org/sen2like for further info.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
 """S2L product packager base module"""
 
 import datetime as dt
@@ -6,20 +23,23 @@ import os
 import shutil
 from dataclasses import dataclass
 from xml.etree import ElementTree
+
 import numpy as np
 from skimage.transform import resize as skit_resize
 
-import version
 import core.QI_MTD.S2_structure
+import version
 from core import S2L_config
-from core.QI_MTD.QIreport import QiWriter
-from core.QI_MTD.generic_writer import find_element_by_path
-from core.QI_MTD.mtd import metadata
-from core.QI_MTD.mtd_writers import get_product_mtl_writer_class, get_tile_mtl_writer_class
-from core.QI_MTD.stac_interface import STACWriter
-from core.S2L_tools import quicklook
 from core.image_file import S2L_ImageFile
 from core.products.product import S2L_Product
+from core.QI_MTD.generic_writer import find_element_by_path
+from core.QI_MTD.mtd_writers import (
+    get_product_mtl_writer_class,
+    get_tile_mtl_writer_class,
+)
+from core.QI_MTD.QIreport import QiWriter
+from core.QI_MTD.stac_interface import STACWriter
+from core.S2L_tools import quicklook
 from s2l_processes.S2L_Process import S2L_Process
 
 log = logging.getLogger("Sen2Like")
@@ -50,10 +70,9 @@ class PackagerConfig:
 class S2L_Product_Packager(S2L_Process):
     """Base class for S2L product packaging"""
 
-    def __init__(self, config: PackagerConfig):
-        super().__init__()
+    def __init__(self, generate_intermediate_products: bool, config: PackagerConfig):
+        super().__init__(generate_intermediate_products)
         self.images = {}
-        self.out_variables = ['images']
         self.product_type_name = config.product_type_name
         self.mtd_mask_field = config.mtd_mask_field
         self.mtd_product_name_field = config.mtd_product_name_field
@@ -80,23 +99,18 @@ class S2L_Product_Packager(S2L_Process):
                             Product baseline number
         """
 
-        relative_orbit = S2L_config.config.get('relative_orbit')
+        relative_orbit = product.mtl.relative_orbit
 
         # generation time
         generation_time = dt.datetime.strftime(
-            metadata.mtd.get('product_creation_date', None),
+            product.metadata.mtd.get('product_creation_date', None),
             DATE_FILE_FORMAT)
 
-        if product.sensor == 'S2':
-            datatake_sensing_start = dt.datetime.strftime(product.dt_sensing_start, DATE_FILE_FORMAT)
-            datastrip_sensing_start = dt.datetime.strftime(product.ds_sensing_start, DATE_FILE_FORMAT)
-            absolute_orbit = S2L_config.config.get('absolute_orbit')
-        else:
-            datatake_sensing_start = dt.datetime.strftime(product.acqdate, DATE_FILE_FORMAT)
-            datastrip_sensing_start = datatake_sensing_start # dt.datetime.strftime(product.file_date, DATE_FILE_FORMAT)
-            absolute_orbit = metadata.hardcoded_values.get('L8_absolute_orbit')
+        datatake_sensing_start = dt.datetime.strftime(product.dt_sensing_start, DATE_FILE_FORMAT)
+        datastrip_sensing_start = dt.datetime.strftime(product.ds_sensing_start, DATE_FILE_FORMAT)
+        absolute_orbit = product.absolute_orbit
 
-        tile_code = product.mtl.mgrs
+        tile_code = product.mgrs
         if tile_code.startswith('T'):
             tile_code = tile_code[1:]
 
@@ -136,10 +150,11 @@ class S2L_Product_Packager(S2L_Process):
 
     def preprocess(self, product: S2L_Product):
 
-        if not self.guard():
+        if not self.guard(product):
             log.info('Abort pre process due to execution condition')
             return
 
+        metadata = product.metadata
         # set it first as it is used in base_path_product
         metadata.mtd['product_creation_date'] = metadata.mtd.get('product_creation_date', dt.datetime.utcnow())
 
@@ -183,7 +198,7 @@ class S2L_Product_Packager(S2L_Process):
         """
 
         log.info('Start process')
-        if not self.guard():
+        if not self.guard(product):
             log.info('Abort process due to execution condition')
             return image
 
@@ -193,7 +208,7 @@ class S2L_Product_Packager(S2L_Process):
         res = image.xRes
         product_name, granule_compact_name, tile_code, datatake_sensing_start = self.base_path_product(product)
         sensor = product.sensor_name
-        relative_orbit = S2L_config.config.get('relative_orbit')
+        relative_orbit = product.mtl.relative_orbit
         native = band in product.native_bands
         s2_band = product.get_s2like_band(band)
 
@@ -203,7 +218,7 @@ class S2L_Product_Packager(S2L_Process):
         band_root_name = "_".join([self.product_type_name, 'T' + tile_code,
                                   datatake_sensing_start, sensor, f'R{relative_orbit:0>3}'])
 
-        metadata.mtd[self.mtd_band_root_name_field] = band_root_name
+        product.metadata.mtd[self.mtd_band_root_name_field] = band_root_name
 
         output_format = S2L_config.config.get('output_format')
         outfile = "_".join([band_root_name, band, f'{int(res)}m']) + '.' + S2L_ImageFile.FILE_EXTENSIONS[
@@ -235,13 +250,10 @@ class S2L_Product_Packager(S2L_Process):
             no_data_mask=nodata_mask
         )
 
-        metadata.mtd.get(self.mtd_band_path_field).append(new_path)
+        product.metadata.mtd.get(self.mtd_band_path_field).append(new_path)
 
         # declare output internally
         self.images[s2_band] = image.filepath
-        # declare output in config file
-        S2L_config.config.set('imageout_dir', image.dirpath)
-        S2L_config.config.set('imageout_' + band, image.filename)
 
         log.info('End process')
         return image
@@ -254,7 +266,7 @@ class S2L_Product_Packager(S2L_Process):
         """
 
         log.info('Start postprocess')
-        if not self.guard():
+        if not self.guard(product):
             log.info('Abort post process due to execution condition')
             return
 
@@ -281,23 +293,13 @@ class S2L_Product_Packager(S2L_Process):
         if not os.path.exists(qi_path):
             os.makedirs(qi_path)
 
-        product_working_dir = os.path.join(S2L_config.config.get('wd'), product.name)
-
-        # save config file in QI
-        cfg_name = f'{product_name}_INFO.cfg'
-        cfg_path = os.path.join(qi_path, cfg_name)
-        S2L_config.config.savetofile(os.path.join(product_working_dir, cfg_path))
-
         # save correl file in QI
-        if os.path.exists(os.path.join(product_working_dir, 'correl_res.txt')):
+        if os.path.exists(os.path.join(product.working_dir, 'correl_res.txt')):
             corr_name = f"{product_name}_CORREL.csv"
             corr_path = os.path.join(qi_path, corr_name)
-            shutil.copy(os.path.join(product_working_dir, 'correl_res.txt'), corr_path)
+            shutil.copy(os.path.join(product.working_dir, 'correl_res.txt'), corr_path)
 
         self.postprocess_quicklooks(qi_data_dir, product)
-
-        # Clear images as packager is the last process
-        self.images.clear()
 
         # Write QI report as XML
         self._write_qi_report(product, qi_data_dir)
@@ -310,8 +312,12 @@ class S2L_Product_Packager(S2L_Process):
 
         # Write stac
         stac_writer = STACWriter()
-        stac_writer.write_product(product, product_path, metadata.mtd[self.mtd_band_path_field],
-                                  f"{metadata.mtd[self.mtd_band_root_name_field]}_QL_B432.jpg", granule_compact_name)
+        stac_writer.write_product(
+            product, product_path,
+            product.metadata.mtd[self.mtd_band_path_field],
+            f"{product.metadata.mtd[self.mtd_band_root_name_field]}_QL_B432.jpg",
+            granule_compact_name
+        )
         log.info('End postprocess')
 
     def postprocess_quicklooks(self, qi_data_dir: str, product: S2L_Product):
@@ -325,7 +331,7 @@ class S2L_Product_Packager(S2L_Process):
 
         # PVI : MUST BE FIRST
         band_list = ["B04", "B03", "B02"]
-        pvi_filename = f"{metadata.mtd.get(self.mtd_band_root_name_field)}_PVI.TIF"
+        pvi_filename = f"{product.metadata.mtd.get(self.mtd_band_root_name_field)}_PVI.TIF"
         ql_path = os.path.join(qi_data_dir, pvi_filename)
         result_path = quicklook(product, self.images, band_list, ql_path, S2L_config.config.get(
             "quicklook_jpeg_quality", 95),
@@ -333,7 +339,7 @@ class S2L_Product_Packager(S2L_Process):
             out_format='GTIFF', offset=int(S2L_config.config.get('offset')))
 
         if result_path is not None:
-            metadata.mtd.get(self.mtd_quicklook_field).append(ql_path)
+            product.metadata.mtd.get(self.mtd_quicklook_field).append(ql_path)
 
         if len(self.images.keys()) > 1:
             # true color QL
@@ -353,21 +359,23 @@ class S2L_Product_Packager(S2L_Process):
             band_list (list): list of band name of the product to use to generate the QL
             suffix (str): quicklook filename suffix (before extension)
         """
-        ql_name = "_".join([metadata.mtd.get(self.mtd_band_root_name_field), 'QL', suffix]) + '.jpg'
+        ql_name = "_".join([product.metadata.mtd.get(self.mtd_band_root_name_field), 'QL', suffix]) + '.jpg'
         ql_path = os.path.join(qi_data_dir, ql_name)
         result_path = quicklook(product, self.images, band_list, ql_path, S2L_config.config.get(
             "quicklook_jpeg_quality", 95), offset=int(S2L_config.config.get('offset')))
 
         if result_path is not None:
-            metadata.mtd.get(self.mtd_quicklook_field).append(ql_path)
+            product.metadata.mtd.get(self.mtd_quicklook_field).append(ql_path)
 
-    def guard(self):
+    def guard(self, product:S2L_Product):
+        # pylint: disable=unused-argument
         """ Define required condition to algorithm execution
         """
         return True
 
     def _copy_masks(self, product, qi_data_dir, product_path):
-        if "S2" in product.sensor and product.mtl.tile_metadata is not None:
+        # TODO : find a way to avoid this condition.
+        if product.sensor in ["S2", "Prisma"] and product.mtl.tile_metadata is not None:
             tree_in = ElementTree.parse(product.mtl.tile_metadata)  # Tree of the input mtd (S2 MTD.xml)
             root_in = tree_in.getroot()
             mask_elements = find_element_by_path(root_in, './Quality_Indicators_Info/Pixel_Level_QI/MASK_FILENAME')
@@ -375,14 +383,14 @@ class S2L_Product_Packager(S2L_Process):
                 mask_file = os.path.join(product.path, element.text)
                 if os.path.exists(mask_file):
                     shutil.copyfile(mask_file, os.path.join(qi_data_dir, os.path.basename(mask_file)))
-                    metadata.mtd.get(self.mtd_mask_field).append({"tag": "MASK_FILENAME", "attribs": element.attrib,
+                    product.metadata.mtd.get(self.mtd_mask_field).append({"tag": "MASK_FILENAME", "attribs": element.attrib,
                                                                   "text": element.text})
 
         # copy valid pixel mask
-        outfile = "_".join([metadata.mtd.get(self.mtd_band_root_name_field), 'MSK']) + '.TIF'
+        outfile = "_".join([product.metadata.mtd.get(self.mtd_band_root_name_field), 'MSK']) + '.TIF'
 
         fpath = os.path.join(qi_data_dir, outfile)
-        metadata.mtd.get(self.mtd_mask_field).append({"tag": "MASK_FILENAME", "attribs": {"type": "MSK_VALPXL"},
+        product.metadata.mtd.get(self.mtd_mask_field).append({"tag": "MASK_FILENAME", "attribs": {"type": "MSK_VALPXL"},
                                                       "text": os.path.relpath(fpath, product_path)})
 
         if S2L_config.config.get('output_format') == 'COG':
@@ -392,12 +400,12 @@ class S2L_Product_Packager(S2L_Process):
             shutil.copyfile(product.mask_filename, fpath)
 
     def _copy_angles_file(self, product, qi_data_dir):
-        outfile = f"{metadata.mtd.get(self.mtd_band_root_name_field)}_ANG.TIF"
-        metadata.mtd['ang_filename'] = outfile
+        outfile = f"{product.metadata.mtd.get(self.mtd_band_root_name_field)}_ANG.TIF"
+        product.metadata.mtd['ang_filename'] = outfile
         shutil.copyfile(product.angles_file, os.path.join(qi_data_dir, outfile))
 
     def _write_qi_report(self, product, qi_data_dir):
-        bb_qi_path = metadata.hardcoded_values.get(self.mtd_bb_qi_path_field)
+        bb_qi_path = product.metadata.hardcoded_values.get(self.mtd_bb_qi_path_field)
         out_qi_path = os.path.join(qi_data_dir, self.mtd_qi_report_file_name_field)
 
         if product.mtl.l2a_qi_report_path is not None:
@@ -410,7 +418,7 @@ class S2L_Product_Packager(S2L_Process):
         qi_writer.manual_replaces(product)
         qi_writer.write(pretty_print=True, json_print=False)
         # validate against XSD
-        product_qi_xsd = metadata.hardcoded_values.get(self.mtd_product_qi_xsd_field)
+        product_qi_xsd = product.metadata.hardcoded_values.get(self.mtd_product_qi_xsd_field)
         log.info('QI Report is valid : %s', qi_writer.validate_schema(product_qi_xsd, out_qi_path))
 
     def _write_tile_mtd(self, product, granule_dir):

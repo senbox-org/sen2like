@@ -1,6 +1,22 @@
 #! /usr/bin/env python
 # -*- coding: utf-8 -*-
-# G. Cavaro (TPZ-F) 2020
+# Copyright (c) 2023 ESA.
+#
+# This file is part of sen2like.
+# See https://github.com/senbox-org/sen2like for further info.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
 
 import datetime
 
@@ -62,7 +78,6 @@ class Metadata:
             "product_tl_xsd": "xsd_files/S2-PDGS-TAS-DI-PSD-V14.5_Schema/S2_PDI_Level-2A_Tile_Metadata.xsd",
             "product_QIH_xsd": "xsd_files/L2H_QUALITY.xsd",
             "product_QIF_xsd": "xsd_files/L2F_QUALITY.xsd",
-            "L8_absolute_orbit": "000000",
             "PDGS": "9999",
             "L8_archiving_center": "ZZZ_",
             "L8_archiving_time": "0000-00-00T00:00:00.000Z"
@@ -82,6 +97,3 @@ class Metadata:
                 self.mtd[key].update(val)
             else:
                 self.mtd[key] = val
-
-
-metadata = Metadata()

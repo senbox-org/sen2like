@@ -1,5 +1,87 @@
 # Sen2Like Release Notes
 
+## v4.4.1
+
+### Important information about sen2like on Creodias
+
+If you are using sen2like on Creodias you should update your sen2like configuration to properly filter Landsat products due to changes in Creodias Opensearch catalog API.
+
+Please refer to [Creodias config parameters chapter](README.md#creodias-api) and take a look at [default configuration sample file](conf/config.ini)
+
+### Fix
+
+* sen2cor was applied only to first product when enable to process a L1 stack
+* Fix docker image build instructions in [README.md](README.md)
+* TopographicCorrection post process fail if DEM is not present
+* Replace finder catalog url by datahub catalog url and update landsat L1 product selection config sample, see [config parameters](README.md#creodias-api)
+* Force 2D coordinates for roi file with 3D coordinates
+
+## v4.4.0
+
+### **Breaking changes**
+
+* New mandatory parameters in GIPP XML and INI configuration file:
+  * new section with new params : `DEMRepository`
+  * new section with new params : `TopographicCorrection`
+  * new section with new params : `Sbaf`
+* Docker image build is now done in two step. [`Dockerfile`](Dockerfile) is based on a docker image that comes from [`Dockerfile-base`](Dockerfile-base) for reuse purpose.
+
+### New features
+
+* Add topographic correction (Experimental)
+* Add DEM Downloader aux data utility to generate DEM in MGRS extent for topographic correction
+* New adaptative SBAF capability (Experimental)
+
+### Fix
+
+### Improvements
+
+* Design : Change the way to initialise processing block and to allow dependency injection in processing block classes.
+
+
+## v4.3.0
+
+### **Breaking changes**
+
+* Bump Python version to 3.10 and dependencies update.
+
+  **Please update your conda environnement or create a new one**
+
+* Remove DEM downloader config parameters
+* Remove catalog search filter `processingLevel` in default configuration due to changes in CREODIAS finder API.
+  
+  **Please do not use this parameter anymore, it is managed by code**
+
+* Update to sen2cor 3.1
+
+### New features
+
+* Add support for PRISMA 4 Sen2like preprocessor output.
+
+### Fix
+
+* Image band parallelization process stability when using `--parallelize-bands` program argument.
+
+### Improvements
+
+* Design: 
+  * Move product processing execution from main sen2like module into a new class `core.product_process.ProductProcess` (separation of concern)
+  * Compute atmo corr parameters only once per product
+  * Set product working dir in the `S2L_Product` instead of rebuild it every time need
+  * Replace `metadata` singleton by an attribute in `S2L_Product`
+  * `config` singleton no more modified for each product to process, replaced by a `ProcessContext` object attached to the product having variable config parameters.
+
+* Remove unused module:
+ 
+  * `atmcor/smac/COEFS/convert.py`
+  * `atmcor/smac/COEFS/convert_from_GIPP.py`
+  * `atmcor/smac/COEFS/diff_coeff.py`
+  * `core/product_archive/dem_downloader.py`
+  * `misc/SCL_to_valid_pixel_mask.py`
+  * `misc/Test_retrieve_CAMS.py`
+  * `misc/s2download.py`
+
+
 ## v4.2.1
 
 ### Known issues

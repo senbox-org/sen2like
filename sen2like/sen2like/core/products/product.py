@@ -1,23 +1,86 @@
+# Copyright (c) 2023 ESA.
+#
+# This file is part of sen2like.
+# See https://github.com/senbox-org/sen2like for further info.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
 """Base S2L Product module"""
 import datetime
 import logging
 import os
-from typing import List
 
 import numpy as np
 from skimage.transform import resize as skit_resize
 
 from core import readers
-from core import S2L_config
 from core.file_extractor.file_extractor import MaskInfo, extractor_class
 from core.image_file import S2L_ImageFile
 from core.products import read_mapping
+from core.QI_MTD.mtd import Metadata
 from core.readers import BaseReader
+from core.S2L_config import S2L_Config
 from core.toa_reflectance import convert_to_reflectance_from_reflectance_cal_product
 
 logger = logging.getLogger('Sen2Like')
 
 DATE_WITH_MILLI_FORMAT = "%Y-%m-%dT%H:%M:%S.%fZ"
+
+
+class ProcessingContext:
+    """
+    Processing context class to store conf parameters
+    that could need to be modified to properly process a product.
+    It allows to override processing block activation flag (doStitching for example)
+    that are used by `ProductProcess` to run or not a processing block.
+    See `ProductProcess._init_block_list` implementation for more details.
+    """
+    def __init__(self, config: S2L_Config, tile: str):
+        self.tile = tile
+
+        self.doStitching = config.getboolean('doStitching') # pylint: disable=invalid-name
+        self.doInterCalibration = config.getboolean('doInterCalibration') # pylint: disable=invalid-name
+
+        self.doAtmcor = config.getboolean('doAtmcor') # pylint: disable=invalid-name
+        self.use_sen2cor = config.getboolean('use_sen2cor')
+
+        self.doTopographicCorrection = config.getboolean('doTopographicCorrection') # pylint: disable=invalid-name
+        self.sen2cor_topographic_correction = config.getboolean('sen2cor_topographic_correction')
+
+        if config.get('s2_processing_level') == 'LEVEL2A':
+
+            if self.doAtmcor:
+                logger.warning("Disable atmospheric correction (SMAC and sen2cor) because process L2A product")
+                self.doAtmcor = False
+                self.use_sen2cor = False
+            
+            if self.doInterCalibration:
+                logger.warning("Disable inter calibration because process L2A product")
+                self.doInterCalibration = False
+
+        if not self.doTopographicCorrection:
+            logger.warning("Disable sen2cor topographic correction because main topographic correction is disabled")
+            self.sen2cor_topographic_correction = False
+        elif config.get('s2_processing_level') == 'LEVEL2A': # only for log
+            logger.warning("Will apply topographic correction on L2A product, please verify that the input L2A does not yet have topographic correction")
+
+        if not config.getboolean('doFusion') and config.getboolean('doPackagerL2F'):
+            logger.warning("Disable L2F packager because Fusion is disabled")
+            self.doPackagerL2F = False # pylint: disable=invalid-name
+
+        if config.getboolean('doFusion') and not config.getboolean('doPackagerL2F'):
+            logger.warning("Disable Fusion because L2F Packaging is disabled")
+            self.doFusion = False # pylint: disable=invalid-name
 
 
 class ClassPropertyDescriptor(object):
@@ -47,12 +110,22 @@ class S2L_Product():
     _bands_mapping = None
     _reverse_bands_mapping = None
     native_bands = ()
+    # TODO : have an enum ?
+    geometry_correction_strategy = "translation"
+    # shall apply sbaf or not,
+    # consequences is that default slope,offset params will be set in quality report if False
+    apply_sbaf_param = True
+    # For S2, angle file reframing is not needed because very low resolution
+    # other product (not in mgrs frame) must reframe it
+    reframe_angle_file = True
 
-    def __init__(self, path):
+    def __init__(self, path, context: ProcessingContext):
         # check if product exist
         if not os.path.isdir(path):
             raise IOError(f"{path} is not a valid directory.")
 
+        self.context = context
+        self.working_dir = None
         self.acqdate = None
         # TODO : rename attribute, could be tricky as "mtl" could be use for
         self.mtl: BaseReader = None
@@ -72,6 +145,12 @@ class S2L_Product():
         self.related_image = None
         self.dx = 0
         self.dy = 0
+        # flag to indicate if product have been found to fusion the current product with
+        # should be updated by fusion processing bloc
+        # TODO : maybe have a object that get some info in proc block, a kind of ProcReport
+        self.fusionable = True
+        self.ref_image = None
+        self.metadata = Metadata()
 
     @staticmethod
     def date(name, regexp, date_format):
@@ -99,24 +178,22 @@ class S2L_Product():
             self._reverse_bands_mapping = {v: k for k, v in self.bands_mapping.items()}
         return self._reverse_bands_mapping
 
-    def _update_site_info(self, tile: str):
-        """Concrete implementation MUST set `self.mtl.mgrs`if needed.
-        Some products not need to update their site information
-
-        Args:
-            tile (str): Tile to set; If None, implementation should have a way to set it
+    @property
+    def mgrs(self) -> str:
         """
-        # Deliberately empty
+        Returns:
+            str: product mgrs tile code
+        """
+        return self.mtl.mgrs
 
     def read_metadata(self):
-        # extract metadata
+        """Extract metadata from input product reader.
+        """
+        # instantiate the reader
         reader_class = readers.get_reader(self.path)
         if reader_class is None:
             return
-        # instantiate the reader
         self.mtl = reader_class(self.path)
-
-        self._update_site_info(S2L_config.config.get('tile', None))
 
         # retrieve acquisition date in a datetime format
         scene_center_time = self.mtl.scene_center_time
@@ -126,13 +203,6 @@ class S2L_Product():
             scene_center_time = self.mtl.scene_center_time.replace('Z', (6 - n) * '0' + 'Z')
         self.acqdate = datetime.datetime.strptime(self.mtl.observation_date + ' ' + scene_center_time,
                                                   "%Y-%m-%d %H:%M:%S.%fZ")
-
-        if 'S2' in self.sensor or self.mtl.data_type in ['Level-2F', 'Level-2H']:  # Sentinel 2
-            self.dt_sensing_start = datetime.datetime.strptime(self.mtl.dt_sensing_start, DATE_WITH_MILLI_FORMAT)
-            self.ds_sensing_start = datetime.datetime.strptime(self.mtl.ds_sensing_start, DATE_WITH_MILLI_FORMAT)
-
-            logger.debug("Datatake sensing start: %s", self.dt_sensing_start)
-            logger.debug("Datastrip sensing start: %s", self.ds_sensing_start)
 
         # TODO : understand and comment this
         if '.' in self.mtl.file_date:
@@ -196,7 +266,7 @@ class S2L_Product():
         return False
 
     @staticmethod
-    def best_product(products: List[str]) -> List[str]:
+    def best_product(products: list[str]) -> list[str]:
         """Implementation may select and return best product
 
         Args:
@@ -226,6 +296,7 @@ class S2L_Product():
         return cls.reverse_bands_mapping.get(s2_band)
 
     def get_ndvi_image(self, ndvi_filepath):
+        logger.info("Extract NDVI to %s", ndvi_filepath)
         B04_image = self.get_band_file(self.reverse_bands_mapping['B04'])
         B8A_image = self.get_band_file(self.reverse_bands_mapping['B8A'])
         B04 = B04_image.array
@@ -303,3 +374,19 @@ class S2L_Product():
             out_file (str): file path to extract
         """
         self.angles_file = extractor_class.get(self.mtl.__class__.__name__)(self.mtl).get_angle_images(out_file)
+
+    @property
+    def absolute_orbit(self) -> str:
+        """
+        Returns:
+            str: product absolute orbit
+        """
+        return self.mtl.absolute_orbit
+
+    @property
+    def sun_zenith_angle(self) -> float:
+        return float(self.mtl.sun_zenith_angle)
+
+    @property
+    def sun_azimuth_angle(self) -> float:
+        return float(self.mtl.sun_azimuth_angle)

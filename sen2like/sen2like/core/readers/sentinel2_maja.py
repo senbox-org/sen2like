@@ -1,3 +1,20 @@
+# Copyright (c) 2023 ESA.
+#
+# This file is part of sen2like.
+# See https://github.com/senbox-org/sen2like for further info.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
 """Module for Sentinel 2 Maja product""" 
 import logging
 import os
@@ -5,12 +22,11 @@ import sys
 import xml.etree.ElementTree as ElementTree
 from xml import parsers as pars
 
-import numpy as np
-from osgeo import osr
-from osgeo import gdal
 import mgrs
+import numpy as np
+from osgeo import gdal, osr
 
-from atmcor.get_s2_angles import reduce_angle_matrix, get_angles_band_index
+from atmcor.get_s2_angles import get_angles_band_index, reduce_angle_matrix
 from core.metadata_extraction import from_date_to_doy
 from core.readers.maja_reader import MajaReader
 

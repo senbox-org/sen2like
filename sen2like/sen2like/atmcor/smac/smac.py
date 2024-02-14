@@ -12,10 +12,9 @@
 
 # Written by O.Hagolle CNES, from the original SMAC C routine
 # =============================================================================================
-from math import cos, pi, exp, sqrt, acos
+from math import acos, cos, exp, pi, sqrt
 
 import numpy as np
-
 
 # =============================================================================================
 

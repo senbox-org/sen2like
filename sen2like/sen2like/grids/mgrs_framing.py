@@ -1,27 +1,45 @@
 #! /usr/bin/env python
 # -*- coding: utf-8 -*-
-# V. Debaecker (TPZ-F) 2018
+# Copyright (c) 2023 ESA.
+#
+# This file is part of sen2like.
+# See https://github.com/senbox-org/sen2like for further info.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
 """mgrs framing tool module"""
-from dataclasses import dataclass
 import logging
-from math import ceil
 import os
+from dataclasses import dataclass
+from math import ceil
+from typing import NamedTuple
 
-import numpy as np
 import affine
+import numpy as np
+import pandas as pd
+from numpy.typing import NDArray
 from osgeo import gdal, osr
-from shapely.wkt import loads
 from shapely.geometry.base import BaseGeometry
-
+from shapely.wkt import loads
 from skimage.measure import block_reduce
-from skimage.transform import SimilarityTransform
+from skimage.transform import SimilarityTransform, estimate_transform
 from skimage.transform import resize as skit_resize
 from skimage.transform import warp as skit_warp
 
 # internal packages
 from core.image_file import S2L_ImageFile
-from . import grids
 
+from . import grids
 
 log = logging.getLogger("Sen2Like")
 
@@ -50,6 +68,20 @@ class MGRSGeoInfo:
     """tile epsg"""
     geometry: BaseGeometry
     """tile geometry as UTM coords"""
+
+
+class _CorrectionConfig(NamedTuple):
+    """Array correction config.
+    method allowed : translation | polynomial
+    For a translation method, x_off, y_off, x_size and y_size MUST be setted
+    For a polynomial method, klt_dir must be set
+    """
+    method: str
+    x_off: float
+    y_off: float
+    x_size: int
+    y_size: int
+    klt_dir: str
 
 
 # skimage / gdal resampling method mapping
@@ -177,6 +209,7 @@ def _reproject(filepath: str, dir_out: str, ds_src: gdal.Dataset, x_res: int, y_
 
         raise error
 
+
 def get_mgrs_geo_info(tile_code: str) -> MGRSGeoInfo:
     """Get MGRS geo information of the given tile
 
@@ -194,19 +227,74 @@ def get_mgrs_geo_info(tile_code: str) -> MGRSGeoInfo:
     return MGRSGeoInfo(roi['EPSG'][0], loads(roi['UTM_WKT'][0]))
 
 
-def reframe(image: S2L_ImageFile, tile_code: str, filepath_out, dx=0., dy=0., order=3, dtype=None, margin=0, compute_offsets=False) -> S2L_ImageFile:
+def _do_correction(array: NDArray, order: int, config: _CorrectionConfig):
+    """Apply correction to array
+
+    Args:
+        array (NDArray): array to transform
+        order (int): type of resampling
+        config (CorrectionConfig): correction config
+
+    Raises:
+        ValueError: if correction method is unknown
+
+    Returns:
+        NDArray: corrected array
+    """
+    if config.method == "translation":
+        log.info("Translation correction")
+        # translate and reframe (order= 0:nearest, 1: linear, 3:cubic)
+        transform = SimilarityTransform(translation=(config.x_off, config.y_off))
+        return skit_warp(
+            array,
+            inverse_map=transform,
+            output_shape=(config.y_size, config.x_size),
+            order=order,
+            preserve_range=True
+        )
+
+    if config.method == "polynomial":
+        log.info("Polynomial correction")
+        # klt_dir should be working dir
+        data_frame = pd.read_csv(os.path.join(config.klt_dir, "KLT.csv"), sep=";")
+
+        dst = np.array(
+            [
+                (data_frame.x0 + data_frame.dx).to_numpy(),
+                (data_frame.y0 + data_frame.dy).to_numpy()
+            ]
+        ).T
+
+        src = np.array([data_frame.x0.to_numpy(), data_frame.y0.to_numpy()]).T
+        transform = estimate_transform(config.method, src, dst)
+        return skit_warp(array, inverse_map=transform, preserve_range=True, cval=1000)
+
+    raise ValueError(f"Unknown correction method: {config.method}")
+
+
+def reframe(
+    image: S2L_ImageFile,
+    tile_code: str,
+    filepath_out,
+    dx=0.,
+    dy=0.,
+    order=3,
+    dtype=None,
+    method="translation"
+) -> S2L_ImageFile:
     """Reframe SINGLE band image in MGRS tile
 
     Args:
         image (S2L_ImageFile): image to reframe
         tile_code (str): MGRS tile code
-        filepath_out (str): reframed image destination file path
+        filepath_out (str): reframed image destination file path, should be working dir
         dx (float, optional): x correction to apply during reframing. Defaults to 0..
         dy (float, optional): y correction to apply during reframing. Defaults to 0..
         order (int, optional): type of resampling (see skimage warp). Defaults to 3.
         dtype (numpy dtype, optional): output image dtype name. Defaults to None (use input image dtype).
-        margin (int, optional): margin to apply to output. Defaults to 0.
-        compute_offsets (bool, optional): TODO : see with Vince. Defaults to False.
+        method (str, optional): geometry correction strategy to apply. 
+            Expect 'polynomial' or 'translation". Defaults to 'translation'.
+            If polynomial, KLT.csv file should be located in dirname of filepath_out
 
     Returns:
         S2L_ImageFile: reframed image
@@ -215,8 +303,8 @@ def reframe(image: S2L_ImageFile, tile_code: str, filepath_out, dx=0., dy=0., or
     mgrs_geo_info = get_mgrs_geo_info(tile_code)
     tile_geom = mgrs_geo_info.geometry
 
-    box = Box(x_min=tile_geom.bounds[0] - margin * image.xRes, y_min=tile_geom.bounds[1] + margin * image.yRes,
-              x_max=tile_geom.bounds[2] + margin * image.xRes, y_max=tile_geom.bounds[3] - margin * image.yRes)
+    box = Box(x_min=tile_geom.bounds[0], y_min=tile_geom.bounds[1],
+              x_max=tile_geom.bounds[2], y_max=tile_geom.bounds[3])
 
     # UTM South vs. UTM North ?
     utm_offset = 0
@@ -239,19 +327,12 @@ def reframe(image: S2L_ImageFile, tile_code: str, filepath_out, dx=0., dy=0., or
             y_res = geo[5]
 
             result = _reproject(
-                image.filepath, 
-                os.path.dirname(filepath_out), 
-                ds_src, 
+                image.filepath,
+                os.path.dirname(filepath_out),
+                ds_src,
                 x_res, y_res, target_srs, order
             )
             image = S2L_ImageFile(result.out_file_path)
-
-    # compute offsets (grid origin + dx/dy
-    if compute_offsets:
-        r_dx = image.xRes * (((box.x_min - image.xMin) / image.xRes) % 1)
-        r_dy = image.yRes * (((box.y_min - image.yMin) / image.yRes) % 1)
-    else:
-        r_dx = r_dy = 0
 
     # compute offsets (grid origin + dx/dy)
     xOff = (box.x_min - image.xMin + dx) / image.xRes
@@ -276,20 +357,26 @@ def reframe(image: S2L_ImageFile, tile_code: str, filepath_out, dx=0., dy=0., or
         array[array == 0.0] = np.nan
 
     if xOff == 0 and yOff == 0 and image.xSize == xSize and image.ySize == ySize:
-        new = array
+        new_array = array
     else:
-        # translate and reframe (order= 0:nearest, 1: linear, 3:cubic)
-        transform = SimilarityTransform(translation=(xOff, yOff))
-        new = skit_warp(array, inverse_map=transform, output_shape=(ySize, xSize), order=order, preserve_range=True)
+        correction_config = _CorrectionConfig(
+            method,
+            xOff,
+            yOff,
+            xSize,
+            ySize,
+            os.path.dirname(filepath_out)
+        )
+        new_array = _do_correction(array, order, correction_config)
 
     # As we played with 0 and NaN, restore zeros for floating array
     # we have to restore zero for output NaN
     if np.issubdtype(_dtype, np.floating):
-        new[np.isnan(new)] = 0.0
+        new_array[np.isnan(new_array)] = 0.0
 
     # set into new S2L_ImageFile
-    _origin=(box.x_min + r_dx, box.y_max + r_dy)
-    return image.duplicate(filepath_out, array=new.astype(_dtype), origin=_origin, output_EPSG=target_epsg)
+    _origin=(box.x_min, box.y_max)
+    return image.duplicate(filepath_out, array=new_array.astype(_dtype), origin=_origin, output_EPSG=target_epsg)
 
 
 def reframe_multiband(filepath_in: str, tile_code: str, filepath_out: str, dx=0., dy=0., order=3):
@@ -336,9 +423,9 @@ def reframe_multiband(filepath_in: str, tile_code: str, filepath_out: str, dx=0.
             image_epsg = image_srs.GetAuthorityCode(None)
             log.info("Image epsg and target epsg differ: %s vs %s.", image_epsg, target_epsg)
             result = _reproject(
-                filepath_in, 
-                os.path.dirname(filepath_in), 
-                ds_src, 
+                filepath_in,
+                os.path.dirname(filepath_in),
+                ds_src,
                 xRes, yRes, target_srs, order
             )
             ds_src = result.dataset

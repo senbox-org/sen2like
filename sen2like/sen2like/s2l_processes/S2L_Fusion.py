@@ -1,6 +1,23 @@
 #! /usr/bin/env python
 # -*- coding: utf-8 -*-
-# V. Debaecker (TPZ-F) 2018
+# Copyright (c) 2023 ESA.
+#
+# This file is part of sen2like.
+# See https://github.com/senbox-org/sen2like for further info.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+"""Fusion processing block module"""
 
 import calendar
 import datetime as dt
@@ -8,27 +25,25 @@ import glob
 import logging
 import os
 import re
-from os.path import join, basename, dirname
+from os.path import basename, join
 
 import numpy as np
-from skimage.morphology import square, dilation
-from skimage.transform import resize as skit_resize
 from skimage.measure import block_reduce
+from skimage.morphology import dilation, square
+from skimage.transform import resize as skit_resize
 
 from core import S2L_config
 from core.image_file import S2L_ImageFile
 from core.products.hls_product import S2L_HLS_Product
 from core.products.product import S2L_Product
+from core.S2L_tools import out_stat
 from grids import mgrs_framing
 from s2l_processes.S2L_Process import S2L_Process
-from core.S2L_tools import out_stat
-from core.QI_MTD.mtd import metadata
 
 log = logging.getLogger("Sen2Like")
-BINDIR = dirname(os.path.abspath(__file__))
 
 '''
--- BQA Disctionnary definition --
+-- BQA Dictionary definition --
      Define for a maximum of four dates (d1,d2,d3,d4) ,d4 is the most recent
 
  1       000001 - Not Valid pixel ( bkg)
@@ -75,8 +90,9 @@ def get_fractional_year(ad):
 
 class S2L_Fusion(S2L_Process):
 
-    def initialize(self):
-        self.reference_products = []
+    def __init__(self, generate_intermediate_products: bool):
+        super().__init__()
+        self.reference_products : list(S2L_HLS_Product) = []
         self._predict_method = None
 
     def preprocess(self, product: S2L_Product):
@@ -85,20 +101,18 @@ class S2L_Fusion(S2L_Process):
 
         # check most recent HLS S2 products available
         archive_dir = S2L_config.config.get('archive_dir')
-        tsdir = join(archive_dir, product.mtl.mgrs)
+        tsdir = join(archive_dir, product.mgrs)
 
         # list products with dates
         pdlist = []
-        for pdpath in sorted(glob.glob(tsdir + '/L2F_*_S2*')):
-            pdname = basename(pdpath)
-            date = dt.datetime.strptime(pdname.split('_')[2], '%Y%m%d').date()
-            if date <= product.acqdate.date():
-                pdlist.append([date, pdpath])
 
         # Handle new format aswell
         for pdpath in sorted(glob.glob(tsdir + '/S2*L2F_*')):
             pdname = basename(pdpath)
-            date = dt.datetime.strptime(os.path.splitext(pdname.split('_')[2])[0], '%Y%m%dT%H%M%S').date()
+            date = dt.datetime.strptime(
+                os.path.splitext(pdname.split('_')[2])[0], '%Y%m%dT%H%M%S'
+            ).date()
+
             if date <= product.acqdate.date():
                 pdlist.append([date, pdpath])
 
@@ -106,25 +120,24 @@ class S2L_Fusion(S2L_Process):
         pdlist.sort()
 
         # reset ref list and keep 2 last ones
-        self.reference_products = []
         nb_products = int(S2L_config.config.get('predict_nb_products', 2))
         for date, pdname in pdlist[-nb_products:]:
-            ref_product = S2L_HLS_Product(pdname)
+            ref_product = S2L_HLS_Product(pdname, product.context)
             if ref_product.s2l_product_class is not None:
                 self.reference_products.append(ref_product)
 
         for ref_product in self.reference_products:
-            log.info('Selected product: {}'.format(ref_product.name))
+            log.info('Selected product: %s', ref_product.name)
 
-        S2L_config.config.set('none_S2_product_for_fusion', len(self.reference_products) == 0)
+        product.fusionable = len(self.reference_products) > 0
 
         log.info('End')
 
     def process(self, product: S2L_Product, image: S2L_ImageFile, band: str) -> S2L_ImageFile:
         log.info('Start')
 
-        if not S2L_config.config.getboolean('hlsplus'):
-            log.warning('Skipping Data Fusion because doPackagerL2F option is not activated')
+        if not product.fusionable:
+            log.warning('Skipping Data Fusion. Reason: no S2 products available in the past')
             log.info('End')
             return image
 
@@ -133,13 +146,8 @@ class S2L_Fusion(S2L_Process):
             log.info('End')
             return image
 
-        if len(self.reference_products) == 0:
-            log.warning('Skipping Data Fusion. Reason: no S2 products available in the past')
-            log.info('End')
-            return image
-
         if not product.get_s2like_band(band):
-            log.warning('Skipping Data Fusion. Reason: no S2 matching band for {}'.format(band))
+            log.warning('Skipping Data Fusion. Reason: no S2 matching band for %s', band)
             log.info('End')
             return image
 
@@ -165,7 +173,7 @@ class S2L_Fusion(S2L_Process):
             array_L2H_predict, array_L2F_predict = self._predict(product, band_s2, qa_mask, output_shape)
 
             # save
-            if S2L_config.config.getboolean('generate_intermediate_products'):
+            if self.generate_intermediate_products:
                 self._save_as_image_file(image_file_L2F, qa_mask, product, band, '_FUSION_QA.TIF')
                 self._save_as_image_file(image_file_L2F, array_L2H_predict, product, band, '_FUSION_L2H_PREDICT.TIF')
                 self._save_as_image_file(image_file_L2F, array_L2F_predict, product, band, '_FUSION_L2F_PREDICT.TIF')
@@ -173,10 +181,10 @@ class S2L_Fusion(S2L_Process):
         # method: composite (most recent valid pixels from N products)
         elif self._predict_method == 'composite':
             # composite
-            array_L2H_predict, array_L2F_predict = self._composite(product, band_s2, output_shape)
+            array_L2H_predict, array_L2F_predict = self._composite(band_s2, output_shape)
 
             # save
-            if S2L_config.config.getboolean('generate_intermediate_products'):
+            if self.generate_intermediate_products:
                 self._save_as_image_file(image_file_L2F, array_L2H_predict, product, band, '_FUSION_L2H_COMPO.TIF')
                 self._save_as_image_file(image_file_L2F, array_L2F_predict, product, band, '_FUSION_L2F_COMPO.TIF')
 
@@ -197,10 +205,12 @@ class S2L_Fusion(S2L_Process):
                 image, image_out, S2L_ImageFile(mask_filename), nodata_value=nodata_value)
             log.debug('Fusion auto check proportional difference of L2F from L2H')
             out_stat(proportion_diff * proportion_diff_mask, log, 'proportional diff')
-            if S2L_config.config.getboolean('generate_intermediate_products'):
+            if self.generate_intermediate_products:
                 proportion_diff_img = image.duplicate(
                     filepath=os.path.join(
-                        S2L_config.config.get('wd'), product.name, f'fusion_auto_check_proportion_diff_{band}.TIF'),
+                        product.working_dir,
+                        f'fusion_auto_check_proportion_diff_{band}.TIF'
+                    ),
                     array=proportion_diff)
                 proportion_diff_img.write(creation_options=['COMPRESS=LZW'], DCmode=True, nodata_value=nodata_value)
 
@@ -210,7 +220,9 @@ class S2L_Fusion(S2L_Process):
             threshold_msk[proportion_diff_mask == 0] = 0
             threshold_msk = image.duplicate(
                 filepath=os.path.join(
-                    S2L_config.config.get('wd'), product.name, f'fusion_auto_check_threshold_msk_{band}.TIF'),
+                    product.working_dir,
+                    f'fusion_auto_check_threshold_msk_{band}.TIF'
+                ),
                 array=threshold_msk)
             threshold_msk.write(creation_options=['COMPRESS=LZW'])
             product.fusion_auto_check_threshold_msk_file = threshold_msk.filepath
@@ -228,17 +240,20 @@ class S2L_Fusion(S2L_Process):
 
         log.info('Start')
 
-        metadata.qi["FUSION_AUTO_CHECK_THRESHOLD"] = S2L_config.config.getfloat(
+        product.metadata.qi["FUSION_AUTO_CHECK_THRESHOLD"] = S2L_config.config.getfloat(
             'fusion_auto_check_threshold')
 
-        metadata.qi["PREDICTED_METHOD"] = self._predict_method
+        product.metadata.qi["PREDICTED_METHOD"] = self._predict_method
 
         log.info('End')
 
     def _save_as_image_file(self, image_template, array, product, band, extension):
-        path = os.path.join(S2L_config.config.get('wd'), product.name, product.get_band_file(band).rootname + extension)
+        path = os.path.join(
+            product.working_dir,
+            product.get_band_file(band).rootname + extension
+        )
         image_file = image_template.duplicate(path, array=array)
-        if S2L_config.config.getboolean('generate_intermediate_products'):
+        if self.generate_intermediate_products:
             image_file.write(creation_options=['COMPRESS=LZW'])
         return image_file
 
@@ -266,19 +281,18 @@ class S2L_Fusion(S2L_Process):
 
         return msk_qa
 
-    def _composite(self, product, band_s2, output_shape):
+    def _composite(self, band_s2, output_shape):
         """
         Makes a composite from reference products (usually last S2 L2F/L2H products), with the most recent
         valid pixels (no predict), using validity masks.
         Returns 2 images, one high res (typically 10 or 20m), and one low resolution (typically 30m)
         resampled to high res.
 
-        :param pd: L8 product (S2L_Product object)
         :param bandindex: band index
         :return: 2 composites (high res and low res upsampled to high res)
         """
 
-        log.info('compositing with {} products'.format(len(self.reference_products)))
+        log.info('compositing with %s products', len(self.reference_products))
 
         array_L2H_compo = None
         array_L2F_compo = None
@@ -337,13 +351,13 @@ class S2L_Fusion(S2L_Process):
         # (oldest date) and (newest date)
         pd1 = self.reference_products[0]
         doy_1 = get_fractional_year(pd1.acqdate)
-        log.debug('{} {}'.format(pd1.name, doy_1))
+        log.debug('%s %s', pd1.name, doy_1)
         pd2 = self.reference_products[1]
         doy_2 = get_fractional_year(pd2.acqdate)
 
         # doy of input product
         input_xdoy = get_fractional_year(product.acqdate)
-        log.debug('input_xdoy: {}'.format(input_xdoy))
+        log.debug('input_xdoy: %s', input_xdoy)
 
         for mode in output_images.keys():
             plus = mode == 'L2F'
@@ -405,7 +419,7 @@ class S2L_Fusion(S2L_Process):
             array = skit_resize(array.clip(min=-1.0, max=1.0), output_shape).astype(np.float32)
             # Perform the reset of border values to initial L2H (native resolution) values only when border has been created
             if border is not None:
-                array[border] = band_file.array[border].astype(np.float32) / 10000.            
+                array[border] = band_file.array[border].astype(np.float32) / 10000.
 
         return array
 
@@ -441,11 +455,11 @@ class S2L_Fusion(S2L_Process):
     def proportion_fusion_diff(l2h_image, l2f_image, nodata_mask, nodata_value=2):
         """Compute proportion diff introduce by l2f on l2h"""
         # Reshape L2F
-        res_facteur = int(l2h_image.xRes / l2f_image.xRes)
+        res_factor = int(l2h_image.xRes / l2f_image.xRes)
         l2f_array_resize = l2f_image.array.copy()
-        if res_facteur != 1:
+        if res_factor != 1:
             l2f_array_resize = block_reduce(
-                l2f_array_resize, block_size=(res_facteur, res_facteur), func=np.mean)
+                l2f_array_resize, block_size=(res_factor, res_factor), func=np.mean)
         l2h_array = l2h_image.array
 
         # compute percent_diff

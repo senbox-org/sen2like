@@ -2,4 +2,6 @@
 *
 # but not what we want to send in the build context
 !requirements.txt
+!requirements_dev.txt
 !sen2like
+!aux_data

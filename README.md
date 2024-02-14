@@ -23,6 +23,9 @@ This __harmonisation__ process increases the theoretical number of acquisitions 
 Regardless Missions, Product Type, __Gridded__ data are delivered, the S2 tiling system is based on
 the Military Grid Reference System (MGRS).
 
+Since __Sen2Like 4.3.0__, in addition to Sentinel-2 and Landsat missions, there have been an effort to integrate the PRISMA Earth Observation mission, which is a medium-resolution hyperspectral imaging satellite, developed, owned and operated by ASI (Agenzia Spaziale Italiana).  
+Sen2like software supports the PRISMA L1 products through the usage of a pre-processor named "prisma4sen2like" that transforms PRISMA L1 products into an internal format: Sentinel-2 PRISMA (S2P) L1C products, spectrally aggregated into 13 Sentinel-2 bands and projected into L1C Sentinel-2 geometry (without refinement on Sentinel-2 GRI).
+
 The __processing workflow__ is based on following algorithms:
 *	Geometric Corrections including registration to common reference & the stitching [4],
 *	Atmospheric Corrections by using SMAC [5] relying on auxiliary meteorological data,
@@ -36,11 +39,11 @@ It is therefore possible, to cover large geographic extent with a __seamless ima
 It is worth noting that the overall accuracy of your final ARD product strongly depends on the accuracy of sen2like auxiliary data. Two categories of auxiliary data are important: the raster reference for geometric corrections and the meteorological data for atmospheric corrections. Regarding atmospheric corrections, one possibility is to use data from the Copernicus Atmosphere Monitoring Service [9]. The Sen2Like team prepared a dedicated CAMS monthly dataset for the Year 2020, available from [here](http://185.178.85.51/CAMS/). Please refer to this short [description](http://185.178.85.51/CAMS/Readme_CAMS2020.txt) for additional information.
 
 For further details on the format specification of the harmonized products or the functionalities of the Sen2Like software, please 
-refer to the [Product Format Specification](https://github.com/senbox-org/sen2like/blob/master/sen2like/docs/source/S2-PDGS-MPC-L2HF-PFS-v1.1.pdf), and the [User Manual v1.7](https://github.com/senbox-org/sen2like/blob/master/sen2like/docs/source/S2-SEN2LIKE-UM-V1.7.pdf).
+refer to the [Product Format Specification](sen2like/docs/source/S2-PDGS-MPC-L2HF-PFS-v1.2.pdf), and the [User Manual v1.8](sen2like/docs/source/S2-SEN2LIKE-UM-V1.9.pdf).
 
 ## Publications and Contacts
 **Yearning to know more ? Check out**
-*	poster [Sen2Like, a tool to generate Sentinel-2 Harmonised Surface Reflectance Products, First Results With Landsat-8, 3rd S2 Validation Team Meeting](https://www.researchgate.net/publication/332428332_Sen2like_a_Tool_to_Generate_Sentinel-2_Harmonised_Surface_Reflectance_Products_-_First_Results_With_Landsat-8)
+*	poster [Sen2like: A solution for Harmonization and Fusion of Sentinel-2 and Landsat 8/9 data, JACIE 2023](https://www.researchgate.net/publication/372831217_Sen2like_A_solution_for_Harmonization_and_Fusion_of_Sentinel-2_and_Landsat_89_data)
 *	A [Sen2Like Relaxing Video](https://youtu.be/KBSYYBShyos) prepared for [ESA EO PHI-WEEK 2020](https://www.youtube.com/playlist?list=PLvT7fd9OiI9XELZXcljYTftUtJ_NFWRrY)
 *	A [Sen2Like Time Lapse including NDVI graphic](https://youtu.be/yEObvI1KQBg) prepared for QWG#12
 
@@ -57,7 +60,7 @@ And the following research papers :
  + [10] Saunier, S.; Pflug, B.; Lobos, I.M.; Franch, B.; Louis, J.; De Los Reyes, R.; Debaecker, V.; Cadau, E.G.; Boccia, V.; Gascon, F.; Kocaman, S. Sen2Like: Paving the Way towards Harmonization and Fusion of Optical Data. Remote Sens. 2022, 14, 3855. (https://doi.org/10.3390/rs14163855) 
 
 
-**Learn how to use Sen2Like**, have a look at the [User Manual](https://github.com/senbox-org/sen2like/blob/master/sen2like/docs/source/S2-SEN2LIKE-UM-V1.7.pdf).
+**Learn how to use Sen2Like**, have a look at the [User Manual](sen2like/docs/source/S2-SEN2LIKE-UM-V1.9.pdf).
 
 **Get help**, contact us at sen2like@telespazio.com.
 

@@ -23,12 +23,14 @@ TOC Generated with markdown all in one: https://github.com/yzhang-gh/vscode-mark
     - [Downloader](#downloader)
       - [Local](#local)
       - [Creodias API](#creodias-api)
-    - [DemDownloader](#demdownloader)
     - [Geometry](#geometry)
     - [Atmcor](#atmcor)
     - [Nbar](#nbar)
+    - [Sbaf](#sbaf)
     - [Fusion](#fusion)
     - [Stitching](#stitching)
+    - [TopographicCorrection (Experimental)](#topographiccorrection-experimental)
+    - [DEMRepository](#demrepository)
     - [OutputFormat](#outputformat)
     - [COGoptions](#cogoptions)
     - [JPEG2000options](#jpeg2000options)
@@ -40,6 +42,8 @@ TOC Generated with markdown all in one: https://github.com/yzhang-gh/vscode-mark
     - [Single tile mode](#single-tile-mode)
     - [Multi tile mode](#multi-tile-mode)
     - [ROI based mode](#roi-based-mode)
+- [Auxiliary data tools](#auxiliary-data-tools)
+  - [DEM downloader](#dem-downloader)
 - [Release notes](#release-notes)
 - [License](#license)
 
@@ -79,7 +83,7 @@ We recommend to use miniconda.
 
 To install miniconda, please refer to the miniconda documentation : https://docs.conda.io/en/latest/miniconda.html#
 
-**As sen2like is based on python 3.7 it is recommended to install miniconda with python 3.7 but it is fine with conda having another version of python**
+**As sen2like is based on python 3.10 it is recommended to install miniconda with python 3.10 but it is fine with conda having another version of python**
 
 ![miniconda](docs/resources/miniconda_version.png)
 
@@ -101,7 +105,7 @@ conda activate sen2like
 
 ```bash
 python sen2like.py 
-[INFO    ] 2023-01-11 14:50:54 - sen2like             - Run Sen2like 4.2.0
+[INFO    ] 2023-01-11 14:50:54 - sen2like             - Run Sen2like 4.4.1
 usage: sen2like.py [-h] [--version] [--refImage PATH] [--wd PATH]
                    [--conf PATH] [--confParams STRLIST] [--bands STRLIST]
                    [--allow-other-srs] [--no-run] [--intermediate-products]
@@ -125,8 +129,16 @@ Please refer to the docker documentation to install docker on your environnement
 
 From the sen2like root directory (the one containing `Dockerfile`)
 
+First build the base image : 
+
 ```bash
-docker build -t sen2like . && docker image prune --filter label=stage=sen2like_build -f
+docker build -t sen2like_base -f Dockerfile-base .
+```
+
+Then the final image : 
+
+```bash
+docker build -t sen2like --build-arg SEN2LIKE_BUILD_IMAGE_TAG=sen2like_base . && docker image prune --filter label=stage=sen2like_build -f
 ```
 
 The result is a docker image with tag `sen2like:latest`
@@ -150,7 +162,7 @@ Create a tag TARGET_IMAGE that refers to SOURCE_IMAGE
 Example
 
 ```bash
-docker image tag sen2like my-internal-docker-registry-url/sen2like:4.2
+docker image tag sen2like my-internal-docker-registry-url/sen2like:4.4
 ```
 
 Push the image on a registry with the command `docker push NAME[:TAG]`
@@ -158,7 +170,7 @@ Push the image on a registry with the command `docker push NAME[:TAG]`
 Example
 
 ```bash
-docker push my-internal-docker-registry-url/sen2like:4.2
+docker push my-internal-docker-registry-url/sen2like:4.4
 ```
 
 ## Running the tool
@@ -172,7 +184,7 @@ Python script sen2like.py could be found in cloned git repository, or unzipped f
 For example if git cloned in home directory:
 
 ```bash
-/opt/anaconda3/bin/python "$HOME/sen2like/sen2like/sen2like.py" single-tile-mode 31TFJ --conf "./config.ini" --start-date 2017-10-30 --end-date 2017-10-31 --wd "/data/production" --refImage "/data/References/GRI/S2A_OPER_MSI_L1C_TL_MPS__20161018T120000_A000008_T31TFJ_N01.01/IMG_DATA/S2A_OPER_MSI_L1C_TL_MPS__20161018T120000_A000008_T31TFJ_B04.jp2" --bands B04
+python "$HOME/sen2like/sen2like/sen2like.py" single-tile-mode 31TFJ --conf "./config.ini" --start-date 2017-10-30 --end-date 2017-10-31 --wd "/data/production" --refImage "/data/References/GRI/S2A_OPER_MSI_L1C_TL_MPS__20161018T120000_A000008_T31TFJ_N01.01/IMG_DATA/S2A_OPER_MSI_L1C_TL_MPS__20161018T120000_A000008_T31TFJ_B04.jp2" --bands B04
 ```
 
 ### Docker
@@ -182,15 +194,15 @@ Build sen2like docker image or pull it from a registry with the command `docker 
 Example :
 
 ```bash
-docker pull https://my-internal-docker-registry-url/sen2like:4.2
+docker pull https://my-internal-docker-registry-url/sen2like:4.4
 ```
 
 You can run it directly without entering into the container: 
 
 ```bash
-docker run --rm my-internal-docker-registry-url/sen2like/sen2like:4.2
+docker run --rm my-internal-docker-registry-url/sen2like/sen2like:4.4
 
-[INFO    ] 2023-01-11 14:50:54 - sen2like             - Run Sen2like 4.2.0
+[INFO    ] 2023-01-11 14:50:54 - sen2like             - Run Sen2like 4.4.1
 usage: sen2like.py [-h] [--version] [--refImage PATH] [--wd PATH]
                    [--conf PATH] [--confParams STRLIST] [--bands STRLIST]
                    [--allow-other-srs] [--no-run] [--intermediate-products]
@@ -211,7 +223,7 @@ In the following examples **local** folder `/data` is supposed to exist and cont
 ```bash
 docker run --rm \
   --mount type=bind,source="/data",target=/data \
-  my-internal-docker-registry-url/sen2like/sen2like:4.2 \
+  my-internal-docker-registry-url/sen2like/sen2like:4.4 \
   single-tile-mode 31TFJ \
   --conf "/data/config.ini" \
   --start-date 2017-10-30 --end-date 2017-10-31 \
@@ -225,7 +237,7 @@ Python script `sen2like.py` could be accessed from a docker container.
 Launch the docker binding **local** `/data` folder to the container `/data` folder, example: 
 
 ```bash
-docker run --rm -it --mount type=bind,source="/data",target=/data --entrypoint=/bin/bash my-internal-docker-registry-url/sen2like/sen2like:4.2
+docker run --rm -it --mount type=bind,source="/data",target=/data --entrypoint=/bin/bash my-internal-docker-registry-url/sen2like/sen2like:4.4
 
 root@15a2f44ddd70:/usr/local/sen2like
 
@@ -272,9 +284,10 @@ Enable or disable a processing block based on value `(True, False)`:
 * `doGeometryCheck`: Run the geometric assessment using KLT to compute geometry QI
 * `doToa`: Run the TOA correction
 * `doInterCalibration`: Run the Inter Calibration correction (S2B)
-* `doAtmcor`: Run the Atmospheric correction (SMAC or Sen2Cor)
+* `doAtmcor`: Activate the Atmospheric correction (SMAC or with sen2cor)
 * `doNbar`: Run Nbar correction processing
 * `doSbaf`: Run the Sbaf correction processing
+* `doTopographicCorrection`: Activate the Topographic correction (sen2like or with sen2cor)
 * `doFusion`: Run the Fusion processing
 * `doPackagerL2H`: Run the packaging processing for harmonized products
 * `doPackagerL2F`: Run the packaging processing for fused products
@@ -288,7 +301,6 @@ Indicates path for special directories:
 * `cams_daily_dir`: Where the CAMS daily files are located 
 * `cams_hourly_dir`: Where the CAMS hourly files are located 
 * `cams_climatology_dir`: Where the CAMS climatology files are located 
-* `dem_dir`: Where the DEM files are located 
 * `scl_dir`: Where the auxiliary scl maps files are located 
 
 #### Downloader
@@ -345,26 +357,17 @@ url_parameters_pattern_Sentinel2 = /data/PRODUCTS/Sentinel2/31TFJ
 * `cloud_cover_property`: Path in result json where cloud cover is stored
 * `gml_geometry_property`:  Path in result json where gml geometry is stored
 
-#### DemDownloader
+**For Landsat8 L1 product selection, you MUST have `productType` or `processingLevel` URL parameter set in `location_Landsat8`**
 
-This section presents the configuration for the DEM downloader. It is not yet integrated into the sen2like workflow but can be
-used by itself.
+Possible values for these parameters can be found [here](https://datahub.creodias.eu/resto/api/collections/Landsat8/describe.xml)
 
-* `download_if_unavailable`: Download DEM at need if unavalaible (`True`or `False`)
-* `dem_dataset_name`: The name of the DEM dataset
-* `dem_local_url`: Path of local DEM storage
-* `dem_tmp_local_url`:  Path of local temporary storage for downloaded tiles and mosaic
-* `archive_format`: Format of the DEM archive to download
-* `dem_product_name`: Name of the DEM product on server
-* `dem_server_url`: Server url where DEM are retrieved
-
-*Note: No compatible dem_server_url is available yet to the public.*
+Notice that at the time of writing this it seems that `processingLevel=LEVEL1` select only L1TP product type.
 
 #### Geometry
 
 Define parameters for geometric correction.
 
-* `reference_band`= The reference band to be used for geometric correction
+* `reference_band`: The reference band to be used for geometric correction
 * `doMatchingCorrection`: Apply the matching correction (`True`, `False`)
 * `doAssessGeometry`: Assess geometry (Band list separated by comma.)
 * `references_map`: Path to the reference json file containing the reference image for each tile
@@ -374,7 +377,7 @@ Define parameters for geometric correction.
 
 Atmospheric correction method to use.
 
-* `use_sen2cor`: Activate sen2cor for Atmospheric correction (SMAC otherwise)
+* `use_sen2cor`: Activate sen2cor for Atmospheric correction (SMAC otherwise), `doAtmcor` MUST be `True`
 * `sen2cor_path`: Path to sen2cor tool command (L2A_Process.py)
 
 #### Nbar
@@ -383,6 +386,23 @@ Define parameters for Nbar processing.
 
 * `nbar_methode`: Method to get BRDF coefficients. Currently, available methods are : ROY, VJB
 * `vjb_coeff_matrice_dir`: If VJB method is selected, directory path of the BRDF coefficients netcdf file
+
+#### Sbaf
+
+Define parameters for SBAF processing.
+
+* `adaptative`: **Experimental** Use adaptative SBAF or not. Adaptative SBAF is based on NDVI to which is apply a factor and offset depending the processed band.
+* `adaptative_band_candidates`: S2 equivalent band list separated by comma for which to apply adaptative SBAF. For now B04, B11 and B12 are known to be the better candidates.  
+  Band mapping table: 
+  |Landsat|S2|
+  |-|-|
+  |B01|B01|
+  |B02|B02|
+  |B03|B03|
+  |B04|B04|
+  |B05|B8A|
+  |B06|B11|
+  |B07|B12|
 
 #### Fusion
 
@@ -400,6 +420,33 @@ Define parameters for stitching processing.
 * `same_utm_only`: Enable or disable stitching with product on different UTM as current processed product.  
   For Landsat it allows to use previous or next product that can be on another UTM for stitching and have a better tile coverage.
 
+#### TopographicCorrection (Experimental)
+
+Define parameters for topographic correction process. Topographic correction can be done with the sen2like processing block or with sen2cor.
+
+* `sen2cor_topographic_correction`: with topographic correction activated (`doTopographicCorrection=True`), and atmcor with sen2cor enabled (`doAtmcor=True` and `use_sen2cor=True`), the topographic correction is delegated to sen2cor instead of the sen2like TopographicCorrection processing block.
+* `topographic_correction_limiter`: limit to this value the maximum topographic factor to apply (only for sen2like topographic correction, not sen2cor).
+* `apply_valid_pixel_mask`: Use valid pixel mask to select pixel for which the correction is done. Useful to not apply correction on cloudy pixels (only for sen2like topographic correction, not sen2cor).
+
+
+#### DEMRepository
+
+Define parameters for DEMRepository component.
+
+The DEMRepository component is responsible to access DEM files mainly for [`TopographicCorrection`](#topographiccorrection) processing block
+
+* `dem_folder`: Base folder path that host DEM dataset
+* `dem_dataset`: DEM dataset to use
+* `src_dem_resolution`: resolution to use for DEM in DEM dataset
+
+DEM storage tree MUST follow the following structure : 
+
+`{dem_folder}/{dem_dataset}/Copernicus_DSM_{src_dem_resolution}m_{tile_code}.TIF`
+
+Where `tile_code` is the current processed MGRS tile.
+
+See [DEM Downloader chapter](#dem-downloader) to know how to generate MGRS DEM tile.
+
 #### OutputFormat
 
 Define output format, gain and offset for image files.
@@ -408,7 +455,7 @@ Define output format, gain and offset for image files.
 * `offset`: DN Offset to substract from the output image (DN to reflectance conversion)
 * `output_format`: Format of the output image. Supported formats: COG, GTIFF (for geotiff), JPEG2000.
 
-*Note: DN to reflectance conversion: reflectance = (DN - offset) / gain *
+> *Note: DN to reflectance conversion: reflectance = (DN - offset) / gain*
 
 #### COGoptions
 
@@ -728,6 +775,81 @@ Debug arguments:
   --debug, -d           Enable Debug mode (default: False)
   --no-log-date         Do no store date in log (default: False)
 ```
+
+## Auxiliary data tools
+
+Auxiliary data tools are located in the folder `aux_data`
+
+For now there is only the DEM downloader tools.
+
+### DEM downloader
+
+This tool allows to create DEM aux data for TopographicCorrection of Sen2like.
+
+It creates a DEM as GeoTiff having the same extend and UTM projection as a MGRS tile.
+
+To do so, from a given MGRS tile code, it retrieves matching Copernicus DEM tiles, build a mosaic, then crop and reproject it.
+
+In order to use this tool, `sen2like` module/folder **MUST** be in `PYTHONPATH`.
+
+Usage example to display the help: 
+
+```bash
+PYTHONPATH=sen2like/ aux_data/dem/dem_downloader.py -h
+```
+
+It should display:
+
+```
+usage: dem_downloader.py [-h] --server_url SERVER_URL [--debug] MGRS_TILE_CODE DEM_DATASET_NAME DEM_LOCAL_URL
+
+    Create DEM for a MGRS Tile.
+    The generated DEM is TIF file in the MGRS extend and its projected in the MGRS tile EPSG (UTM).
+    
+
+positional arguments:
+  MGRS_TILE_CODE        MGRS Tile code for witch to generate DEM, example 31TFJ
+  DEM_DATASET_NAME      DEM dataset name, example COP-DEM_GLO-90-DGED__2022_1
+  DEM_LOCAL_URL         Base output folder for generated DEM, example /data/AUX_DATA/
+                        Generated files are stored as follow :
+                        /data/AUX_DATA/{DEM_DATASET_NAME}/Copernicus_DSM_{resolution}m_{MGRS_TILE_CODE}.TIF
+                                
+
+options:
+  -h, --help            show this help message and exit
+  --server_url SERVER_URL
+                        DEM server base URL (default: https://prism-dem-open.copernicus.eu/pd-desk-open-access/prismDownload/)
+  --debug, -d           Enable Debug mode (default: False)
+```
+
+The `--server_url` options MUST allow to produce URL formatted as follow to download tiles : `<SERVER_URL>/<DEM_DATASET_NAME>/<DEM_GEOCELL_FILE>`
+ 
+With: 
+
+- `<DEM_DATASET_NAME>` is the `DEM_DATASET_NAME` program argument
+- `<DEM_GEOCELL_FILE>` is a file name that match `Copernicus_DSM_VV_WWW_XX_YYY_ZZ.tar`, example: `Copernicus_DSM_30_N42_00_E012_00.tar`  
+See [Product Structure / Naming Convention in this document](https://spacedata.copernicus.eu/documents/20123/122407/GEO1988-CopernicusDEM-SPE-002_ProductHandbook_I5.0+%281%29.pdf)
+
+
+The tools is also available in the Sen2like docker image in `/usr/local/aux_data` folder.  
+`sen2like` path to use for `PYTHONPATH` is `/usr/local/sen2like`.
+
+Example :
+
+```bash
+docker run --rm \
+  -v /data/DEM:/data/DEM \
+  -e PYTHONPATH=/usr/local/sen2like \
+  --entrypoint /usr/local/aux_data/dem/dem_downloader.py \
+  sen2like \
+  33TTG \
+  COP-DEM_GLO-90-DGED__2022_1 \
+  /data/DEM
+```
+
+It results a file `/data/DEM/COP-DEM_GLO-90-DGED__2022_1/Copernicus_DSM_90m_33TTG.TIF` on the docker host.
+
+The tool keep extracted Copernicus geocell DEM TIF files in folder `<DEM_LOCAL_URL>/<DEM_DATASET_NAME>/geocells` to avoid to download them every time it needs them to create a MGRS DEM file.
 
 ## [Release notes](./release-notes.md)
 

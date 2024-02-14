@@ -1,13 +1,28 @@
+# Copyright (c) 2023 ESA.
+#
+# This file is part of sen2like.
+# See https://github.com/senbox-org/sen2like for further info.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
 import csv
 import inspect
 import logging
-from typing import Type
 import os
 import sys
 from collections import OrderedDict
 
 from core.module_loader import dynamic_loader, get_proj_dir
-
 
 log = logging.getLogger('Sen2Like')
 
@@ -35,11 +50,14 @@ def get_s2l_product_class_from_sensor_name(sensor):
     return None
 
 
-def get_s2l_product_class(product_path) -> Type["S2L_Product"]:
+def get_s2l_product_class(product_path: str) -> type["S2L_Product"]|None:
     """Get S2L_Product children class corresponding to given product.
 
-    :param product_path: Path of the product file to read
-    :return:
+    Args:
+        product_path (str): path to the product to read
+
+    Returns:
+        Type["S2L_Product"]: Concrete type of S2L_Product the product match, None if not found
     """
     products = [_product for _product in _PRODUCT_CLASS_DICT.values() if _product.can_handle(product_path)]
     if len(products) == 1:
