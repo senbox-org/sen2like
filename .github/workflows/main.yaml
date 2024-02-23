@@ -36,22 +36,16 @@ jobs:
         -   name: Set up Docker Buildx
             uses: docker/setup-buildx-action@v2
         -   name: Login to GitHub Container Registry
-            if: github.event_name != 'pull_request'
             uses: docker/login-action@v2
             with:
               registry: ghcr.io
               username: ${{ github.repository_owner }}
               password: ${{ secrets.GITHUB_TOKEN }}
-        -   name: Build base image
+        -   name: Build and push image
+            if: github.event_name != 'pull_request'
             run: |
-              docker build -t sen2like_base -f ./sen2like/Dockerfile-base .
+              cd ./sen2like/
+              docker build -t sen2like_base:latest -f Dockerfile-base .
+              docker build -t ghcr.io/eodcgmbh/sen2like:v4.4.1 --build-arg SEN2LIKE_BUILD_IMAGE_TAG=sen2like_base:latest . && docker image prune --filter label=stage=sen2like_build -f
+              docker push ghcr.io/eodcgmbh/sen2like:v4.4.1
 
-        -   name: Build and push
-            uses: docker/build-push-action@v4
-            with:
-                context: ./sen2like
-                file: ./sen2like/Dockerfile
-                build-args: SEN2LIKE_BUILD_IMAGE_TAG=sen2like_base
-                push: ${{ github.event_name != 'pull_request' && matrix.os == 'ubuntu-20.04'}}
-                tags: ${{ steps.meta.outputs.tags }}
-                labels: ${{ steps.meta.outputs.labels }}
