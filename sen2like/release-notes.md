@@ -8,6 +8,7 @@ Instructions to retrieve sen2cor3 software and associated documentation availabl
 
 ### Fix
 
+* Force operational-mode parameter as first command line argument
 * Update miniconda in [Dockerfile-base](Dockerfile-base)
 * Typos in sen2like project [README.md](../README.md)
 
