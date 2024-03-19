@@ -10,7 +10,7 @@ The main goal of __Sen2Like__ is to generate Sentinel-2 like harmonised/fused su
 It is a contribution to on going worldwide initiatives (*NASA-HLS, Force, CESBIO [2],[3]) undertook to facilitate higher level processing starting from harmonized data. 
 
 The __Sen2Like__ framework is a scientific and open source software. In its current implementation version (*December 2022*), it combines Landsat-8 and Sentinel-2 data products. 
-Level 1 and Level 2 input Landsat 8 (LS8) products are processed to be harmonized with Sentinel-2 data (S2).
+Level 1 and Level 2 input Landsat 8-9 (LS8-9) products are processed to be harmonized with Sentinel-2 data (S2).
 The two following ARD product types are generated: 
 * Harmonized Surface Reflectance Products (Level 2H) - at 30m of resolution,
 * Fused Surface Reflectance Products (Level 2F) - at 10-20m of resolution. 
@@ -28,7 +28,8 @@ Sen2like software supports the PRISMA L1 products through the usage of a pre-pro
 
 The __processing workflow__ is based on following algorithms:
 *	Geometric Corrections including registration to common reference & the stitching [4],
-*	Atmospheric Corrections by using SMAC [5] relying on auxiliary meteorological data,
+*	Atmospheric Corrections by using SMAC [5] relying on auxiliary meteorological data,  
+or "Sen2Cor3" [11] as a first processing step
 *	Application of Spectral Band Adjustment Factor (SBAF) [2],
 *	Transformation to Nadir BRDF-normalized Reflectance (NBAR) [6],[7],
 *	Production of LS8 High Resolution 10 m pixel spacing data (Fusion) [8].
@@ -39,7 +40,7 @@ It is therefore possible, to cover large geographic extent with a __seamless ima
 It is worth noting that the overall accuracy of your final ARD product strongly depends on the accuracy of sen2like auxiliary data. Two categories of auxiliary data are important: the raster reference for geometric corrections and the meteorological data for atmospheric corrections. Regarding atmospheric corrections, one possibility is to use data from the Copernicus Atmosphere Monitoring Service [9]. The Sen2Like team prepared a dedicated CAMS monthly dataset for the Year 2020, available from [here](http://185.178.85.51/CAMS/). Please refer to this short [description](http://185.178.85.51/CAMS/Readme_CAMS2020.txt) for additional information.
 
 For further details on the format specification of the harmonized products or the functionalities of the Sen2Like software, please 
-refer to the [Product Format Specification](sen2like/docs/source/S2-PDGS-MPC-L2HF-PFS-v1.2.pdf), and the [User Manual v1.8](sen2like/docs/source/S2-SEN2LIKE-UM-V1.9.pdf).
+refer to the [Product Format Specification](sen2like/docs/source/S2-PDGS-MPC-L2HF-PFS-v1.2.pdf), and the [User Manual v1.9](sen2like/docs/source/S2-SEN2LIKE-UM-V1.9.pdf).
 
 ## Publications and Contacts
 **Yearning to know more ? Check out**
@@ -47,7 +48,7 @@ refer to the [Product Format Specification](sen2like/docs/source/S2-PDGS-MPC-L2H
 *	A [Sen2Like Relaxing Video](https://youtu.be/KBSYYBShyos) prepared for [ESA EO PHI-WEEK 2020](https://www.youtube.com/playlist?list=PLvT7fd9OiI9XELZXcljYTftUtJ_NFWRrY)
 *	A [Sen2Like Time Lapse including NDVI graphic](https://youtu.be/yEObvI1KQBg) prepared for QWG#12
 
-And the following research papers :
+And the following references :
  + [1] S. Saunier, J. Louis, V. Debaecker et al., "Sen2like, A Tool To Generate Sentinel-2 Harmonised Surface Reflectance Products - First Results with Landsat-8," IGARSS 2019 - 2019 IEEE International Geoscience and Remote Sensing Symposium, Yokohama, Japan, 2019, pp. 5650-5653, doi: 10.1109/IGARSS.2019.8899213.
  + [2] Claverie, Martin, Junchang Ju, Jeffrey G. Masek, Jennifer L. Dungan, Eric F. Vermote, Jean-Claude Roger, Sergii V. Skakun, et Christopher Justice. "The Harmonized Landsat and Sentinel-2 Surface Reflectance Data Set". Remote Sensing of Environment 219 (15 décembre 2018): 145‑61. (https://doi.org/10.1016/j.rse.2018.09.002).
  + [3] Frantz, David. "FORCE—Landsat + Sentinel-2 Analysis Ready Data and Beyond". Remote Sensing 11, nᵒ 9 (janvier 2019): 1124. (https://doi.org/10.3390/rs11091124).
@@ -58,7 +59,7 @@ And the following research papers :
  + [8] Sen2Like User Manual
  + [9] [Copernicus Atmosphere Monitoring Service](https://atmosphere.copernicus.eu/)
  + [10] Saunier, S.; Pflug, B.; Lobos, I.M.; Franch, B.; Louis, J.; De Los Reyes, R.; Debaecker, V.; Cadau, E.G.; Boccia, V.; Gascon, F.; Kocaman, S. Sen2Like: Paving the Way towards Harmonization and Fusion of Optical Data. Remote Sens. 2022, 14, 3855. (https://doi.org/10.3390/rs14163855) 
-
+ + [11] [Sen2Cor3 installation instructions](sen2cor3/README.md)
 
 **Learn how to use Sen2Like**, have a look at the [User Manual](sen2like/docs/source/S2-SEN2LIKE-UM-V1.9.pdf).
 
