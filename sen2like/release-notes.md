@@ -1,5 +1,18 @@
 # Sen2Like Release Notes
 
+## v4.4.2
+
+### Release of Sen2Cor3 documentation and software version 3.01.00
+
+Instructions to retrieve sen2cor3 software and associated documentation available [here](../sen2cor3/README.md).
+
+### Fix
+
+* Force operational-mode parameter as first command line argument
+* Remove `_pretty=` parameter in the creodias catalogue URL in the default configuration as it is no more supported by datahub catalogue.
+* Update miniconda in [Dockerfile-base](Dockerfile-base)
+* Typos in sen2like project [README.md](../README.md)
+
 ## v4.4.1
 
 ### Important information about sen2like on Creodias

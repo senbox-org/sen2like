@@ -93,7 +93,7 @@ class S2LArgumentParser(ArgumentParser):
         # use parser_class=ArgumentParser avoid error on subparsers.add_parser
         # see https://stackoverflow.com/questions/47833828/subparsers-add-parser-typeerror-init-got-an-unexpected-keyword-argument
         subparsers = self.add_subparsers(dest='operational_mode', help="Operational mode", parser_class=ArgumentParser)
-        self._add_common_arguments(self)
+        # self._add_common_arguments(self)
 
         # Product mode arguments
         sp_product = subparsers.add_parser(Mode.PRODUCT, help="Process a single product")
