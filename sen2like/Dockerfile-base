@@ -1,7 +1,7 @@
 # docker image based on miniconda image (debian:latest)
 # ARG MINICONDA_DOCKER_VERSION
 # FROM continuumio/miniconda3:${MINICONDA_DOCKER_VERSION}
-FROM continuumio/miniconda3:23.3.1-0
+FROM continuumio/miniconda3:23.10.0-1
 
 # set the working dir to /usr/local/sen2like
 WORKDIR /usr/local/sen2like
