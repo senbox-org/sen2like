@@ -24,7 +24,6 @@ from dataclasses import dataclass
 from math import ceil
 from typing import NamedTuple
 
-import affine
 import numpy as np
 import pandas as pd
 from numpy.typing import NDArray
@@ -127,35 +126,6 @@ def resample(image: S2L_ImageFile, res: int, filepath_out: str) -> S2L_ImageFile
             np.uint16)
 
     return image.duplicate(filepath_out, array=data, res=res)
-
-
-def pixel_center(image: S2L_ImageFile, tile_code: str):
-    """Get mgrs tile center coordinates from tile code in image SRS
-
-    Args:
-        image (S2L_ImageFile): image to get srs from
-        tile_code (str): MGRS tile code
-
-    Returns:
-        tuple: y/x coordinates
-    """
-    converter = grids.GridsConverter()
-    utm, orientation, easting, northing = converter.get_mgrs_center(tile_code, utm=True)
-    # UTM South vs. UTM North ?
-    tile_srs = osr.SpatialReference()
-    tile_srs.ImportFromEPSG(int('32' + ('6' if orientation == 'N' else '7') + str(utm)))
-    image_srs = osr.SpatialReference(wkt=image.projection)
-    if not tile_srs.IsSame(image_srs):
-        transformation = osr.CoordinateTransformation(tile_srs, image_srs)
-        northing, easting = transformation.TransformPoint((northing, easting))
-
-    # northing = y = latitude, easting = x = longitude
-    tr = affine.Affine(
-        image.yRes, 0, image.yMax,
-        0, image.xRes, image.xMin
-    )
-    y, x = (northing, easting) * (~ tr)
-    return int(y), int(x)
 
 
 def _reproject(filepath: str, dir_out: str, ds_src: gdal.Dataset, x_res: int, y_res: int, target_srs: osr.SpatialReference, order: int) -> ReprojectResult:

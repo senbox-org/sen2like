@@ -16,15 +16,39 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-
+import affine
 import logging
 import os
 import subprocess
 import lxml.etree as ET
+
+from osgeo import osr
+import mgrs
+
 from core import S2L_config
-from grids.mgrs_framing import pixel_center
+from core.image_file import S2L_ImageFile
+
 
 logger = logging.getLogger("Sen2Like")
+
+
+def get_mgrs_center(tilecode: str, utm=False) -> tuple:
+    """Get MGRS tile center coordinates in native tile UTM or WGS84
+
+    Args:
+        tilecode (str): tile to get center coords
+        utm (bool, optional): Flag for output SRS . Defaults to False.
+
+    Returns:
+        tuple: (lat,long) coords if utm=False, else (utm, N/S, easting, northing)
+    """
+    if tilecode.startswith('T'):
+        tilecode = tilecode[1:]
+    centercode = tilecode + '5490045100'
+    m = mgrs.MGRS()
+    if utm:
+        return m.MGRSToUTM(centercode)
+    return m.toLatLon(centercode)
 
 
 class Sen2corClient:
@@ -117,25 +141,62 @@ class Sen2corClient:
         # ref_band = None is considered as S2 product format (S2A, S2B, S2P prisma)
         ref_band = self.roi_ref_band.get(product.mtl.mission, None)
 
-        if ref_band is None:
-            logger.debug("For sentinel, sen2cor don't use ROI")
+        if ref_band:
+            # Compute ROI center for landsat and fill template with result
+            ref_band_file = product.get_band_file(ref_band)
+
+            y, x = self._pixel_center(ref_band_file)
+
+            logger.debug('Pixel center : (%s, %s)', y, x)
+
+            row0 = root.find('Common_Section/Region_Of_Interest/row0')
+            row0.text = str(y)
+            col0 = root.find('Common_Section/Region_Of_Interest/col0')
+            col0.text = str(x)
+
             ET.ElementTree(root).write(gipp_path, encoding='utf-8', xml_declaration=True)
-            return gipp_path
 
-        ref_band_file = product.get_band_file(ref_band)
+        else:
+            logger.debug("For sentinel, sen2cor don't use ROI")
 
-        y, x = pixel_center(ref_band_file, self.out_mgrs)
-        logger.debug('Pixel center : (%s, %s)', y, x)
-
-        row0 = root.find('Common_Section/Region_Of_Interest/row0')
-        row0.text = str(y)
-        col0 = root.find('Common_Section/Region_Of_Interest/col0')
-        col0.text = str(x)
+        logger.info('GIPP L2A : %s', gipp_path)
 
         ET.ElementTree(root).write(gipp_path, encoding='utf-8', xml_declaration=True)
 
-        logger.info('GIPP L2A : %s', gipp_path)
         return gipp_path
+
+    def _pixel_center(self, image: S2L_ImageFile):
+        """Get mgrs tile center coordinates from tile code in image coordinates
+
+        Args:
+            image (S2L_ImageFile): image to get srs from
+
+        Returns:
+            tuple: (y,x) image coordinates
+        """
+
+        lat, lon = get_mgrs_center(self.out_mgrs) # pylint: disable=W0632
+
+        # Transform src SRS
+        wgs84_srs = osr.SpatialReference()
+        wgs84_srs.ImportFromEPSG(4326)
+
+        # Transform dst SRS
+        image_srs = osr.SpatialReference(wkt=image.projection)
+
+        # convert MGRS center coordinates from lat lon to image EPSG coordinates (UTM)
+        transformation = osr.CoordinateTransformation(wgs84_srs, image_srs)
+        easting, northing, _ = transformation.TransformPoint(lat, lon)
+
+        # northing = y = latitude, easting = x = longitude
+        tr = affine.Affine(
+            image.yRes, 0, image.yMax,
+            0, image.xRes, image.xMin
+        )
+
+        # compute y,x in image coordinates
+        y, x = (northing, easting) * (~ tr)
+        return int(y), int(x)
 
 
 class Sen2corError(Exception):

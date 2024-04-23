@@ -1,5 +1,11 @@
 # Sen2Like Release Notes
 
+## v4.4.3
+
+### Fix
+
+* Fix calculation of Sen2cor region of interest when target UTM differs from the input Landsat product UTM.
+
 ## v4.4.2
 
 ### Release of Sen2Cor3 documentation and software version 3.01.00

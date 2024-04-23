@@ -22,7 +22,6 @@ import os
 import sqlite3
 from os.path import abspath, dirname
 
-import mgrs
 import pandas as pd
 from osgeo import ogr, osr
 from shapely.wkt import loads
@@ -58,15 +57,6 @@ class GridsConverter:
 
         # return as dict
         return roi.to_dict(orient='list')
-
-    def get_mgrs_center(self, tilecode, utm=False):
-        if tilecode.startswith('T'):
-            tilecode = tilecode[1:]
-        centercode = tilecode + '5490045100'
-        m = mgrs.MGRS()
-        if utm:
-            return m.MGRSToUTM(centercode)
-        return m.toLatLon(centercode)
 
     # Don't know why but with this method the SRS code is not added in the geojson
     # if the GDAL_DATA variable is set in the environment. However we need

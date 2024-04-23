@@ -318,7 +318,7 @@ class ProductPreparator: # pylint: disable=too-few-public-methods
         if (
             scl_dir
             and (not product.context.use_sen2cor)
-            and product_reader.data_type != "Level-2A"
+            and product_reader.data_type != "Level-2A" # Sentinel
         ):
             product_reader.scene_classif_band = self._get_scl_map(scl_dir, product)
 
