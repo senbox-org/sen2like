@@ -220,7 +220,7 @@ class S2L_Atmcor(S2L_Process):
         array_out = self.smac_correction(product, array_in, band)
         out_image = image.duplicate(self.output_file(product, band), array_out)
         if self.generate_intermediate_products:
-            image.write(creation_options=['COMPRESS=LZW'])
+            out_image.write(creation_options=['COMPRESS=LZW'])
         
         log.info('End')
 

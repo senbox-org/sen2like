@@ -482,15 +482,13 @@ class LandsatToS2LTileMtdWriter(S2LTileMtdWriter):
 
         # GENERAL_INFO
         # ------------
-        if product.mtl.data_type == 'Level-1C' or 'L1' in product.mtl.data_type:
-            l1__tile_id = product.mtl.landsat_scene_id
-            l2a_tile_id = "NONE"
-        else:
-            l1__tile_id = "NONE"
-            l2a_tile_id = product.mtl.landsat_scene_id
 
+        # Next to 2024/12 Belgium production, never set L2A_TILE_ID,
+        # only L1_TILE_ID
+        l1_tile_id = product.mtl.landsat_scene_id
+        l2a_tile_id = "NONE"
         tile_id = _generate_landsat8_tile_id(product, self.H_F)
-        change_elm(self.root_out, L1_TILE_ID_PATH, new_value=l1__tile_id)
+        change_elm(self.root_out, L1_TILE_ID_PATH, new_value=l1_tile_id)
         change_elm(self.root_out, L2A_TILE_ID_PATH, new_value=l2a_tile_id)
         change_elm(self.root_out, TILE_ID_PATH, new_value=tile_id)
 

@@ -91,7 +91,7 @@ def get_fractional_year(ad):
 class S2L_Fusion(S2L_Process):
 
     def __init__(self, generate_intermediate_products: bool):
-        super().__init__()
+        super().__init__(generate_intermediate_products)
         self.reference_products : list(S2L_HLS_Product) = []
         self._predict_method = None
 
@@ -196,7 +196,7 @@ class S2L_Fusion(S2L_Process):
         # fusion L8/S2
         mask_filename = product.nodata_mask_filename
         array_out = self._fusion(image, array_L2H_predict, array_L2F_predict, mask_filename).astype(np.float32)
-        image_out = self._save_as_image_file(image_file_L2F, array_out, product, band, '_FUSION_L2H_PREDICT.TIF')
+        image_out = self._save_as_image_file(image_file_L2F, array_out, product, band, '_FUSION_FINAL.TIF')
 
         # fusion auto check
         if band == S2L_config.config.get('fusion_auto_check_band'):

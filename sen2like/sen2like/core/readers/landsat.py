@@ -21,6 +21,8 @@ import io
 import logging
 import os
 import re
+# use lxml as it better manager namespaces
+from lxml import etree as ET
 
 from core.metadata_extraction import (
     NOT_FOUND,
@@ -380,10 +382,12 @@ class LandsatMTL(BaseReader):
 
             # Sen2Cor L2A processing for Landsat-8/9. Get the path of L2A_QUALITY.xml
             if self.data_type == 'L2TP':
-                self.l2a_qi_report_path = os.path.join(product_path, 'L2A_QUALITY.xml')
-                if not os.path.isfile(self.l2a_qi_report_path):
-                    self.l2a_qi_report_path = None
-
+                l2a_qi_report_path = os.path.join(product_path, 'L2A_QUALITY.xml')
+                if os.path.isfile(l2a_qi_report_path):
+                    log.info("Found L2A_QUALITY.xml")
+                    # set l2a_qi_report and update cloud coverage
+                    self._handle_l2a_quality(l2a_qi_report_path)
+                
             if self.data_type == 'L2A':
                 self.surf_image_list = self.set_image_file_name('surf')
                 self.reflective_band_list = self.surf_image_list
@@ -449,6 +453,21 @@ class LandsatMTL(BaseReader):
             log.error(' -- Procedure aborted')
             self.isValid = False
             self.mtl_file_name = ''
+
+    def _handle_l2a_quality(self, l2a_qi_report_path: str):
+        self.l2a_qi_report_path = l2a_qi_report_path
+
+        # update cloud cover if any
+        tree = ET.parse(self.l2a_qi_report_path)
+        root = tree.getroot()
+        element = tree.find(
+            "./Data_Block/report/checkList/check/extraValues/value[@name='CLOUDY_PIXEL_PERCENTAGE']",
+            root.nsmap
+        )
+        mtl_cloud_cover = self.cloud_cover
+        log.info("Use cloud coverage from L2A_QUALITY.xml CLOUDY_PIXEL_PERCENTAGE instead of MTL")
+        self.cloud_cover = element.text
+        log.info("Old cloud coverage: %s, New: %s", mtl_cloud_cover, self.cloud_cover)
 
     def _get_band(self, regex):
         image_list = [filename for filename in os.listdir(self.product_path) if

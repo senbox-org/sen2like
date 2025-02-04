@@ -56,39 +56,92 @@ class InputProduct:
 
 
 class InputProductArchive:
-    """Input product archive to retrieve products from there they are stored
+    """
+    Input product archive to retrieve products from there they are stored
     """
     def __init__(self, configuration: S2L_config, roi=None):
         self.config = configuration
         self.roi = roi
 
-    def construct_url(self, mission, tile=None, start_date=None, end_date=None, path=None, row=None, cloud_cover=None):
+    def construct_url(self,
+        mission:str,
+        tile:str|None=None,
+        date_begin:datetime|None=None,
+        date_end:datetime|None=None,
+        path:str|None=None,
+        row:str|None=None,
+        cloud_cover:float|None=None
+    ) -> str|None:
+        """
+        Create catalog search product URL with the given parameters.
+        Catalog can be local or remote.
+        local method variables are used to fill the URL
+
+        For local search only: `url_parameters_pattern_<mission>` 
+        must be set in config, otherwise None is return
+
+        For remote search: `url_parameters_pattern` and `location_<mission>` 
+        must be set in config, otherwise None is return
+
+        For mix (remote and local): 
+            for local search `url_parameters_pattern_<mission>` must be set in config
+            for remote search: `url_parameters_pattern` and `location_<mission>` must be set in config
+        otherwise None is return
+
+        For local and remote only `base_url` should be in conf and used 
+        in `url_parameters_pattern` or `url_parameters_pattern_<mission>` parameter
+
+        For mix, `base_url_s2` and|or `base_url_landsat` should be set in config and uses in 
+            `url_parameters_pattern_<mission> (local)` and|or `location_<mission`> (remote)
+
+        Args:
+            mission (str): mission of product to search, valid values are Sentinel2, Landsat8, Landsat9
+            tile (str | None, optional): for sentinel, product tile name filter. Defaults to None.
+            date_begin (datetime | None, optional): product acquisition begin date. Defaults to None.
+            date_end (datetime | None, optional): product acquisition end date. Defaults to None.
+            path (str | None, optional): for Landsat, product row. Defaults to None.
+            row (str | None, optional): for Landsat, product path. Defaults to None.
+            cloud_cover (float | None, optional): max product cloud cover percentage (0 to 100). Defaults to None.
+
+        Returns:
+            str|None: search url, None if mission disabled by configuration
+        """
         # WARN : load variable to having them in the local scope when using **locals()
+        # pylint: disable=W0641
         base_url_landsat = self.config.get('base_url_landsat')
         base_url_s2 = self.config.get('base_url_s2')
         base_url = self.config.get('base_url')
+        location = None
         # TODO : specific to s2, see how to avoid it here
         s2_processing_level = self.config.get('s2_processing_level')
 
         # Special formatting for date
-        if start_date:
-            start_date = start_date.strftime("%Y-%m-%dT%H:%M:%SZ")
+        if date_begin:
+            start_date = date_begin.strftime("%Y-%m-%dT%H:%M:%SZ")
 
-        if end_date:
-            end_date = end_date.strftime("%Y-%m-%dT23:59:59")
+        if date_end:
+            end_date = date_end.strftime("%Y-%m-%dT23:59:59")
 
+        # local catalog
         parameter = self.config.get(f'url_parameters_pattern_{mission}')
         if parameter is None:
+            # remote catalog
             parameter = self.config.get('url_parameters_pattern')
+            # Get location parameter depending on mission, then format it with available local variable
+            location = self.config.get(f'location_{mission}', "").format(**locals())
 
-        # Get location parameter depending on mission, then format it with available local variable
-        location = self.config.get(f'location_{mission}', "").format(**locals())
+            if not location:
+                return None
+
+        if not parameter:
+            return None
+
         if cloud_cover is None:
             cloud_cover = self.config.get('cloud_cover', 10)
 
-        # fill url with variable in local scope
+        # fill url with variable in local scope, including location
         url = parameter.format(**locals())
-        logging.debug(url)
+        logging.debug("Produced search url for %s: %s", mission, url)
         return url
 
     @staticmethod
@@ -200,8 +253,16 @@ class InputProductArchive:
         )
 
         logger.debug("%s > %s", tile, wrs)
+
+        urls = []
+
         # Build urls for Sentinel2
-        urls = [(self.construct_url("Sentinel2", tile, start_date=start_date, end_date=end_date), 1)]
+        s2_search_url = self.construct_url("Sentinel2", tile, date_begin=start_date, date_end=end_date)
+        if s2_search_url:
+            urls.append((s2_search_url, 1))
+        else:
+            logger.warning("Sentinel 2 product search disabled, on purpose ?")
+
         # Build urls for Landsat8
         for [path, row], tile_coverage in wrs:
             add_url = True
@@ -218,14 +279,18 @@ class InputProductArchive:
 
             if add_url:
                 for mission in ['Landsat8', 'Landsat9']:
-                    parameter = self.config.get(f'url_parameters_pattern_{mission}')
-
-                    if parameter is None:
-                        parameter = self.config.get(f'location_{mission}')
-
-                    if parameter is not None:
-                        urls.append((self.construct_url(mission, tile, start_date=start_date,
-                                    end_date=end_date, path=path, row=row), tile_coverage))
+                    ls_url = self.construct_url(
+                        mission,
+                        tile,
+                        date_begin=start_date,
+                        date_end=end_date,
+                        path=path,
+                        row=row
+                    )
+                    if ls_url:
+                        urls.append((ls_url, tile_coverage))
+                    else:
+                        logger.warning("%s product search disabled, on purpose ?", mission)
 
         if not urls:
             logger.warning("No product found for tile %s during period %s - %s", tile, start_date, end_date)

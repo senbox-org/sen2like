@@ -22,7 +22,6 @@ import abc
 import datetime
 import logging
 import os
-from dataclasses import dataclass
 from xml.dom import minidom
 
 import numpy as np
@@ -36,6 +35,7 @@ from skimage.transform import resize as skit_resize
 from atmcor import get_s2_angles as s2_angles
 from core.file_extractor.landsat_utils import downsample_coarse_image, make_angles_image
 from core.image_file import S2L_ImageFile
+from core.mask_util import ImageMasks, MaskImage, MaskInfo
 from core.readers.landsat import LandsatMTL
 from core.readers.landsat_maja import LandsatMajaMTL
 from core.readers.reader import BaseReader
@@ -46,75 +46,6 @@ log = logging.getLogger("Sen2Like")
 
 NO_DATA_MASK_FILE_NAME = 'nodata_pixel_mask.tif'
 ANGLE_IMAGE_FILE_NAME = 'tie_points.tif'
-
-
-@dataclass
-class MaskImage:
-    """Dataclass to write mask file having:
-    - 'mask_array' content
-    - 'mask_filename' as full name (full path) to write it
-    - 'resolution' as output resolution
-    - 'orig_image' is the S2_Image used to write the mask,
-    it should be the orig file from witch the mask is extracted/generated.
-    'orig_image' can be None, in this case, 'write' function have no effect
-    """
-    orig_image: S2L_ImageFile
-    mask_array: np.ndarray
-    mask_filename: str
-    resolution: int
-
-    def write(self):
-        """Write the mask in 'mask_filename' using 'orig_image'"""
-        if self.orig_image:
-            mask = self.orig_image.duplicate(self.mask_filename, array=self.mask_array, res=self.resolution)
-            mask.write(creation_options=['COMPRESS=LZW'])
-            log.info('Written: %s', self.mask_filename)
-        else:
-            log.warning('Cannot write: %s, please verify it have been written', self.mask_filename)
-            # this case happen in Sentinel2MTL._create_valid_mask_form_l1c_gml,
-            # the mask is already created and written
-            # shall we find a way to not write it and create it here ?
-
-
-@dataclass
-class ImageMasks:
-    """'MaskImage' container for validity and no data mask
-    """
-    no_data_mask: MaskImage
-    validity_mask: MaskImage
-
-    def write(self):
-        """Write image masks using 'MaskImage.write'"""
-        self.no_data_mask.write()
-        self.validity_mask.write()
-
-
-@dataclass
-class MaskInfo:
-    """Mask information having info to compute valid and nodata pixel percentage"""
-    mask_size: int
-    nb_valid_pixel: int
-    nb_nodata_pixel: int
-
-    def get_valid_pixel_percentage(self) -> float:
-        """get valid pixel percentage considering nodata
-
-        Returns:
-            float: valid pixel percentage
-        """
-        if self.nb_valid_pixel == 0:
-            return self.nb_valid_pixel
-        if self.mask_size == self.nb_nodata_pixel:
-            return 0
-        return (self.nb_valid_pixel * 100) / (self.mask_size - self.nb_nodata_pixel)
-
-    def get_nodata_pixel_percentage(self) -> float:
-        """get nodata pixel percentage
-
-        Returns:
-            float: valid pixel percentage
-        """
-        return (self.nb_nodata_pixel * 100) / self.mask_size
 
 
 class InputFileExtractor(abc.ABC):
@@ -639,6 +570,29 @@ class LandsatFileExtractor(InputFileExtractor):
 
         return image_masks
 
+    def _get_image_for_angle(self, out_file, downsample_factor) -> str:
+        # Because sen2cor produce L2TP images in S2 MGRS tile footprint
+        # we cannot use reflective band image such as B3 to manage angles (VAA, VZA) extraction
+        # so switch to B10 (thermal) for sen2cor L2TP case, no need to downsample
+        # FIXME: in future version for LS collection 2 product, rely on VAA, VZA tif files
+        if self._input_product.data_type == "L2TP":
+            for img in self._input_product.thermal_band_list:
+                if "B10" in img:
+                    log.info("Use %s to manage angles VAA, VZA image extraction", img)
+                    return img
+
+            log.error(
+                "Unable to get band image from %s to extract angles image",
+                self._input_product.product_name
+            )
+            raise Exception("Unable to get band image to extract angles image")
+
+        image = self._input_product.reflective_band_list[0]
+        return downsample_coarse_image(
+            image, os.path.dirname(out_file),
+            downsample_factor
+        )
+
     def get_angle_images(self, out_file: str = None) -> str:
         """See 'InputFileExtractor._get_angle_images'
         """
@@ -650,10 +604,11 @@ class LandsatFileExtractor(InputFileExtractor):
             out_file = os.path.join(self._input_product.product_path, ANGLE_IMAGE_FILE_NAME)
 
         mtl_info = fmask_config.readMTLFile(self._input_product.mtl_file_name)
-        image = self._input_product.reflective_band_list[0]
 
-        # downsample image for angle computation
-        coarse_res_image = downsample_coarse_image(image, os.path.dirname(out_file), downsample_factor)
+        coarse_res_image = self._get_image_for_angle(
+            os.path.dirname(out_file),
+            downsample_factor
+        )
 
         img_info = fileinfo.ImageInfo(coarse_res_image)
         corners = landsatangles.findImgCorners(coarse_res_image, img_info)

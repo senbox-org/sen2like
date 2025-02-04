@@ -105,7 +105,7 @@ conda activate sen2like
 
 ```bash
 python sen2like.py 
-[INFO    ] 2023-01-11 14:50:54 - sen2like             - Run Sen2like 4.4.1
+[INFO    ] 2023-01-11 14:50:54 - sen2like             - Run Sen2like 4.4.4
 usage: sen2like.py [-h] [--version] [--refImage PATH] [--wd PATH]
                    [--conf PATH] [--confParams STRLIST] [--bands STRLIST]
                    [--allow-other-srs] [--no-run] [--intermediate-products]
@@ -202,7 +202,7 @@ You can run it directly without entering into the container:
 ```bash
 docker run --rm my-internal-docker-registry-url/sen2like/sen2like:4.4
 
-[INFO    ] 2023-01-11 14:50:54 - sen2like             - Run Sen2like 4.4.1
+[INFO    ] 2023-01-11 14:50:54 - sen2like             - Run Sen2like 4.4.4
 usage: sen2like.py [-h] [--version] [--refImage PATH] [--wd PATH]
                    [--conf PATH] [--confParams STRLIST] [--bands STRLIST]
                    [--allow-other-srs] [--no-run] [--intermediate-products]
