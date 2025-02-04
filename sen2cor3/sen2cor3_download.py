@@ -30,12 +30,12 @@ if __name__ == "__main__":
         sys.exit(1)
         
     local_path = sys.argv[1]
-    local_path = os.path.join(local_path, 'sen2cor_3.1.0_python_3.10_20240313.zip')
+    local_path = os.path.join(local_path, 'sen2cor_3.2.0_python_3.10_20241218.zip')
     
     hostname = "sftp.telespazio.fr"
     port = 22  # default SFTP port is 22
     username = 'sen2cor3'
     password = '4sen2like'
-    remote_path = '/upload/Sen2Cor-3.01.00/Software/sen2cor_3.1.0_python_3.10_20240313.zip'
+    remote_path = '/upload/Sen2Cor-3.02.00/Software/sen2cor_3.2.0_python_3.10_20241218.zip'
     
     download_from_sftp(hostname, port, username, password, remote_path, local_path)

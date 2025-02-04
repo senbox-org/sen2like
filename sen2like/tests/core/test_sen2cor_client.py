@@ -4,21 +4,16 @@ import os
 from tempfile import TemporaryDirectory
 from unittest import TestCase
 
+from core.image_file import S2L_ImageFile
 from core.products.product import ProcessingContext, S2L_Product
 from core.readers.reader import BaseReader
 from core.S2L_config import config
 from core.sen2cor_client import sen2cor_client
-from core.sen2cor_client.sen2cor_client import Sen2corClient
+from core.sen2cor_client.sen2cor_client import Sen2corClient as S2CClient
+
 
 test_folder_path = os.path.dirname(__file__)
 configuration_file = os.path.join(test_folder_path, "config.ini")
-
-
-def pixel_center(ref_band_file, mgrs):
-    return 4, 5
-
-# stub pixel center
-sen2cor_client.pixel_center = pixel_center
 
 
 def show_diff(tested, reference):
@@ -33,6 +28,18 @@ def show_diff(tested, reference):
         file_1_text, file_2_text, fromfile="tested", tofile="reference", lineterm=""
     ):
         print(line)
+
+
+#
+# /!\ override to stub pixel center
+#
+class Sen2corClient(S2CClient):
+
+    def __init__(self, sen2cor_command, out_mgrs, enable_topo_corr=False):
+        super().__init__(sen2cor_command, out_mgrs, enable_topo_corr)
+
+    def _pixel_center(self, ref_band_file:S2L_ImageFile):
+        return 4, 5
 
 
 class DummyProduct(S2L_Product):

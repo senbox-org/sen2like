@@ -17,7 +17,7 @@
 
 """Version of the Application."""
 
-__version__ = '4.4.1'
+__version__ = '4.4.4'
 
 _splitted_version = __version__.split('.')
 

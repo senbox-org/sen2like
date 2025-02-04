@@ -33,13 +33,12 @@
     <DEM_Directory>dem/CopernicusDEM90</DEM_Directory>
     <!-- should be either a directory in the sen2cor home folder or 'NONE'. If NONE, no DEM will be
     used -->
-    <DEM_Reference>https://prism-dem-open.copernicus.eu/pd-desk-open-access/prismDownload/COP-DEM_GLO-90-DGED__2022_1/</DEM_Reference>
-    <!-- DEM_Reference>online-dem-repository</DEM_Reference
-    If DEM_Directory is not set to NONE, replace online-dem-repository with:
-    http://srtm.csi.cgiar.org/wp-content/uploads/files/srtm_5x5/TIFF/ for SRTM DEM download
-    or for download of more accurate Copernicus DEM at 90 m resolution:
-    https://prism-dem-open.copernicus.eu/pd-desk-open-access/prismDownload/COP-DEM_GLO-90-DGED__2022_1
-    -->
+    <DEM_Reference>CDSE-GLO-90</DEM_Reference>
+    <!-- DEM_Reference is used to 1) reference the DEM in the L2A Metadata and, alternatively, 2) to set the url where DEM can be automatically downloaded.
+        1) To use previously downloaded CDSE DGED DEM, set <DEM_Reference> to 'CDSE-GLO-30' or 'CDSE-GLO-90' (resolution, 30/90, is mandatory).
+        2) To use the Copernicus DEM hosted by AWS, set <DEM_Reference>https://copernicus-dem-90m.s3.eu-central-1.amazonaws.com/</DEM_Reference>.
+        3) If no DEM is used, <DEM_Reference> should be set to 'NONE'.
+     -->
     <Generate_DEM_Output>FALSE</Generate_DEM_Output>
     <!-- FALSE: no DEM output, TRUE: store DEM in the AUX data directory -->
     <Force_Exit_On_DEM_Error>FALSE</Force_Exit_On_DEM_Error>
@@ -103,6 +102,14 @@
       <DS_Scheme_1C>S2_PDI_Level-1C_Datastrip_Metadata</DS_Scheme_1C>
       <DS_Scheme_2A>S2_PDI_Level-2A_Datastrip_Metadata</DS_Scheme_2A>
     </PSD_Scheme>
+    <PSD_Scheme PSD_Version="15.0" PSD_Reference="S2-PDGS-CS-DI-PSD-V15.0_Schema">
+      <UP_Scheme_1C>S2_User_Product_Level-1C_Metadata</UP_Scheme_1C>
+      <UP_Scheme_2A>S2_User_Product_Level-2A_Metadata</UP_Scheme_2A>
+      <Tile_Scheme_1C>S2_PDI_Level-1C_Tile_Metadata</Tile_Scheme_1C>
+      <Tile_Scheme_2A>S2_PDI_Level-2A_Tile_Metadata</Tile_Scheme_2A>
+      <DS_Scheme_1C>S2_PDI_Level-1C_Datastrip_Metadata</DS_Scheme_1C>
+      <DS_Scheme_2A>S2_PDI_Level-2A_Datastrip_Metadata</DS_Scheme_2A>
+    </PSD_Scheme>
     <GIPP_Scheme>L2A_GIPP</GIPP_Scheme>
     <SC_Scheme>L2A_CAL_SC_GIPP</SC_Scheme>
     <AC_Scheme>L2A_CAL_AC_GIPP</AC_Scheme>
@@ -144,8 +151,7 @@
       <Cirrus_Correction>FALSE</Cirrus_Correction>
       <!-- FALSE: no cirrus correction applied, TRUE: cirrus correction applied -->
       <DEM_Terrain_Correction>FALSE</DEM_Terrain_Correction>
-      <!--Use
-      DEM for Terrain Correction, otherwise only used for WVP and AOT -->
+      <!--Use DEM for Terrain Correction, otherwise only used for WVP and AOT -->
       <BRDF_Correction>0</BRDF_Correction>
       <!-- 0: no BRDF correction, 1, 2: see IODD for explanation -->
       <BRDF_Lower_Bound>0.22</BRDF_Lower_Bound>

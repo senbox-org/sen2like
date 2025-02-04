@@ -49,7 +49,7 @@ def filter_product(product: S2L_Product):
     """
     cloud_cover = config.getfloat('cloud_cover')
     if float(product.mtl.cloud_cover) > cloud_cover:
-        logger.info('cloud cover > %s : %s', cloud_cover, product.mtl.cloud_cover)
+        logger.warning('cloud cover > %s : %s', cloud_cover, product.mtl.cloud_cover)
         return False
     return True
 
@@ -65,7 +65,7 @@ def pre_process_atmcor(s2l_product: S2L_Product, tile) -> S2L_Product|None:
         tile (str): tile name for sen2cor
 
     Returns:
-        s2l_product after sen2cor if executed or provided s2l_product, or None if fail or too many cloud cover
+        s2l_product after sen2cor if executed or provided s2l_product, or None if sen2cor fail
     """
     use_sen2cor = s2l_product.context.doAtmcor and s2l_product.context.use_sen2cor
 
@@ -185,6 +185,14 @@ def process_tile(tile: str, search_urls: list[tuple], args: Namespace, start_dat
     # get ref image for tile
     _tile_ref_image = get_ref_image(args.refImage, config.get('references_map'), tile)
 
+    # Avoid atmocor for L2A in product mode because this mode does not have --l2a option
+    # TODO: need refactor to better handles this case by having another way to process product-mode
+    # instead of use the current function and also avoid to have to use InputProductArchive.search_product
+    # for product-mode (no sense)
+    if args.operational_mode == Mode.PRODUCT and "L2" in input_products_list[0].path:
+        logger.warning('%s with a L2A product, force s2_processing_level to LEVEL2A', Mode.PRODUCT)
+        config.set('s2_processing_level', 'LEVEL2A')
+
     for input_product in input_products_list:
 
         processing_context = ProcessingContext(config, tile)
@@ -195,13 +203,36 @@ def process_tile(tile: str, search_urls: list[tuple], args: Namespace, start_dat
             processing_context
         )
 
+        # cloud cover condition not fulfilled
+        if not filter_product(s2l_product):
+            logger.info("Skip product %s", s2l_product.path)
+            continue
+
+        # TODO: find a way to do it in ProcessingContext
+        # Problem is that we do not have the product when ProcessingContext is instantiated
+        # and the product is not supposed to update the context.
+        # if processing_context.doAtmcor and s2l_product.mtl.data_type in ["Level-2A", "L2A"]:
+        #     logger.warning("L2A product, force disabling Atmo Corr")
+        #     processing_context.doAtmcor = False
+
         if processing_context.doAtmcor:
             # run sen2cor if any and update s2l_product.context
             s2l_product = pre_process_atmcor(s2l_product, tile)
 
-        # sen2cor fail or cloud cover condition not fulfilled
-        if not s2l_product or not filter_product(s2l_product):
-            continue
+            # sen2cor fail
+            if not s2l_product:
+                logger.info("Skip product due to sen2cor failure")
+                continue
+
+            # cloud cover condition not fulfilled for sen2cor output product
+            if not filter_product(s2l_product):
+                logger.info("Skip product %s", s2l_product.path)
+                continue
+
+        # product is sen2cor preprocessed
+        # mainly for S2 L2A as input, but also match LS L2A from sen2cor
+        if s2l_product.mtl.l2a_qi_report_path:
+            s2l_product.metadata.qi["AC_PROCESSOR"] = "SEN2COR"
 
         # Configure a product preparator
         product_preparator = ProductPreparator(config, args, _tile_ref_image)
@@ -211,6 +242,7 @@ def process_tile(tile: str, search_urls: list[tuple], args: Namespace, start_dat
             s2l_product, product_preparator, args.parallelize_bands, args.bands)
         process.run()
 
+        # clean process
         if s2l_product.related_product is not None:
             del s2l_product.related_product
         del s2l_product

@@ -24,8 +24,9 @@ import numpy as np
 from skimage.transform import resize as skit_resize
 
 from core import readers
-from core.file_extractor.file_extractor import MaskInfo, extractor_class
+from core.file_extractor.file_extractor import extractor_class
 from core.image_file import S2L_ImageFile
+from core.mask_util import MaskInfo
 from core.products import read_mapping
 from core.QI_MTD.mtd import Metadata
 from core.readers import BaseReader

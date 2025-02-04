@@ -22,6 +22,24 @@ from datetime import datetime
 
 from core.products.product import DATE_WITH_MILLI_FORMAT, ProcessingContext, S2L_Product
 
+# resolution folder name for band
+_L2A_BAND_FOLDER = {
+    "B01":  "R60m",
+    "B02" : "R10m",
+    "B03" : "R10m",
+    "B04" : "R10m",
+    "B05" : "R20m",
+    "B06" : "R20m",
+    "B07" : "R20m",
+    "B08" : "R10m",
+    "B8A" : "R20m",
+    "B09" : "R60m",
+    "B11" : "R20m",
+    "B12" : "R20m",
+    "SCL" : "R20m",
+    "AOT" : "R10m",
+}
+
 
 class Sentinel2Product(S2L_Product):
     sensor = 'S2'
@@ -69,12 +87,15 @@ class Sentinel2Product(S2L_Product):
     def band_files(self, band):
         band_path = os.path.join(self.path, 'GRANULE', self.mtl.granule_id, 'IMG_DATA')
         if self.mtl.data_type == 'Level-2A':
-            resolutions = sorted([resolution_dir.name for resolution_dir in os.scandir(band_path)])
-            for resolution in resolutions:
-                files = glob.glob(
-                    os.path.join(band_path, resolution, f'*_{band}_{resolution[1:-1]}m{self.mtl.file_extension}'))
-                if files:
-                    return files
+            files = glob.glob(
+                os.path.join(
+                    band_path,
+                    _L2A_BAND_FOLDER[band],
+                    f'*_{band}_{_L2A_BAND_FOLDER[band][1:]}{self.mtl.file_extension}'
+                )
+            )
+            return files
+
         return glob.glob(os.path.join(band_path, f'*_{band}{self.mtl.file_extension}'))
 
     def get_smac_filename(self, band):

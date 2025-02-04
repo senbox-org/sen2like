@@ -22,6 +22,7 @@ import os
 
 import numpy as np
 from core.image_file import S2L_ImageFile
+from core.mask_util import MaskInfo
 from core.products.product import S2L_Product
 from core.reference_image import get_resampled_ref_image
 from grids import mgrs_framing
@@ -156,17 +157,30 @@ class S2L_Geometry(S2L_Process):
         Args:
             product (S2L_Product): product having aux data file to reframe
         """
+        valid_mask: S2L_ImageFile|None = None
+        no_data_mask: S2L_ImageFile|None = None
         if product.mask_filename:
-            reframe_mask(product, "mask_filename", "valid_pixel_mask_REFRAMED_GEOM_CORRECTED.TIF")
+            valid_mask = reframe_mask(product, "mask_filename", "valid_pixel_mask_REFRAMED_GEOM_CORRECTED.TIF")
 
         if product.nodata_mask_filename:
-            reframe_mask(
+            no_data_mask = reframe_mask(
                 product, "nodata_mask_filename", "nodata__mask_REFRAMED_GEOM_CORRECTED.TIF"
             )
 
         if product.ndvi_filename is not None:
             reframe_mask(product, "ndvi_filename", "ndvi_REFRAMED_GEOM_CORRECTED.TIF", DCmode=True)
 
+        if valid_mask and no_data_mask:
+            log.info("Recompute mask info")
+            log.info("old: %s",product.mask_info)
+
+            product.mask_info = MaskInfo(
+                valid_mask.array.size,
+                np.count_nonzero(valid_mask.array),
+                no_data_mask.array.size - np.count_nonzero(no_data_mask.array)
+            )
+            log.info("new: %s",product.mask_info)
+        
     def _set_qi_information(self, product):
         """Set COREGISTRATION_BEFORE_CORRECTION, INPUT_RMSE_X, INPUT_RMSE_Y in QI report.
         If the processed product have a related product, the information is set for the product and its related one
