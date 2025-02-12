@@ -1,22 +1,22 @@
-# Sen2Cor 3 version 3.02.00
+# Sen2Cor 3 version 3.03.00
 
-## Retrieve Sen2cor 3.02.00 documentation from sftp server
+## Retrieve Sen2cor 3.03.00 documentation from sftp server
 
 ```
 hostname = 'sftp.telespazio.fr'
 port = 22  # default SFTP port is 22
 username = 'sen2cor3'
 password = '4sen2like'
-remote_path = '/upload/Sen2Cor-3.02.00/Documentation/'
+remote_path = '/upload/Sen2Cor-3.03.00/Documentation/'
 ```
 
-**_Sen2cor 3.02.00 Software Release Note:_**  
-sftp://sen2cor3@sftp.telespazio.fr/upload/Sen2Cor-3.02.00/Documentation/OMPC.TPZ.SRN.002%20-%20i1r0%20-%20Sen2Cor%203.02.00%20Software%20Release%20Note.pdf
+**_Sen2cor 3.03.00 Software Release Note:_**  
+sftp://sen2cor3@sftp.telespazio.fr/upload/Sen2Cor-3.03.00/Documentation/OMPC.TPZ.SRN.003%20-%20i1r0%20-%20Sen2Cor%203.03.00%20Software%20Release%20Note.pdf
 
-**_Sen2cor 3.02.00 Software Configuration and User Manual:_**  
-sftp://sen2cor3@sftp.telespazio.fr/upload/Sen2Cor-3.02.00/Documentation/OMPC.TPZ.SUM.002%20-%20i1r0%20-%20Sen2Cor%203.02.00%20Configuration%20and%20User%20Manual.pdf
+**_Sen2cor 3.03.00 Software Configuration and User Manual:_**  
+sftp://sen2cor3@sftp.telespazio.fr/upload/Sen2Cor-3.03.00/Documentation/OMPC.TPZ.SUM.003%20-%20i1r0%20-%20Sen2Cor%203.03.00%20Configuration%20and%20User%20Manual.pdf
 
-## Retrieve Sen2cor 3.02.00 software from sftp server
+## Retrieve Sen2cor 3.03.00 software from sftp server
 
 Either with a software like Filezilla:
 
@@ -25,29 +25,29 @@ hostname = 'sftp.telespazio.fr'
 port = 22  # default SFTP port is 22
 username = 'sen2cor3'
 password = '4sen2like'
-remote_path = '/upload/Sen2Cor-3.02.00/Software/sen2cor_3.2.0_python_3.10_20241218.zip'
+remote_path = '/upload/Sen2Cor-3.03.00/Software/sen2cor_3.3.0_python_3.12_20250131.zip'
 ```
 
-e.g: sftp://sen2cor3@sftp.telespazio.fr/upload/Sen2Cor-3.02.00/Software/sen2cor_3.2.0_python_3.10_20241218.zip
+e.g: sftp://sen2cor3@sftp.telespazio.fr/upload/Sen2Cor-3.03.00/Software/sen2cor_3.3.0_python_3.12_20250131.zip
 
 or with the example script "sen2cor3_download.py" based on "paramiko" module.  
-It requires paramiko version 3.4.0 that could be installed with conda [see below](#create-the-sen2like-conda-environment):
+It requires paramiko module that could be installed with conda [see below](#create-the-sen2like-conda-environment):
 
 ```
 conda activate sen2like
-conda install paramiko=3.4.0 -c conda-forge
+conda install paramiko -c conda-forge
 ```
 
 ```
 python sen2cor3_download.py sen2cor3_install_dir
 ```
 
-## Unzip sen2cor_3.2.0_python_3.10.zip into the Sen2Cor 3 directory of your choice
+## Unzip sen2cor_3.3.0_python_3.12.zip into the Sen2Cor 3 directory of your choice
 
 ```
 e.g. sen2cor3_install_dir=/opt/sen2cor3/code/
 cd $sen2cor3_install_dir
-unzip sen2cor_3.2.0_python_3.10.zip
+unzip sen2cor_3.3.0_python_3.12.zip
 ```
 
 ## Auxiliary Data Symbolic linking
@@ -65,7 +65,7 @@ Examples of symbolic linking is given hereafter:
 
 
 ```
-cd $sen2cor3_install_dir/sen2cor_3.2.0_python_3.10/SEN2COR_3/aux_data
+cd $sen2cor3_install_dir/sen2cor_3.3.0_python_3.12/SEN2COR_3/aux_data
 ln -s /data/CAMS/daily ./ECMWF/daily
 ln -s /data/AUX_DATA/ESACCI-LC-L4-Snow-Cond-500m-MONTHLY-2000-2012-v2.4 ./ESACCI-LC-L4-Snow-Cond-500m-MONTHLY-2000-2012-v2.4
 ln -s /data/AUX_DATA/ESACCI-LC-L4-WB-Map-150m-P13Y-2000-v4.0.tif ./ESACCI-LC-L4-WB-Map-150m-P13Y-2000-v4.0.tif
@@ -74,29 +74,29 @@ ln -s /data/AUX_DATA/ESACCI-LC-L4-LCCS-Map-300m-P1Y-2015-v2.0.7.tif ./ESACCI-LC-
 
 ## Install miniconda if conda is not already installed on your system
 
-https://repo.anaconda.com/miniconda/Miniconda3-py37_22.11.1-1-Linux-x86_64.sh
+https://repo.anaconda.com/miniconda/Miniconda3-py312_25.1.1-2-Linux-x86_64.sh
 
 ## Create the sen2like conda environment
 
 Once you retrieved the code, go into Sen2Cor3 root source folder and run the following command to create a conda env named sen2like:
 
 ```
-cd $sen2cor3_install_dir/sen2cor_3.2.0_python_3.10
-conda create -n sen2like --file requirements.txt -c conda-forge
+cd $sen2cor3_install_dir/sen2cor_3.3.0_python_3.12
+conda env create --file requirements.yml
 ```
 
 ## Activate sen2like conda environment
 
-Sen2Cor 3.2 uses the same conda environment as Sen2like:
+Sen2Cor 3.3 uses the same conda environment as Sen2like 4.5 with Python 3.12:
 
 ``` 
-conda activate sen2like
+conda activate sen2like_py312
 ```
 
 ### Test the Command line execution
 
 ```
-python $sen2cor3_install_dir/sen2cor_3.2.0_python_3.10/SEN2COR_3/L2A_Process.py --help
+python $sen2cor3_install_dir/sen2cor_3.3.0_python_3.12/SEN2COR_3/L2A_Process.py --help
 
 output:
 usage: L2A_Process.py [-h] [--mode MODE] [--resolution {10,20,30,60}] [--datastrip DATASTRIP] [--tile TILE] [--output_dir OUTPUT_DIR] [--work_dir WORK_DIR]
@@ -105,7 +105,7 @@ usage: L2A_Process.py [-h] [--mode MODE] [--resolution {10,20,30,60}] [--datastr
                       [--GIP_L2A_SC GIP_L2A_SC] [--GIP_L2A_AC GIP_L2A_AC] [--GIP_L2A_PB GIP_L2A_PB] [--Hyper_MS]
                       input_dir
 
-Sen2Cor. Version: 03.02.00, created: 2024.12.18, supporting Level-1C product version 15.0, supporting Level-1TP Collection_1-2 Landsat_8-9, supporting Hyper MS Level-1C.
+Sen2Cor. Version: 03.03.00, created: 2025.01.31, supporting Level-1C product version 15.0, supporting Level-1TP Collection_1-2 Landsat_8-9, supporting Hyper MS Level-1C.
 
 positional arguments:
   input_dir             Directory of Level-1C input
