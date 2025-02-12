@@ -151,7 +151,6 @@ class S2L_TopographicCorrection(S2L_Process):
         Returns:
             S2L_ImageFile: image with topographic correction or input image
         """
-        logger.info("Start")
         if not self._shaded_dem_file:
             logger.warning("Skip topographic correction because DEM is missing")
             return image
@@ -191,7 +190,6 @@ class S2L_TopographicCorrection(S2L_Process):
             logger.info("Generate intermediate product")
             out_image.write(creation_options=["COMPRESS=LZW"])
 
-        logger.info("End")
         return out_image
 
     def postprocess(self, product: S2L_Product):

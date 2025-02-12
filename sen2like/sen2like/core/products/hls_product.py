@@ -61,7 +61,7 @@ class S2L_HLS_Product(S2L_Product):
                 if self.s2l_product_class is None:
                     logger.error("Cannot determine Product associated to sensor %s", self.sensor)
 
-    def get_band_file(self, band, plus=False):
+    def get_band_file(self, band, plus=False) -> S2L_ImageFile|None:
         # get band
         filepath = self.get_band_filepath(band, plus)
 
@@ -125,8 +125,9 @@ class S2L_HLS_Product(S2L_Product):
             if not os.path.exists(filepath):
                 logger.error("Error: Product mask not found with old packager format.")
                 return None
-            else:
-                logger.info("Product mask found with old packager format")
+
+            logger.info("Product mask found with old packager format")
+
         return filepath
 
     @property

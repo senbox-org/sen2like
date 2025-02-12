@@ -95,8 +95,11 @@ def pre_process_atmcor(s2l_product: S2L_Product, tile) -> S2L_Product|None:
 
         # For now, do not enable stitching when sen2cor is used
         s2l_product.context.doStitching = False
+
         # Should be done before atmospheric correction
         # and only for S2B with baseline before 4, so disable it.
+        # since collection 1 S2A and S2B are intercalibrated
+        # we should keep it disabled
         s2l_product.context.doInterCalibration = False
 
         # Disable sen2like topographic correction processing block if enabled in sen2cor
@@ -115,6 +118,7 @@ def pre_process_atmcor(s2l_product: S2L_Product, tile) -> S2L_Product|None:
                 sen2cor.run(s2l_product),
                 s2l_product.context
             )
+
             # restore L1 "orig" processing version (processing baseline for S2)
             # because sen2cor sets by default the processing baseline to 99.99
             # however L1 "orig" processing version information could be needed for future processing block.
@@ -151,6 +155,63 @@ def process_no_run(tile: str, input_products: list[InputProduct]):
         logger.info("%s %s %s", tile_message, cloud_message, product.path)
 
 
+def process_an_input_product(tile, input_product, conf, args, tile_ref_image):
+
+    processing_context = ProcessingContext(conf, tile)
+
+    # instantiate S2L_Product
+    s2l_product = input_product.s2l_product_class(
+        input_product.path,
+        processing_context
+    )
+
+    product_name = s2l_product.name
+
+    # cloud cover condition not fulfilled
+    if not filter_product(s2l_product):
+        logger.info("Skip product %s", product_name)
+        return
+
+    # TODO: find a way to do it in ProcessingContext
+    # Problem is that we do not have the product when ProcessingContext is instantiated
+    # and the product is not supposed to update the context.
+    # if processing_context.doAtmcor and s2l_product.mtl.data_type in ["Level-2A", "L2A"]:
+    #     logger.warning("L2A product, force disabling Atmo Corr")
+    #     processing_context.doAtmcor = False
+
+    if processing_context.doAtmcor:
+        # run sen2cor if any and update s2l_product.context
+        s2l_product = pre_process_atmcor(s2l_product, tile)
+
+        # sen2cor fail
+        if not s2l_product:
+            logger.info("Skip product %s due to sen2cor failure", product_name)
+            return
+
+        # cloud cover condition not fulfilled for sen2cor output product
+        if not filter_product(s2l_product):
+            logger.info("Skip product %s", s2l_product.path)
+            return
+
+    # product is sen2cor preprocessed
+    # mainly for S2 L2A as input, but also match LS L2A from sen2cor
+    if s2l_product.mtl.l2a_qi_report_path:
+        s2l_product.metadata.qi["AC_PROCESSOR"] = "SEN2COR"
+
+    # Configure a product preparator
+    product_preparator = ProductPreparator(conf, args, tile_ref_image)
+
+    # execute processing block on product
+    process = ProductProcess(
+        s2l_product, product_preparator, args.parallelize_bands, args.bands)
+    process.run()
+
+    # clean process
+    if s2l_product.related_product is not None:
+        del s2l_product.related_product
+    del s2l_product
+
+
 def process_tile(tile: str, search_urls: list[tuple], args: Namespace, start_date: datetime.datetime,
                   end_date: datetime.datetime):
     """
@@ -174,6 +235,8 @@ def process_tile(tile: str, search_urls: list[tuple], args: Namespace, start_dat
         product_mode=args.operational_mode == Mode.PRODUCT
     )
 
+    logger.debug("Selected products: %s", [p.path for p in input_products_list])
+
     if args.no_run:
         process_no_run(tile, input_products_list)
         return
@@ -189,85 +252,76 @@ def process_tile(tile: str, search_urls: list[tuple], args: Namespace, start_dat
     # TODO: need refactor to better handles this case by having another way to process product-mode
     # instead of use the current function and also avoid to have to use InputProductArchive.search_product
     # for product-mode (no sense)
-    if args.operational_mode == Mode.PRODUCT and "L2" in input_products_list[0].path:
+    if args.operational_mode == Mode.PRODUCT and "L2" in input_products_list[0].path: # first should be S2 product
         logger.warning('%s with a L2A product, force s2_processing_level to LEVEL2A', Mode.PRODUCT)
         config.set('s2_processing_level', 'LEVEL2A')
 
+    # group products by instrument to process them by instrument
+    # BE CAREFULL, it assumes that input_products_list is well sorted
+    # (S2 first and then by acquisition date)
+    grouped_by_instrument = {}
     for input_product in input_products_list:
+        if input_product.instrument not in grouped_by_instrument:
+            grouped_by_instrument[input_product.instrument] = [input_product]
+        else:
+            grouped_by_instrument[input_product.instrument].append(input_product)
 
-        processing_context = ProcessingContext(config, tile)
+    logger.debug("Products groupby instrument: %s", grouped_by_instrument)
 
-        # instantiate S2L_Product
-        s2l_product = input_product.s2l_product_class(
-            input_product.path,
-            processing_context
-        )
+    # Process by instrumenbt, by this way be sure to have complete S2_L2H/F
+    # for fuion before starting process other instrument/mission when band parell process is enabled
+    for instrument, input_products in grouped_by_instrument.items():
 
-        # cloud cover condition not fulfilled
-        if not filter_product(s2l_product):
-            logger.info("Skip product %s", s2l_product.path)
-            continue
+        logger.info("Start to process %s products", instrument)
+        for input_product in input_products:
+            # log here because process_an_input_product can skip the product
+            logger.info("Start to process input product %s", input_product.path)
+            process_an_input_product(tile, input_product, config, args, _tile_ref_image)
+            logger.info("End process for input product %s", input_product.path)
 
-        # TODO: find a way to do it in ProcessingContext
-        # Problem is that we do not have the product when ProcessingContext is instantiated
-        # and the product is not supposed to update the context.
-        # if processing_context.doAtmcor and s2l_product.mtl.data_type in ["Level-2A", "L2A"]:
-        #     logger.warning("L2A product, force disabling Atmo Corr")
-        #     processing_context.doAtmcor = False
-
-        if processing_context.doAtmcor:
-            # run sen2cor if any and update s2l_product.context
-            s2l_product = pre_process_atmcor(s2l_product, tile)
-
-            # sen2cor fail
-            if not s2l_product:
-                logger.info("Skip product due to sen2cor failure")
-                continue
-
-            # cloud cover condition not fulfilled for sen2cor output product
-            if not filter_product(s2l_product):
-                logger.info("Skip product %s", s2l_product.path)
-                continue
-
-        # product is sen2cor preprocessed
-        # mainly for S2 L2A as input, but also match LS L2A from sen2cor
-        if s2l_product.mtl.l2a_qi_report_path:
-            s2l_product.metadata.qi["AC_PROCESSOR"] = "SEN2COR"
-
-        # Configure a product preparator
-        product_preparator = ProductPreparator(config, args, _tile_ref_image)
-
-        # execute processing block on product
-        process = ProductProcess(
-            s2l_product, product_preparator, args.parallelize_bands, args.bands)
-        process.run()
-
-        # clean process
-        if s2l_product.related_product is not None:
-            del s2l_product.related_product
-        del s2l_product
+        logger.info("Process of %s products finish", instrument)
 
 
-def main(args, with_multiprocess_support=False):
-    """Sen2like entry point function
-
-    Args:
-        with_multiprocess_support (bool): use
-
-    Returns:
-
+def process_concurrent_multi_tile(args, date_range, search_urls):
     """
-    start = datetime.datetime.utcnow()
+    Process each tile in a separate (concurrent) process.
+    Number of process depends of `number_of_process` config param and `jobs` argument
+    The lower is kept for safety
+    """
+
+    number_of_process = int(config.get("number_of_process", 1))
+    if args.jobs > number_of_process:
+        logger.warning(
+            "Number of jobs (%s) higher than `number_of_process` config param (%s), reduce it to (%s)",
+            args.jobs,
+            number_of_process,
+            number_of_process
+        )
+    else:
+        number_of_process = args.jobs
+
+    logger.info("Use multi processing (%s concurrent)", number_of_process)
+
+    params = [(tile, _search_url, args, date_range.start_date, date_range.end_date)
+                for tile, _search_url in search_urls.items()]
+    with Pool(number_of_process) as pool:
+        pool.starmap(process_tile, params)
+
+
+def main(args):
+    """Sen2like entry point function"""
+
+    start = datetime.datetime.now(datetime.UTC)
     parser = S2LArgumentParser(os.path.dirname(__file__))
     args = parser.parse_args(args)
 
-    log.configure_loggers(logger, log_path=args.wd, is_debug=args.debug, without_date=args.no_log_date)
-
-    logger.info("Run Sen2like %s with Python %s", __version__, sys.version)
-
     if args.operational_mode is None:
+        print(f"Sen2like {__version__} with Python {sys.version}")
         parser.print_help()
         return 1
+
+    log.configure_loggers(logger, log_path=args.wd, is_debug=args.debug, without_date=args.no_log_date)
+    logger.info("Run Sen2like %s with Python %s", __version__, sys.version)
 
     # get product search urls
     config.update_with_args(args)
@@ -277,14 +331,8 @@ def main(args, with_multiprocess_support=False):
     if search_urls is None:
         return 1
 
-    if args.operational_mode == Mode.MULTI_TILE and with_multiprocess_support and not args.no_run:
-        number_of_process = args.jobs
-        if number_of_process is None:
-            number_of_process = config.get('number_of_process', 1)
-        params = [(tile, _search_url, args, date_range.start_date, date_range.end_date)
-                  for tile, _search_url in search_urls.items()]
-        with Pool(int(number_of_process)) as pool:
-            pool.starmap(process_tile, params)
+    if args.operational_mode == Mode.MULTI_TILE and args.jobs > 1 and not args.no_run:
+        process_concurrent_multi_tile(args, date_range, search_urls)
     else:
         if args.no_run:
             logger.info("No-run mode: Products will only be listed")
@@ -292,10 +340,10 @@ def main(args, with_multiprocess_support=False):
             process_tile(tile, _search_url, args, date_range.start_date, date_range.end_date)
 
     if not args.no_run:
-        logger.info("total processing time : %s", str(datetime.datetime.utcnow() - start))
+        logger.info("total processing time : %s", str(datetime.datetime.now(datetime.UTC) - start))
 
     return 0
 
 
 if __name__ == "__main__":
-    sys.exit(main(sys.argv[1:], with_multiprocess_support=True))
+    sys.exit(main(sys.argv[1:]))

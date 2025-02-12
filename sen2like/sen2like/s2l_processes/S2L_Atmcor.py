@@ -145,7 +145,7 @@ class S2L_Atmcor(S2L_Process):
 
     def preprocess(self, product: S2L_Product):
 
-        log.debug("SMAC Correction")
+        log.info("Attempt to compute coef for SMAC with CAMS data")
 
         mtl = product.mtl
 
@@ -206,14 +206,15 @@ class S2L_Atmcor(S2L_Process):
             self.pressure = estimate_msl[0]  # Pressure - unit: hpa
             self.taup550 = estimate_aot[0]  # taup550 - unit: unitless
 
-            log.info(" Results : ")
+            log.info("Results : ")
             log.info("Estimate Total colum water vapor: %s", estimate_ctwv)
             log.info("Estimate Ozone content (cm-atm) : %s", estimate_gtc03)
             log.info("Estimate Pression (hpa)         : %s", estimate_msl)
             log.info("Estimate Aot 550 nm             : %s", estimate_aot)
+        else:
+            log.info("Unable to load CAMS data, will use default coef")
 
     def process(self, product: S2L_Product, image: S2L_ImageFile, band: str) -> S2L_ImageFile:
-        log.info('Start')
 
         # SMAC correction
         array_in = image.array
@@ -222,8 +223,6 @@ class S2L_Atmcor(S2L_Process):
         if self.generate_intermediate_products:
             out_image.write(creation_options=['COMPRESS=LZW'])
         
-        log.info('End')
-
         return out_image
 
     def postprocess(self, product: S2L_Product):

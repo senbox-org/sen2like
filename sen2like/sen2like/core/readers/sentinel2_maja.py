@@ -206,6 +206,9 @@ class Sentinel2MajaMTL(MajaReader):
     def extract_viewing_angle(self, dst_file, angle_type):
         # Access to MTL and extract vieing angles depending on the angletype
         # Return the list of files that have been generated, out_list
+
+        # FIXME: some common code with _save_angle_as_img
+        
         out_list = []  # Store the path of all outputs
         log.debug('Extract viewing angle')
         try:
@@ -214,7 +217,7 @@ class Sentinel2MajaMTL(MajaReader):
             sys.exit('Invalid XML metadata file.')
 
         # gdal parameter :
-        NoData_value = -9999
+        nodata_value = -32768
 
         # Load xmlf file and retrieve projection parameter :
         epsg_code = root.findtext('.//Horizontal_Coordinate_System/HORIZONTAL_CS_CODE')
@@ -264,9 +267,14 @@ class Sentinel2MajaMTL(MajaReader):
             target_ds.SetGeoTransform(
                 (int(float(ulx)), x_pixel_size, 0, int(float(uly)), 0, -y_pixel_size))
             band = target_ds.GetRasterBand(1)
-            band.SetNoDataValue(NoData_value)
+            band.SetNoDataValue(nodata_value)
             band.SetDescription('Viewing_' + angle_type + '_band_' + str(rec))  # This sets the band name!
-            target_ds.GetRasterBand(1).WriteArray((arr * 100).astype(np.int16), 0, 0)  # int16 with scale factor 100
+
+            arr = np.nan_to_num(arr, nan=nodata_value)
+            arr[(arr != nodata_value)] = arr[(arr != nodata_value)] * 100
+            arr[(arr == nodata_value)] = 0
+
+            target_ds.GetRasterBand(1).WriteArray(arr.astype(np.int16), 0, 0)  # int16 with scale factor 100
             target_ds.SetProjection(wkt)
             band = None
             target_ds = None
@@ -275,13 +283,15 @@ class Sentinel2MajaMTL(MajaReader):
         return out_list
 
     def extract_sun_angle(self, dst_file, angle_type):
+
+        # FIXME: some common code with _save_angle_as_img
         try:
             root = ElementTree.parse(self.mtl_file_name)
         except pars.expat.ExpatError:
             sys.exit('Invalid XML metadata file')
 
         # gdal parameter :
-        NoData_value = -9999
+        nodata_value = -32768
 
         # Load xmlf file and retrieve projection parameter :
         epsg_code = root.findtext('.//Horizontal_Coordinate_System/HORIZONTAL_CS_CODE')
@@ -317,9 +327,14 @@ class Sentinel2MajaMTL(MajaReader):
         target_ds = gdal.GetDriverByName('GTiff').Create(dst_file, x_res, y_res, 1, gdal.GDT_Int16)
         target_ds.SetGeoTransform((int(float(ulx)), x_pixel_size, 0, int(float(uly)), 0, -y_pixel_size))
         band = target_ds.GetRasterBand(1)
-        band.SetNoDataValue(NoData_value)
+        band.SetNoDataValue(nodata_value)
         band.SetDescription('Solar_' + angle_type)
-        band.WriteArray((arr * 100).astype(np.int16), 0, 0)  # int16 with scale factor 100
+
+        arr = np.nan_to_num(arr, nan=nodata_value)
+        arr[(arr != nodata_value)] = arr[(arr != nodata_value)] * 100
+        arr[(arr == nodata_value)] = 0
+
+        band.WriteArray(arr.astype(np.int16), 0, 0)  # int16 with scale factor 100
         target_ds.SetProjection(wkt)
 
     def get_scene_center_coordinates(self):

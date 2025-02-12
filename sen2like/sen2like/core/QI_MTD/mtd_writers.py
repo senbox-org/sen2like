@@ -50,6 +50,7 @@ L2A_TILE_ID_PATH = './General_Info/L2A_TILE_ID'
 L1_TILE_ID_PATH  = './General_Info/L1_TILE_ID'
 TILE_ID_PATH     = './General_Info/TILE_ID'
 GRANULE_PATH     = './General_Info/Product_Info/Product_Organisation/Granule_List/Granule'
+SCENE_CLASSIFICATION_LIST_PATH = './General_Info/Product_Image_Characteristics/Scene_Classification_List'
 GIPP_LIST_PATH   = './Auxiliary_Data_Info/GIPP_List'
 QUALITY_INDICATOR_PATH = './Quality_Indicators_Info'
 IMAGE_CONTENT_QI_PATH  = './Quality_Indicators_Info/Image_Content_QI'
@@ -98,8 +99,8 @@ class S2LProductMtdWriter(XmlWriter, abc.ABC):
         'JPEG2000': 'JPEG2000',
     }
 
-    def __init__(self, sensor: str, input_xml_path: str, H_F='H', outfile: str = None):
-        super().__init__(_template_dict[H_F][sensor]["product"], input_xml_path, H_F=H_F)
+    def __init__(self, sensor: str, input_xml_path: str, H_F='H', psd:str|None = None, outfile: str = None):
+        super().__init__(_template_dict[H_F][sensor]["product"], input_xml_path, H_F=H_F, psd=psd)
         self.outfile = outfile
 
     def manual_replaces(self, product: S2L_Product):
@@ -191,7 +192,27 @@ class Sentinel2ToS2LProductMtdWriter(S2LProductMtdWriter):
         return _generate_sentinel2_tile_id(product, self.H_F, product.metadata.mtd['S2_AC'])
 
     def _specific_replaces(self, product: S2L_Product):
+        # ./General_Info/Product_Info
+        # -----------------------
+        self._process_product_info(product)
 
+        # ./General_Info/Product_Image_Characteristics
+        # -----------------------
+        self._process_product_image_characteristics()
+
+        #  Geometric_info
+        # ---------------
+        copy_elements(['./Geometric_Info/Coordinate_Reference_System'], self.root_in, self.root_out, self.root_bb)
+
+        # Auxiliary_Data_Info
+        # -------------------
+        self._process_auxiliary_data_info()
+
+        # Quality_Indicators_Info
+        # -----------------------
+        copy_elements([QUALITY_INDICATOR_PATH], self.root_in, self.root_out, self.root_bb)
+
+    def _process_product_info(self, product: S2L_Product):
         # GENERAL_INFO
         # ------------
         elements_to_copy = ['./General_Info/Product_Info/Datatake',
@@ -208,6 +229,9 @@ class Sentinel2ToS2LProductMtdWriter(S2LProductMtdWriter):
         if archive_center:
             product.metadata.mtd['S2_AC'] = archive_center[0].text
 
+    def _process_product_image_characteristics(self):
+        # Product_Image_Characteristics
+        # -----------------------
         # If Sbaf is done, we keep the values inside the backbone (S2A values)
         if not config.getboolean('doSbaf'):
             # copy_elements(['./General_Info/Product_Image_Characteristics/Special_Values',
@@ -221,12 +245,30 @@ class Sentinel2ToS2LProductMtdWriter(S2LProductMtdWriter):
         copy_elements(['./General_Info/Product_Image_Characteristics/Reflectance_Conversion/U'], self.root_in,
                       self.root_out)
 
-        #  Geometric_info
-        # ---------------
-        copy_elements(['./Geometric_Info/Coordinate_Reference_System'], self.root_in, self.root_out, self.root_bb)
+        # Product_Image_Characteristics/Scene_Classification_List
+        # -----------------------
+        # update Scene_Classification_List depending input product type and psd
+        classif_element = find_element_by_path(self.root_in, SCENE_CLASSIFICATION_LIST_PATH)
+        if classif_element:
+            # L2A input have Scene_Classification_List, replace backbone values by input values
+            self.remove_children(SCENE_CLASSIFICATION_LIST_PATH)
+            copy_children(self.root_in, SCENE_CLASSIFICATION_LIST_PATH,
+                        self.root_out, SCENE_CLASSIFICATION_LIST_PATH)
+        elif self.psd and self.psd == '15':
+            # L1C input does not have Scene_Classification_List, use backone one,
+            # but change SC_DARK_FEATURE_SHADOW to SC_CAST_SHADOW for L1C input with psd 15
+            classif_element = find_element_by_path(self.root_out, SCENE_CLASSIFICATION_LIST_PATH)
+            _element = find_element_by_path (
+                classif_element[0],
+                './Scene_Classification_ID[SCENE_CLASSIFICATION_TEXT="SC_DARK_FEATURE_SHADOW"]/SCENE_CLASSIFICATION_TEXT'
+            )
+            _element[0].text = "SC_CAST_SHADOW"
+        # else keep backone ones (L1C input psd 14)
 
-        # Auxiliary_Data_Info
-        # -------------------
+        copy_elements(['./General_Info/Product_Image_Characteristics/Reflectance_Conversion/U'], self.root_in,
+                      self.root_out)
+
+    def _process_auxiliary_data_info(self):
         self.remove_children(GIPP_LIST_PATH)
         copy_children(self.root_in, GIPP_LIST_PATH,
                       self.root_out, GIPP_LIST_PATH)
@@ -254,10 +296,6 @@ class Sentinel2ToS2LProductMtdWriter(S2LProductMtdWriter):
         for gri_elm in self.root_in.findall('.//GRI_FILENAME'):
             create_child(self.root_out, './Auxiliary_Data_Info/GRI_List', tag="GRI_FILENAME", text=gri_elm.text)
 
-        # Quality_Indicators_Info
-        # -----------------------
-        copy_elements([QUALITY_INDICATOR_PATH], self.root_in, self.root_out, self.root_bb)
-
 
 class LandsatToS2LProductMtdWriter(S2LProductMtdWriter):
     """Writer of S2H/F Product MTD file for product created from LS product
@@ -267,8 +305,8 @@ class LandsatToS2LProductMtdWriter(S2LProductMtdWriter):
     # - "Landsat" for sensor
     # - "None" for input_xml_path
     # And have a similar constructor contract
-    def __init__(self, sensor: str, input_xml_path: str, H_F='H', outfile: str = None):
-        super().__init__("Landsat", None, H_F, outfile)
+    def __init__(self, sensor: str, input_xml_path: str, H_F='H', psd:str|None = None, outfile: str = None):
+        super().__init__("Landsat", None, H_F, psd, outfile)
 
     def _generate_tile_id(self, product: S2L_Product):
         return _generate_landsat8_tile_id(product, self.H_F)
@@ -337,8 +375,8 @@ class S2LTileMtdWriter(XmlWriter, abc.ABC):
     """Abstract Tile level MTD writer
     """
 
-    def __init__(self, sensor: str, input_xml_path: str, H_F='H', outfile: str = None):
-        super().__init__(_template_dict[H_F][sensor]["tile"], input_xml_path, H_F=H_F)
+    def __init__(self, sensor: str, input_xml_path: str, H_F='H', psd:str|None = None, outfile: str = None):
+        super().__init__(_template_dict[H_F][sensor]["tile"], input_xml_path, H_F=H_F, psd=psd)
         self.outfile = outfile
 
     def manual_replaces(self, product: S2L_Product):
@@ -475,8 +513,8 @@ class LandsatToS2LTileMtdWriter(S2LTileMtdWriter):
     # - "Landsat" for sensor
     # - "None" for input_xml_path
     # And have a similar constructor contract
-    def __init__(self, sensor: str, input_xml_path: str, H_F='H', outfile: str = None):
-        super().__init__("Landsat", None, H_F, outfile)
+    def __init__(self, sensor: str, input_xml_path: str, H_F='H', psd:str|None = None, outfile: str = None):
+        super().__init__("Landsat", None, H_F, psd, outfile)
 
     def _specific_replaces(self, product: S2L_Product):
 

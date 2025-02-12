@@ -39,12 +39,31 @@ from grids import grids
 log = logging.getLogger('Sen2Like')
 
 
+# Update all elements with old namespace
+def _update_element_namespace(elem, old_value, new_value):
+    if elem.tag.startswith('{' + old_value + '}'):
+        elem.tag = elem.tag.replace('{' + old_value + '}', '{' + new_value + '}')
+    
+    # Update attributes
+    new_attrib = {}
+    for key, value in elem.attrib.items():
+        if key.startswith('{' + old_value + '}'):
+            new_key = key.replace('{' + old_value + '}', '{' + new_value + '}')
+            new_attrib[new_key] = value
+        else:
+            new_attrib[key] = value
+    elem.attrib = new_attrib
+    
+    # Process children
+    for child in elem:
+        _update_element_namespace(child, old_value, new_value)
+
 class XmlWriter(abc.ABC):
     """
     Generic xml writer.
     """
 
-    def __init__(self, backbone_path: str, input_xml_path: str|None, H_F: str):
+    def __init__(self, backbone_path: str, input_xml_path: str|None, H_F: str, psd:str|None = None):
         """
         Init 'self.root_out' with given 'backbone_path' and fill it with 'input_xml_path' content if given and is xml.
         'self.root_in' is init with 'input_xml_path' content if given and is xml.
@@ -53,6 +72,7 @@ class XmlWriter(abc.ABC):
         :param input_xml_path: path of the .xml file of the input product, if exists. Can be None
         :param H_F:           Product level (H or F)
         """
+        self.psd = psd
         self.root_in = None
         backbone_path = os.path.join(os.path.dirname(__file__), backbone_path)
         if not os.path.exists(backbone_path):
@@ -66,9 +86,11 @@ class XmlWriter(abc.ABC):
         self.input_xml_path = input_xml_path
 
         try:
-            tree_bb = ElementTree.parse(backbone_path)  # Tree backbone for the output file. Will not be changed
-            self.root_bb = tree_bb.getroot()
-
+            if not psd:
+                tree_bb = ElementTree.parse(backbone_path)  # Tree backbone for the output file. Will not be changed
+                self.root_bb = tree_bb.getroot()
+            else:
+                self.root_bb = self._update_psd(psd, backbone_path)
             if input_xml_path and not input_xml_path.endswith('.txt'):
                 tree_in = ElementTree.parse(input_xml_path)  # Tree of the input mtd (S2 MTD.xml, L2A_QI_report.xml)
                 self.root_in = tree_in.getroot()
@@ -84,6 +106,50 @@ class XmlWriter(abc.ABC):
         self.outfile = None
 
         self.H_F = H_F  # Product level (H or F)
+
+    def _update_psd(self, psd:str, backbone_path:str):
+
+        from io import BytesIO
+
+        # Read file content into memory once
+        with open(backbone_path, 'rb') as f:
+            xml_data = f.read()
+            
+        # Create in-memory buffer
+        xml_buffer = BytesIO(xml_data)
+        
+        # Initialize namespace mapping and root element
+        nsmap = {}
+        root = None
+        
+        # First event will be for root element
+        context = ElementTree.iterparse(xml_buffer, events=['start-ns', 'start'])
+        for event, elem in context:
+            if event == 'start-ns':
+                prefix_found, uri = elem
+                nsmap[prefix_found] = uri
+            elif event == 'start' and root is None:
+                root = elem
+                break
+        
+        # Continue parsing to build complete tree
+        for event, elem in context:
+            if event == 'start-ns':
+                prefix_found, uri = elem
+                nsmap[prefix_found] = uri
+
+        prefix = "n1" # ns prefix in MTD backbone files
+        old_value = nsmap[prefix]
+        new_value = old_value.replace("psd-14", f"psd-{psd}")
+        # Update namespace mapping
+        if prefix in nsmap:
+            # Register updated namespace
+            ElementTree.register_namespace(prefix, new_value)
+            _update_element_namespace(root, old_value, new_value)
+
+        # update schemaLocation
+        root.attrib['{http://www.w3.org/2001/XMLSchema-instance}schemaLocation'] = root.attrib['{http://www.w3.org/2001/XMLSchema-instance}schemaLocation'].replace("psd-14", f"psd-{psd}")
+        return root
 
     @abc.abstractmethod
     def manual_replaces(self, product: S2L_Product):

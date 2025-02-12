@@ -64,7 +64,6 @@ class S2L_InterCalibration(S2L_Process):
         super().__init__(generate_intermediate_products)
 
     def process(self, product: S2L_Product, image: S2L_ImageFile, band: str) -> S2L_ImageFile:
-        log.info('Start')
 
         if product.mtl.mission in COEFFICIENT:
             if float(product.mtl.processing_sw) < 4.0:
@@ -72,15 +71,12 @@ class S2L_InterCalibration(S2L_Process):
                     slope, offset = COEFFICIENT[product.mtl.mission][band]['coef']
                 else:
                     log.info("No inter calibration coefficient defined for %s", band)
-                    log.info('End')
                     return image
             else:
                 log.info("No inter calibration performed for Sentinel-2B Collection-1 products (PB >= 04.00) ")
-                log.info('End')
                 return image
         else:
             log.info("No inter calibration coefficient defined for %s mission", product.mtl.mission)
-            log.info('End')
             return image
 
         if offset is not None and slope is not None:
@@ -95,5 +91,4 @@ class S2L_InterCalibration(S2L_Process):
             if self.generate_intermediate_products:
                 image.write(creation_options=['COMPRESS=LZW'])
 
-        log.info('End')
         return image

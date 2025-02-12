@@ -56,7 +56,6 @@ class S2L_GeometryCheck(S2L_Process):
         self._klt_matcher = klt_matcher
 
     def process(self, product: S2L_Product, image: S2L_ImageFile, band: str) -> S2L_ImageFile:
-        log.info("Start")
 
         # do Geometry Assessment only if required
         assess_geometry_bands = [
@@ -98,8 +97,6 @@ class S2L_GeometryCheck(S2L_Process):
 
             # clear for next band process
             self._tmp_stats = {}
-
-        log.info("End")
 
         return image
 

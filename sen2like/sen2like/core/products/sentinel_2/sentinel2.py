@@ -15,12 +15,15 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import logging
 import glob
 import os
 import re
 from datetime import datetime
 
 from core.products.product import DATE_WITH_MILLI_FORMAT, ProcessingContext, S2L_Product
+
+logger = logging.getLogger('Sen2Like')
 
 # resolution folder name for band
 _L2A_BAND_FOLDER = {
@@ -41,9 +44,21 @@ _L2A_BAND_FOLDER = {
 }
 
 
+_PSD_LOOKUP_TABLE = {
+    "04.00": "14",
+    "05.00": "14",
+    "05.09": "14",
+    "05.10": "14",
+    "05.11": "15",
+}
+
+
+name_start_expr = re.compile(r'S2[ABCD].*')
+
+
 class Sentinel2Product(S2L_Product):
     sensor = 'S2'
-    supported_sensors = ('S2A', 'S2B')
+    supported_sensors = ('S2A', 'S2B', 'S2C', 'S2D')
     is_final = True  # Indicates if this reader is a final format
     native_bands = ('B05', 'B06', 'B07', 'B08')
     brdf_coefficients = {"B02": {"s2_like_band_label": 'BLUE', "coef": [0.0774, 0.0079, 0.0372]},
@@ -67,6 +82,8 @@ class Sentinel2Product(S2L_Product):
         self.read_metadata()
         self._dt_sensing_start = None
         self._ds_sensing_start = None
+        # override
+        self._psd = self._set_psd()
 
     @classmethod
     def date_format(cls, name):
@@ -99,17 +116,48 @@ class Sentinel2Product(S2L_Product):
         return glob.glob(os.path.join(band_path, f'*_{band}{self.mtl.file_extension}'))
 
     def get_smac_filename(self, band):
+        # for S2C and S2D, select S2A cof for now
+        sensor = self.sensor_name
+        if sensor not in ['S2A', 'S2B']:
+            sensor = "S2A"
         # select S2A or S2B coef
         return 'Coef_{}_CONT_{}.dat'.format(self.sensor_name, band.replace('0', '').replace('8A', '8a'))
 
+    def _set_psd(self) -> str:
+        min_supported = min(_PSD_LOOKUP_TABLE.keys())
+        max_supported = max(_PSD_LOOKUP_TABLE.keys())
+
+        # is baseline known
+        if self.mtl.processing_sw not in _PSD_LOOKUP_TABLE.keys():
+            logger.warning("Unknow baseline: %s", self.mtl.processing_sw)
+
+        # is baseline supported     
+        if self.mtl.processing_sw < min_supported:
+            logger.error(
+                "Unsupported Baseline: %s, minimum supported is %s",
+                self.mtl.processing_sw,
+                min_supported
+            )
+            raise Exception(f"Unsupported Baseline: {self.mtl.processing_sw}")
+
+        _psd = _PSD_LOOKUP_TABLE.get(self.mtl.processing_sw, None)
+        # psd found with baseline
+        if _psd:
+            return _psd
+
+        # psd not found, use latest
+        _psd = _PSD_LOOKUP_TABLE.get(max_supported)
+        logger.warning("Consider latest PSD %s for baseline %s", _psd, self.mtl.processing_sw)
+        return _psd
+
     @property
     def sensor_name(self):
+        # catch S2A | S2B | S2C | S2D
         return self.mtl.product_name[:3]
-        # return 'S' + self.mtl.mission[-2:]  # S2A or S2B
 
     @staticmethod
-    def can_handle(product_name):
-        return os.path.basename(product_name).startswith(('S2A', 'S2B'))
+    def can_handle(product_path):
+        return name_start_expr.match(os.path.basename(product_path)) is not None
 
     @property
     def dt_sensing_start(self) -> datetime:

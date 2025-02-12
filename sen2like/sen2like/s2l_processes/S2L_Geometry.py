@@ -62,6 +62,11 @@ def reframe_mask(
 
 
 class S2L_Geometry(S2L_Process):
+    """
+    Class to reframe a product in a MGRS geometry
+    and correct the product geometry based on reference product
+    """
+
     def __init__(
         self,
         klt_matcher: KLTMatcher,
@@ -107,16 +112,17 @@ class S2L_Geometry(S2L_Process):
         # No geometric correction for refined products
         if product.mtl.is_refined:
             if self._force_geometric_correction:
-                log.info("Product is refined but geometric correction is forced.")
+                log.info(
+                    "Product %s is refined but geometric correction is forced.",
+                    product.name
+                )
             else:
-                log.info("Product is refined: no additional geometric correction.")
+                log.info("Product %s is refined: no additional geometric correction.", product.name)
                 # have a dummy klt result for COREGISTRATION_BEFORE_CORRECTION computation
                 self._klt_results.append(KTLResult([0], [0], 0))
                 # attempt to preprocess related, it could be not refined
                 self._preprocess_related(product)
                 return
-
-        log.info("Start S2L_Geometry preprocess for %s", product.name)
 
         # reframe angle file and validity mask, reframed validity mask is needed for matching
         self._pre_reframe_aux_files(product)
@@ -124,7 +130,8 @@ class S2L_Geometry(S2L_Process):
         # Matching for dx/dy correction, goal is to compute and feed dx, dy in product
         self._do_matching(product)
 
-        # Reframe aux data with computed dx/dy, but not angle file because it have a very low resolution
+        # Reframe aux data with computed dx/dy,
+        # but not angle file because it have a very low resolution
         self._post_reframe_aux_files(product)
 
         # attempt to preprocess related
@@ -140,6 +147,7 @@ class S2L_Geometry(S2L_Process):
         """
         # Reframe angles, only once without correction because very low resolution
         if product.reframe_angle_file:
+            log.info("MGRS reframe angle file of %s", product.name)
             filepath_out = os.path.join(product.working_dir, "tie_points_REFRAMED.TIF")
             mgrs_framing.reframe_multiband(
                 product.angles_file, product.mgrs, filepath_out, product.dx, product.dy, order=0
@@ -149,6 +157,7 @@ class S2L_Geometry(S2L_Process):
 
         # Reframe validity mask only because needed for KLT
         if product.mask_filename:
+            log.info("MGRS reframe mask file of %s", product.name)
             reframe_mask(product, "mask_filename", "valid_pixel_mask_REFRAMED.TIF")
 
     def _post_reframe_aux_files(self, product: S2L_Product):
@@ -160,14 +169,21 @@ class S2L_Geometry(S2L_Process):
         valid_mask: S2L_ImageFile|None = None
         no_data_mask: S2L_ImageFile|None = None
         if product.mask_filename:
-            valid_mask = reframe_mask(product, "mask_filename", "valid_pixel_mask_REFRAMED_GEOM_CORRECTED.TIF")
+            log.info("MGRS Reframe mask of product %s", product.name)
+            valid_mask = reframe_mask(
+                product,
+                "mask_filename",
+                "valid_pixel_mask_REFRAMED_GEOM_CORRECTED.TIF"
+            )
 
         if product.nodata_mask_filename:
+            log.info("MGRS Reframe no data mask of product %s", product.name)
             no_data_mask = reframe_mask(
                 product, "nodata_mask_filename", "nodata__mask_REFRAMED_GEOM_CORRECTED.TIF"
             )
 
         if product.ndvi_filename is not None:
+            log.info("MGRS Reframe NDVI of product %s", product.name)
             reframe_mask(product, "ndvi_filename", "ndvi_REFRAMED_GEOM_CORRECTED.TIF", DCmode=True)
 
         if valid_mask and no_data_mask:
@@ -221,6 +237,7 @@ class S2L_Geometry(S2L_Process):
         """
         # do the preprocess for related product if any
         if product.related_product is not None:
+            log.info("Preprocess %s", product.related_product.name)
             self.preprocess(product.related_product)
             # will make related product processed band by band
             self._process_related_product = True
@@ -241,9 +258,15 @@ class S2L_Geometry(S2L_Process):
         # No geometric correction for refined products
         if product.mtl.is_refined:
             if self._force_geometric_correction:
-                log.info("Product is refined but geometric correction is forced.")
+                log.info(
+                    "In process, product %s is refined but geometric correction is forced.",
+                    product.name
+                )
             else:
-                log.info("process: Product is refined: no additional geometric correction.")
+                log.info(
+                    "In process, product %s is refined: no additional geometric correction.",
+                    product.name
+                )
 
                 # attempt to process related, it could be no refined
                 self._process_related(product, band)
@@ -251,13 +274,9 @@ class S2L_Geometry(S2L_Process):
 
         self._output_file = self.output_file(product, band)
 
-        log.info("Start S2L_Geometry process for %s band %s", product.name, band)
-
         # MGRS reframing
         log.debug("Product dx / dy : %s / %s", product.dx, product.dy)
         image = self._reframe(product, image, product.dx, product.dy)
-
-        log.info("End")
 
         # attempt to process related
         self._process_related(product, band)
@@ -267,7 +286,8 @@ class S2L_Geometry(S2L_Process):
     def _process_related(self, product: S2L_Product, band: str):
         """
         Process related product band if product have a related.
-        Process only if product have been preprocessed because process is used in preprocess (_process_related_product flag)
+        Process only if product have been preprocessed
+        because process is used in preprocess (_process_related_product flag)
 
         Args:
             product (S2L_Product): product that could have a related product
@@ -276,11 +296,17 @@ class S2L_Geometry(S2L_Process):
         # when process is called first from preprocess, does not process the related product
         # let it to the call of preprocess for the related product
         if self._process_related_product and product.related_product is not None:
+            log.info(
+                "Process band %s of related product %s for %s",
+                band,
+                product.related_product.name,
+                product.name
+            )
             related_image = self.process(
                 product.related_product, product.related_product.get_band_file(band), band
             )
             # set related_image IN THE RELATED_PRODUCT of product
-            product.related_product.related_image = related_image
+            product.related_product.related_image_dict[band] = related_image
 
     def _do_matching(self, product: S2L_Product):
         """

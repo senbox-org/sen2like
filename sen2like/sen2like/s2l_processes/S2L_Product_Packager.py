@@ -156,9 +156,11 @@ class S2L_Product_Packager(S2L_Process):
 
         metadata = product.metadata
         # set it first as it is used in base_path_product
-        metadata.mtd['product_creation_date'] = metadata.mtd.get('product_creation_date', dt.datetime.utcnow())
+        metadata.mtd['product_creation_date'] = metadata.mtd.get('product_creation_date', dt.datetime.now(dt.UTC))
 
         product_name, granule_compact_name, tile_code, _ = self.base_path_product(product)
+
+        log.info("Prepare output folder and QI info for %s", product_name)
 
         metadata.mtd[self.mtd_product_name_field] = product_name
         metadata.mtd[self.mtd_granule_name_field] = granule_compact_name
@@ -197,7 +199,6 @@ class S2L_Product_Packager(S2L_Process):
         :return: output instance of S2L_ImageFile class
         """
 
-        log.info('Start process')
         if not self.guard(product):
             log.info('Abort process due to execution condition')
             return image
@@ -237,6 +238,14 @@ class S2L_Product_Packager(S2L_Process):
         nodata_mask = S2L_ImageFile(product.nodata_mask_filename).array
 
         if nodata_mask.shape != image.array.shape:
+            
+            log.info(
+                "Resize no data mask for band %s from shape %s to shape %s",
+                band,
+                nodata_mask.shape,
+                image.array.shape
+            )
+
             nodata_mask = skit_resize(
                 nodata_mask.clip(min=-1.0, max=1.0), image.array.shape, order=0, preserve_range=True
             ).astype(np.uint8)
@@ -255,7 +264,6 @@ class S2L_Product_Packager(S2L_Process):
         # declare output internally
         self.images[s2_band] = image.filepath
 
-        log.info('End process')
         return image
 
     def postprocess(self, product: S2L_Product):
@@ -265,7 +273,6 @@ class S2L_Product_Packager(S2L_Process):
         :param pd: instance of S2L_Product class
         """
 
-        log.info('Start postprocess')
         if not self.guard(product):
             log.info('Abort post process due to execution condition')
             return
@@ -318,7 +325,6 @@ class S2L_Product_Packager(S2L_Process):
             f"{product.metadata.mtd[self.mtd_band_root_name_field]}_QL_B432.jpg",
             granule_compact_name
         )
-        log.info('End postprocess')
 
     def postprocess_quicklooks(self, qi_data_dir: str, product: S2L_Product):
         """
@@ -426,7 +432,7 @@ class S2L_Product_Packager(S2L_Process):
         tile_mtd_out_path = os.path.join(granule_dir, self.tile_mtd_file_path)
 
         writer_class = get_tile_mtl_writer_class(product.sensor)
-        mtd_writer = writer_class(product.sensor, product.mtl.tile_metadata, self.product_suffix)
+        mtd_writer = writer_class(product.sensor, product.mtl.tile_metadata, self.product_suffix, psd=product.psd)
 
         mtd_writer.manual_replaces(product)
         mtd_writer.write(tile_mtd_out_path, pretty_print=True)
@@ -439,7 +445,7 @@ class S2L_Product_Packager(S2L_Process):
         product_mtd_out_path = os.path.join(product_path, product_mtd_file_name)
 
         writer_class = get_product_mtl_writer_class(product.sensor)
-        mtd_writer = writer_class(product.sensor, product.mtl.mtl_file_name, self.product_suffix)
+        mtd_writer = writer_class(product.sensor, product.mtl.mtl_file_name, self.product_suffix, psd=product.psd)
 
         mtd_writer.manual_replaces(product)
         mtd_writer.write(product_mtd_out_path, pretty_print=True)

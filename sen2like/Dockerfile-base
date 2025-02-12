@@ -7,7 +7,7 @@ FROM continuumio/miniconda3:23.10.0-1
 WORKDIR /usr/local/sen2like
 
 # Create the environment:
-# copy requirements.txt from sources to docker image
-COPY ./requirements.txt .
+# copy environment.yml from sources to docker image
+COPY ./environment.yml .
 # create sen2like env from requirement
-RUN conda create -n sen2like --file requirements.txt -c conda-forge
+RUN conda env create --file environment.yml

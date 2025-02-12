@@ -33,7 +33,7 @@
     <DEM_Directory>dem/CopernicusDEM90</DEM_Directory>
     <!-- should be either a directory in the sen2cor home folder or 'NONE'. If NONE, no DEM will be
     used -->
-    <DEM_Reference>CDSE-GLO-90</DEM_Reference>
+    <DEM_Reference>https://copernicus-dem-90m.s3.eu-central-1.amazonaws.com/</DEM_Reference>
     <!-- DEM_Reference is used to 1) reference the DEM in the L2A Metadata and, alternatively, 2) to set the url where DEM can be automatically downloaded.
         1) To use previously downloaded CDSE DGED DEM, set <DEM_Reference> to 'CDSE-GLO-30' or 'CDSE-GLO-90' (resolution, 30/90, is mandatory).
         2) To use the Copernicus DEM hosted by AWS, set <DEM_Reference>https://copernicus-dem-90m.s3.eu-central-1.amazonaws.com/</DEM_Reference>.

@@ -23,16 +23,24 @@ class TestS2L_InterCalibration(TestCase):
 
         config.set('wd', os.path.join(test_folder_path, methodName))
 
+
     def test_S2B_band01(self):
-        _product_path = os.path.join(config.get('base_url'), 'Sentinel2', '31TFJ',
-                                     'S2B_MSIL1C_20171114T104259_N0206_R008_T31TFJ_20171114T124011.SAFE')
+        _product_path = os.path.join(
+            config.get('base_url'),
+            'Sentinel2',
+            '31TFJ',
+            'S2B_MSIL1C_20171114T104259_N0500_R008_T31TFJ_20230822T002015.SAFE'
+        )
 
         context = ProcessingContext(config, "31TFJ")
         product = Sentinel2Product(_product_path, context)
         product.working_dir = os.path.join(config.get("wd"), product.name)
         image = S2L_ImageFile(
             os.path.join(
-                _product_path, "GRANULE/L1C_T31TFJ_A003609_20171114T104257/IMG_DATA/T31TFJ_20171114T104259_B01.jp2"))
+                _product_path,
+                "GRANULE/L1C_T31TFJ_A003609_20171114T104257/IMG_DATA/T31TFJ_20171114T104259_B01.jp2"
+            )
+        )
 
         # MUST RUN TOA before inter calibration
         block = S2L_Toa(False)
@@ -41,18 +49,28 @@ class TestS2L_InterCalibration(TestCase):
         block = S2L_InterCalibration(False)
         result_image = block.process(product, image, "B01")
 
-        self.assertNotEqual(image.filepath, result_image.filepath,
-                            "Result image should be different from the input image for S2B")
+        self.assertEqual(
+            image.filepath,
+            result_image.filepath,
+            "Result image should be the same for S2B with baseline > 4"
+        )
 
     def test_S2B_band09(self):
-        _product_path = os.path.join(config.get('base_url'), 'Sentinel2', '31TFJ',
-                                     'S2B_MSIL1C_20171114T104259_N0206_R008_T31TFJ_20171114T124011.SAFE')
+        _product_path = os.path.join(
+            config.get('base_url'),
+            'Sentinel2',
+            '31TFJ',
+            'S2B_MSIL1C_20171114T104259_N0500_R008_T31TFJ_20230822T002015.SAFE'
+        )
         context = ProcessingContext(config, "31TFJ")
         product = Sentinel2Product(_product_path, context)
         product.working_dir = os.path.join(config.get("wd"), product.name)
         image = S2L_ImageFile(
             os.path.join(
-                _product_path, "GRANULE/L1C_T31TFJ_A003609_20171114T104257/IMG_DATA/T31TFJ_20171114T104259_B09.jp2"))
+                _product_path,
+                "GRANULE/L1C_T31TFJ_A003609_20171114T104257/IMG_DATA/T31TFJ_20171114T104259_B09.jp2"
+            )
+        )
 
         # MUST RUN TOA before inter calibration
         block = S2L_Toa(False)
