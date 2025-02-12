@@ -145,7 +145,7 @@ class _GeoInfo(NamedTuple):
 def _save_angle_as_img(dst_file, arr, geo_info: _GeoInfo, description: str):
 
     # gdal parameter :
-    nodata_value = -9999
+    nodata_value = -32768
 
     # scale between -180 and 180 deg.
     if arr.max() > 180.0:
@@ -164,7 +164,17 @@ def _save_angle_as_img(dst_file, arr, geo_info: _GeoInfo, description: str):
     band = target_ds.GetRasterBand(1)
     band.SetNoDataValue(nodata_value)
     band.SetDescription(description)
-    band.WriteArray((arr * 100).astype(np.int16), 0, 0)  # int16 with scale factor 100
+
+    arr = np.nan_to_num(arr, nan=nodata_value)
+    arr[(arr != nodata_value)] = arr[(arr != nodata_value)] * 100
+    # FIXME: keep no data value for nodata when
+    # nodata pixel carefully handled by other processing
+    # For now, set nodata to 0 to avoid artefact close to swath border
+    # mitigation to be in line with 4.4.x
+    # see also sentinel2_maja having same trick
+    arr[(arr == nodata_value)] = 0
+
+    band.WriteArray(arr.astype(np.int16), 0, 0)  # int16 with scale factor 100
     target_ds.SetProjection(geo_info.wkt)
     band = None
     target_ds = None

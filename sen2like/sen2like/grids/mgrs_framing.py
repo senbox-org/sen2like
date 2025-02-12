@@ -102,6 +102,7 @@ def resample(image: S2L_ImageFile, res: int, filepath_out: str) -> S2L_ImageFile
     Returns:
         S2L_ImageFile: resampled image as `S2L_ImageFile`
     """
+    log.info("Resample to %s %s into %s", res, image.filepath, filepath_out)
     # create output dir if not exist
     output_dir = os.path.dirname(filepath_out)
     if not os.path.exists(output_dir):

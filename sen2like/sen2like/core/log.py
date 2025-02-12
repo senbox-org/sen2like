@@ -41,13 +41,13 @@ def configure_loggers(
 
     file_handler = logging.FileHandler(os.path.join(log_path, log_filename))
 
-    date_format = "" if without_date else "%(asctime)s "
+    date_format = "" if without_date else "%(asctime)s | "
 
     level = logging.DEBUG if is_debug else logging.INFO
 
     logger.setLevel(level)
 
-    log_format = f"[%(levelname)-8s] {date_format}- %(module)-20s - %(message)s"
+    log_format = f"{date_format}P-%(process)d | T-%(thread)-5d | %(levelname)-8s | %(module)-20s - %(message)s"
     formatter = logging.Formatter(
         fmt=log_format,
         datefmt="%Y-%m-%d %H:%M:%S",

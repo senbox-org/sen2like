@@ -43,6 +43,10 @@ def node_value(dom, node_name):
     return node.childNodes[0].data
 
 
+name_start_expr = re.compile(r'S2[ABCD]_MSIL.*')
+absolute_orbit_expr = re.compile(r'A\d{6}_')
+
+
 class Sentinel2MTL(BaseReader):
     """Object for S2 product metadata extraction"""
 
@@ -343,7 +347,7 @@ class Sentinel2MTL(BaseReader):
             self.isValid = False
 
         # Absolute orbit is contained in the granule ID as _A00000_
-        absolute_orbit = re.compile(r'A\d{6}_').search(self.granule_id)
+        absolute_orbit = absolute_orbit_expr.search(self.granule_id)
         self.absolute_orbit = '000000' if absolute_orbit is None else absolute_orbit.group()[1:-1]
 
         # L2A QI report file
@@ -359,7 +363,7 @@ class Sentinel2MTL(BaseReader):
         # S2L_structure_check = os.path.isdir(os.path.join(product_name, 'GRANULE')) and \
         #                       ('L2F_' in name or 'LS8_' in name or 'LS9_' in name)
         # return name.startswith('S2') or (name.startswith('L2F') and '_S2' in name) or S2L_structure_check
-        return name.startswith('S2A_MSIL') or name.startswith('S2B_MSIL')
+        return name_start_expr.match(name) is not None
 
     def get_scene_center_coordinates(self):
         m = mgrs.MGRS()

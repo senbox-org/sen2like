@@ -1,5 +1,34 @@
 # Sen2Like Release Notes
 
+## v4.5.0
+
+**Main update of this release is the update to python 3.12. We highly recommend to recreate your sen2like conda environment**
+
+### **Breaking changes**
+
+* Remove support for S2 products with processing baseline < 04.00.  
+S2 Collection-1 products are fully supported as well as S2 Core products (L1C, L2A) with processing baseline >= 04.00
+
+### Important note about DEM downloader module
+
+As mentionned for release 4.4.4, the DEM downloader module is not working anymore due to prism-dem-open.copernicus.eu decommissioning. As a consequence, the Sen2like TopographiCorrection module cannot be applied.
+
+**It is possible to perform topographic correction with Sen2cor3 which rely on a different approach for DEM usage.**
+
+### New features
+
+* Bump python version to 3.12
+* Bump dependencies versions
+* Add support for PSD 15, equivalent to PB >= 05.11
+* Add support for future satellites S2C and S2D
+
+### Fix
+
+* datetime utcnow deprecation
+* Fusion processing block initialisation
+* `--version` program argument
+* Ensure that all S2 products processing are finished before to process LS products to avoid missing data with `--parallelize-bands` option
+
 ## v4.4.4
 
 ### Fix
@@ -34,7 +63,6 @@ Instructions to retrieve sen2cor3 software and associated documentation availabl
 
 * Force operational-mode parameter as first command line argument
 * Remove `_pretty=` parameter in the creodias catalogue URL in the default configuration as it is no more supported by datahub catalogue.
-* Update miniconda in [Dockerfile-base](Dockerfile-base)
 * Typos in sen2like project [README.md](../README.md)
 
 ## v4.4.1

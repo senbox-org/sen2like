@@ -307,7 +307,7 @@ class S2FileExtractor(InputFileExtractor):
         Returns:
             MaskImage: valid mask container
         """
-        log.info('Generating validity mask from cloud mask, baseline 4.0')
+        log.info('Generating validity mask from cloud mask, baseline >= 4.0')
         log.debug('mask filename: %s', mask_filename)
 
         log.debug('Read cloud mask: %s', self._input_product.cloudmask)

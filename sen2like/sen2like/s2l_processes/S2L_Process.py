@@ -17,12 +17,16 @@
 
 """S2L_Process abstraction definition
 """
+import logging
 import os
 from abc import ABC, abstractmethod
 
 from core import S2L_config
 from core.image_file import S2L_ImageFile
 from core.products.product import S2L_Product
+
+
+log = logging.getLogger("Sen2Like")
 
 
 class S2L_Process(ABC):
@@ -49,7 +53,7 @@ class S2L_Process(ABC):
         Args:
             product (S2L_Product): product to preprocess
         """
-        # deliberately empty
+        log.info("%s: Nothing to preprocess here for %s", type(self).__name__, product.name)
 
     @abstractmethod
     def process(
@@ -74,7 +78,7 @@ class S2L_Process(ABC):
         Args:
             product (S2L_Product): product to post process
         """
-        # deliberately empty
+        log.info("%s: Nothing to postprocess here for %s", type(self).__name__, product.name)
 
     def output_file(self, product, band, extension=None):
         if extension is None:

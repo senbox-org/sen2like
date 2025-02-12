@@ -34,7 +34,6 @@ class S2L_Toa(S2L_Process):
         super().__init__(generate_intermediate_products)
 
     def process(self, product: S2L_Product, image: S2L_ImageFile, band: str) -> S2L_ImageFile:
-        log.info('Start')
 
         # convert to TOA (gain + offset)
         array_in = image.array
@@ -42,7 +41,5 @@ class S2L_Toa(S2L_Process):
         image = image.duplicate(self.output_file(product, band), array=array_out)
         if self.generate_intermediate_products:
             image.write(creation_options=['COMPRESS=LZW'])
-
-        log.info('End')
 
         return image

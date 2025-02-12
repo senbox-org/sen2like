@@ -1,0 +1,48 @@
+# This file may be used to create an environment using:
+# conda env create --file <this file>
+name: sen2like
+channels:
+  - conda-forge
+dependencies:
+  - python=3.12.7
+  - gdal=3.10.0 # install numpy hdf5
+  - libgdal-jp2openjpeg=3.10.0
+  - mgrs=1.4.6
+  - opencv=4.10.0
+  - netcdf4=1.7.2
+  #- pykml=0.2.0 # only to build grid databases should be in another package
+  - pystac=1.11.0
+  - python-fmask=0.5.10
+  - rasterio=1.4.3 # install proj, numpy
+  - scikit-image=0.24.0 # install scipy
+  - shapely=2.0.6 # install geos
+  - xarray=2024.11.0 # install panda
+  - xmltodict=0.14.2
+  - xmlschema=3.4.3
+  # sen2cor dependencies
+  - glymur=0.13.6
+  - psutil=6.1.0
+  - pytables=3.10.1 # install hdf5
+  - libgdal-grib=3.10.0
+  - rioxarray=0.18.2
+
+# python=3.10.9
+# gdal=3.6.2
+# mgrs=1.4.3
+# netcdf4=1.6.2
+# numpy=1.24.2
+# opencv=4.7.0
+# pykml=0.2.0
+# pystac=1.6.1
+# python-fmask=0.5.8
+# rasterio=1.3.4
+# scikit-image=0.19.3
+# shapely=2.0.1
+# xarray=2023.2.0
+# xmltodict=0.13.0
+# xmlschema=2.2.1
+# # sen2cor additional dependencies
+# glymur=0.12.7
+# psutil=5.9.5
+# pytables=3.7.0
+# Cython=0.29.35

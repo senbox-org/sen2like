@@ -89,7 +89,7 @@ class S2LArgumentParser(ArgumentParser):
         subparser have specific and common arguments
 
         """
-
+        self.add_argument('--version', '-v', action='version', version='%(prog)s ' + __version__)
         # use parser_class=ArgumentParser avoid error on subparsers.add_parser
         # see https://stackoverflow.com/questions/47833828/subparsers-add-parser-typeerror-init-got-an-unexpected-keyword-argument
         subparsers = self.add_subparsers(dest='operational_mode', help="Operational mode", parser_class=ArgumentParser)
@@ -113,7 +113,7 @@ class S2LArgumentParser(ArgumentParser):
         sp_multi_tile_mode.add_argument("roi", help="Json file containing the ROI to process")
         self._add_tile_mode_arguments(sp_multi_tile_mode)
         sp_multi_tile_mode.add_argument("--jobs", "-j", dest="jobs", help="Number of tile to process in parallel",
-                                        default=None)
+                                        type=int, default=1)
         self._add_common_arguments(sp_multi_tile_mode)
 
         # ROI based mode arguments
@@ -136,7 +136,6 @@ class S2LArgumentParser(ArgumentParser):
 
         """
 
-        parser.add_argument('--version', '-v', action='version', version='%(prog)s ' + __version__)
         parser.add_argument("--refImage", dest="refImage", type=str,
                             help="Reference image (use as geometric reference)", metavar="PATH", default=None)
         parser.add_argument("--wd", dest="wd", type=str,

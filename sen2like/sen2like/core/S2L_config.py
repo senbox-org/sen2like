@@ -315,7 +315,7 @@ class S2L_Config:
             self.overload(args.confParams)
 
         # set working dir
-        output_folder = str(int(datetime.datetime.utcnow().timestamp()))
+        output_folder = str(int(datetime.datetime.now(datetime.UTC).timestamp()))
         self.set('wd', os.path.join(args.wd, output_folder))
         self.set('debug', args.debug)
         self.set('generate_intermediate_products', args.generate_intermediate_products)

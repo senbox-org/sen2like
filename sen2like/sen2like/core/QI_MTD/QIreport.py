@@ -28,6 +28,7 @@ from core.QI_MTD.generic_writer import (
     change_elm,
     chg_elm_with_tag,
     create_child,
+    find_element_by_path,
     remove_namespace,
 )
 from core.QI_MTD.mtd import Metadata
@@ -77,7 +78,7 @@ class QiWriter(XmlWriter):
 
         # Data_Block
         # ----------
-        report_creation_date = dt.datetime.strftime(dt.datetime.utcnow(), '%Y-%m-%dT%H:%M:%SZ')
+        report_creation_date = dt.datetime.strftime(dt.datetime.now(dt.UTC), '%Y-%m-%dT%H:%M:%SZ')
         change_elm(self.root_out, rpath='./Data_Block/report', attr_to_change='date',
                    new_value=report_creation_date)
         chg_elm_with_tag(self.root_out, tag='value', new_value=metadata.qi.get('MEAN', 'None'),
@@ -98,6 +99,10 @@ class QiWriter(XmlWriter):
         change_elm(self.root_out, rpath='./Data_Block/report/checkList/item', attr_to_change='name',
                    new_value=metadata.mtd.get(granule_name_field))
 
+        # process L2A input for PSD 15 support (DARK_FEATURES_PERCENTAGE replaced by CAST_SHADOW_PERCENTAGE)
+        if self.input_xml_path and product.psd == '15':
+            self._manage_psd_15()
+
     def _sbaf_replace(self, metadata: Metadata):
         extra_values_elem = './Data_Block/report/checkList[parentID="L2H_SBAF"]/check/extraValues'
         # # Removing unchanged SBAF values and inserting new ones
@@ -115,6 +120,32 @@ class QiWriter(XmlWriter):
                     tag=ns + 'value', text=str(item),
                     attribs={"name": key}
                 )
+
+    def _manage_psd_15(self):
+        """
+        Replace element `value` attribute `name` DARK_FEATURES_PERCENTAGE with CAST_SHADOW_PERCENTAGE 
+        and set its value properly
+        """
+        DARK_FEATURES_PERCENTAGE_PATH = './Data_Block/report/checkList[parentID="L2A_SC"]/check/extraValues/value[@name="DARK_FEATURES_PERCENTAGE"]'
+        CAST_SHADOW_PERCENTAGE_PATH = './Data_Block/report/checkList[parentID="L2A_SC"]/check/extraValues/value[@name="CAST_SHADOW_PERCENTAGE"]'
+
+        elem = find_element_by_path(self.root_out, DARK_FEATURES_PERCENTAGE_PATH)
+        if len(elem) != 1:
+            log.error(
+                "PSD15: Unable to replace DARK_FEATURES_PERCENTAGE by CAST_SHADOW_PERCENTAGE, 0 or > 1 elem match in template"
+            )
+            return
+
+        orig = find_element_by_path(self.root_in, CAST_SHADOW_PERCENTAGE_PATH)
+        if len(orig) != 1:
+            log.error(
+                "PSD15: Unable to find CAST_SHADOW_PERCENTAGE in %s, 0 or > 1 elem match",
+                self.input_xml_path
+            )
+            return
+
+        elem[0].attrib["name"] = "CAST_SHADOW_PERCENTAGE"
+        elem[0].text=orig[0].text
 
     def _feed_values_dict(self, metadata):
         """

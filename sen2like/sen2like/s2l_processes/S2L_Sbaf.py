@@ -130,7 +130,6 @@ class S2L_Sbaf(S2L_Process):
         return adj_coef
 
     def process(self, product: S2L_Product, image: S2L_ImageFile, band: str) -> S2L_ImageFile:
-        log.info("Start")
 
         # init to None
         sbaf_params = None
@@ -139,7 +138,6 @@ class S2L_Sbaf(S2L_Process):
             # Feed params for QI report
             self._sbaf_params[band] = SbafParams(1, 0)
             log.info("Skip for %s", product.mtl.mission)
-            log.info("End")
             return image
 
         # TODO : what about MAJA product ?
@@ -170,8 +168,6 @@ class S2L_Sbaf(S2L_Process):
 
             if self.generate_intermediate_products:
                 image.write(creation_options=["COMPRESS=LZW"])
-
-        log.info("End")
 
         return image
 

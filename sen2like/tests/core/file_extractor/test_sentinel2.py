@@ -20,7 +20,7 @@ class TestSentinel2Reader(AbstractExtractorTestCase):
     def test_s2_l1c(self):
         """test S2 L1C
         """
-        image_masks = self._verify("31TFJ/S2A_MSIL1C_20171030T104151_N0206_R008_T31TFJ_20171030T160027.SAFE",
+        image_masks = self._verify("31TFJ/S2A_MSIL1C_20171030T104151_N0500_R008_T31TFJ_20231014T203907.SAFE",
                      "nodata_pixel_mask_B01.tif", self._testMethodName)
 
         # self.assertEqual(s2_reader.mask_info.mask_size, 30140100)

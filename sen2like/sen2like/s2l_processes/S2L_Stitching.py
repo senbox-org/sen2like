@@ -102,44 +102,66 @@ class S2L_Stitching(S2L_Process):
         """
 
         if product.related_product is None:
+            # FIXME: disable stitching processing block
+            log.info("Nothing to preprocess, no related product")
             return
 
         related_product = product.related_product
 
         # stitch
         if None not in [product.mask_filename, related_product.mask_filename]:
-            stitched_mask = self.stitch(product, S2L_ImageFile(product.mask_filename), S2L_ImageFile(related_product.mask_filename))
+            log.info("Stitch mask of products % and %s", product.name, related_product.name)
+            stitched_mask = self.stitch(
+                product,
+                S2L_ImageFile(product.mask_filename),
+                S2L_ImageFile(related_product.mask_filename)
+            )
             stitched_mask.write(creation_options=['COMPRESS=LZW'])
             product.mask_filename = stitched_mask.filepath
 
         if None not in [product.nodata_mask_filename, related_product.nodata_mask_filename]:
-            stitched_mask = self.stitch(product, S2L_ImageFile(product.nodata_mask_filename), S2L_ImageFile(related_product.nodata_mask_filename))
+            log.info("Stitch nodata mask of products % and %s", product.name, related_product.name)
+            stitched_mask = self.stitch(
+                product,
+                S2L_ImageFile(product.nodata_mask_filename),
+                S2L_ImageFile(related_product.nodata_mask_filename)
+            )
             stitched_mask.write(creation_options=['COMPRESS=LZW'])
             product.nodata_mask_filename = stitched_mask.filepath
 
         if product.ndvi_filename is not None and related_product.ndvi_filename is not None:
-            stitched_ndvi = self.stitch(product, S2L_ImageFile(product.ndvi_filename), S2L_ImageFile(related_product.ndvi_filename))
+            log.info("Stitch ndvi of products % and %s", product.name, related_product.name)
+            stitched_ndvi = self.stitch(
+                product,
+                S2L_ImageFile(product.ndvi_filename),
+                S2L_ImageFile(related_product.ndvi_filename)
+            )
             stitched_ndvi.write(DCmode=True, creation_options=['COMPRESS=LZW'])
             product.ndvi_filename = stitched_ndvi.filepath
 
-        stitched_angles = self.stitch_multi(product, product.angles_file, related_product.angles_file)
+        log.info("Stitch angles of products % and %s", product.name, related_product.name)
+        stitched_angles = self.stitch_multi(
+            product,
+            product.angles_file,
+            related_product.angles_file
+        )
         product.angles_file = stitched_angles
 
     def process(self, product: S2L_Product, image: S2L_ImageFile, band: str) -> S2L_ImageFile:
-        log.info('Start')
         if product.related_product is None:
             log.info("None product found for stitching.")
-            log.info('End')
             return image
 
         # stitch products band image
-        related_image = product.related_product.related_image
+        related_image = product.related_product.related_image_dict[band]
         stitched_product_image = self.stitch(product, image, related_image, band, np.float32)
         stitched_product_image.write(creation_options=['COMPRESS=LZW'], DCmode=True)
 
         product.filenames[band] = stitched_product_image.filepath
 
+        # free memory, not needed anymore
+        del product.related_product.related_image_dict[band]
+
         # Todo: Update metadata
 
-        log.info('End')
         return stitched_product_image

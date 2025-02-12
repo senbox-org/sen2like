@@ -21,6 +21,7 @@ import glob
 import logging
 import os
 import re
+from abc import ABC, abstractmethod
 from collections import OrderedDict
 from dataclasses import dataclass
 from datetime import datetime
@@ -134,7 +135,7 @@ class BandParam:
     KGEO_INPUT: None
 
 
-class BRDFCoefficient:
+class BRDFCoefficient(ABC):
     mtd = 'NONE'
 
     def __init__(self, product):
@@ -143,14 +144,17 @@ class BRDFCoefficient:
     def _get_band(self, band):
         return self.product.bands_mapping[band]
 
-    def check(self, band):
-        return True
+    @abstractmethod
+    def check(self, band) -> bool:
+        ...
 
+    @abstractmethod
     def get_cmatrix_full(self, image: S2L_ImageFile, band_param: BandParam):
-        return np.zeros(image.shape)
+        ...
 
+    @abstractmethod
     def compute_Kvol(self, theta_s, theta_v, phi):
-        return np.identity(theta_s.shape[0])
+        ...
 
 
 class ROYBRDFCoefficient(BRDFCoefficient):
@@ -424,6 +428,8 @@ class S2L_Nbar(S2L_Process):
         Args:
             product (S2L_Product): product to preprocess
         """
+        log.info("Select BRDF stategy for %s", product.name)
+
         lat = product.mtl.get_scene_center_coordinates()[1]
         scene_center_latitude = lat
         self._theta_s = get_mean_sun_angle(scene_center_latitude)
@@ -440,8 +446,6 @@ class S2L_Nbar(S2L_Process):
             log.info("Use ROY coefficients")
 
     def process(self, product: S2L_Product, image: S2L_ImageFile, band: str) -> S2L_ImageFile:
-
-        log.info('Start')
 
         _band_param = BandParam(band, None, None, None, None)
 
@@ -460,8 +464,6 @@ class S2L_Nbar(S2L_Process):
             image_out = image.duplicate(self.output_file(product, band), array=OUT.astype(np.float32))
             if self.generate_intermediate_products:
                 image_out.write(creation_options=['COMPRESS=LZW'])
-
-        log.info('End')
 
         return image_out
 

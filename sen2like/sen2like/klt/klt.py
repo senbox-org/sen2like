@@ -20,7 +20,7 @@ KLT module
 """
 import logging
 import os
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 
 import cv2
 import numpy as np
@@ -31,6 +31,9 @@ from core.image_file import S2L_ImageFile
 
 log = logging.getLogger("Sen2Like")
 
+def default_np() -> np.ndarray:
+    return np.zeros([1, 1], float)
+
 
 @dataclass
 class KTLResult():
@@ -39,8 +42,8 @@ class KTLResult():
     Default init for result with no matching point
     to ease it usage.
     """
-    dx_array: np.ndarray = np.zeros([1, 1], float)
-    dy_array: np.ndarray = np.zeros([1, 1], float)
+    dx_array: np.ndarray = field(default_factory=default_np)
+    dy_array: np.ndarray = field(default_factory=default_np)
     nb_matching_point: int = 0
 
 
