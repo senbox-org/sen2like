@@ -1,5 +1,11 @@
 # Sen2Like Release Notes
 
+## v4.5.1
+
+### Fix
+
+* Freeze sqlite version to fix "no such column ... should this be a string literal in single-quotes?" error
+
 ## v4.5.0
 
 **Main update of this release is the update to python 3.12. We highly recommend to recreate your sen2like conda environment**

@@ -110,7 +110,7 @@ python sen2like.py
 That should display
 
 ```
-Sen2like 4.5.0 with Python 3.12.7 | packaged by conda-forge | (main, Oct  4 2024, 15:47:54) [MSC v.1941 64 bit (AMD64)]
+Sen2like 4.5.1 with Python 3.12.7 | packaged by conda-forge | (main, Oct  4 2024, 15:47:54) [MSC v.1941 64 bit (AMD64)]
 usage: sen2like.py [-h] [--version] {product-mode,single-tile-mode,multi-tile-mode,roi-based-mode} ...
 
 positional arguments:
@@ -211,7 +211,7 @@ You can run it directly without entering into the container:
 ```bash
 docker run --rm my-internal-docker-registry-url/sen2like/sen2like:4.5
 
-Sen2like 4.5.0 with Python 3.12.7 | packaged by conda-forge | (main, Oct  4 2024, 15:47:54) [MSC v.1941 64 bit (AMD64)]
+Sen2like 4.5.1 with Python 3.12.7 | packaged by conda-forge | (main, Oct  4 2024, 15:47:54) [MSC v.1941 64 bit (AMD64)]
 usage: sen2like.py [-h] [--version] {product-mode,single-tile-mode,multi-tile-mode,roi-based-mode} ...
 
 positional arguments:
