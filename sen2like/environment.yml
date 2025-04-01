@@ -19,6 +19,7 @@ dependencies:
   - xarray=2024.11.0 # install panda
   - xmltodict=0.14.2
   - xmlschema=3.4.3
+  - sqlite=3.48.0
   # sen2cor dependencies
   - glymur=0.13.6
   - psutil=6.1.0
