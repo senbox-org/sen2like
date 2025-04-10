@@ -1,5 +1,11 @@
 # Sen2Like Release Notes
 
+## v4.5.2
+
+### Fix
+
+* S2 processing first (https://github.com/senbox-org/sen2like/issues/18)
+
 ## v4.5.1
 
 ### Fix
