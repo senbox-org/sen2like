@@ -25,6 +25,7 @@ import logging
 import os
 import sys
 from argparse import Namespace
+from collections import defaultdict
 from multiprocessing import Pool
 
 from core import log
@@ -212,6 +213,31 @@ def process_an_input_product(tile, input_product, conf, args, tile_ref_image):
     del s2l_product
 
 
+def group_product_list(input_products_list: list[InputProduct]) -> dict[str, list[InputProduct]]:
+    """
+    A comprehensive function that group products by instrument and sort product by date asc.
+    output dict is sorted by key desc, it assumes S2 is the higher
+    product lists are sorted by date asc
+
+    Returns:
+        dict[str, list[InputProduct]]: products grouped by instrument with S2 first
+    """
+
+    # First, group products by instrument
+    instrument_groups = defaultdict(list)
+    for product in input_products_list:
+        instrument_groups[product.instrument].append(product)
+
+    # Sort each group by date
+    for instrument in instrument_groups:
+        instrument_groups[instrument].sort(key=lambda prod: prod.short_date)
+
+    # Sort the instruments, with S2 as the highest priority (if present)
+    sorted_instruments = sorted(instrument_groups.keys(), reverse=True)
+
+    # Create the final ordered dictionary
+    return {instrument: instrument_groups[instrument] for instrument in sorted_instruments}
+
 def process_tile(tile: str, search_urls: list[tuple], args: Namespace, start_date: datetime.datetime,
                   end_date: datetime.datetime):
     """
@@ -256,15 +282,7 @@ def process_tile(tile: str, search_urls: list[tuple], args: Namespace, start_dat
         logger.warning('%s with a L2A product, force s2_processing_level to LEVEL2A', Mode.PRODUCT)
         config.set('s2_processing_level', 'LEVEL2A')
 
-    # group products by instrument to process them by instrument
-    # BE CAREFULL, it assumes that input_products_list is well sorted
-    # (S2 first and then by acquisition date)
-    grouped_by_instrument = {}
-    for input_product in input_products_list:
-        if input_product.instrument not in grouped_by_instrument:
-            grouped_by_instrument[input_product.instrument] = [input_product]
-        else:
-            grouped_by_instrument[input_product.instrument].append(input_product)
+    grouped_by_instrument = group_product_list(input_products_list)
 
     logger.debug("Products groupby instrument: %s", grouped_by_instrument)
 

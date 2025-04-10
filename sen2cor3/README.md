@@ -1,53 +1,28 @@
-# Sen2Cor 3 version 3.03.00
+# Sen2Cor 3 version 3.03.01
 
-## Retrieve Sen2cor 3.03.00 documentation from sftp server
+## Retrieve Sen2cor 3.03.01 documentation and software:
 
-```
-hostname = 'sftp.telespazio.fr'
-port = 22  # default SFTP port is 22
-username = 'sen2cor3'
-password = '4sen2like'
-remote_path = '/upload/Sen2Cor-3.03.00/Documentation/'
-```
+To receive the documentation and software package in ZIP format, please send an email request including the following information:
 
-**_Sen2cor 3.03.00 Software Release Note:_**  
-sftp://sen2cor3@sftp.telespazio.fr/upload/Sen2Cor-3.03.00/Documentation/OMPC.TPZ.SRN.003%20-%20i1r0%20-%20Sen2Cor%203.03.00%20Software%20Release%20Note.pdf
+- Email object: "Download request Sen2cor v3.3" 
 
-**_Sen2cor 3.03.00 Software Configuration and User Manual:_**  
-sftp://sen2cor3@sftp.telespazio.fr/upload/Sen2Cor-3.03.00/Documentation/OMPC.TPZ.SUM.003%20-%20i1r0%20-%20Sen2Cor%203.03.00%20Configuration%20and%20User%20Manual.pdf
 
-## Retrieve Sen2cor 3.03.00 software from sftp server
+- Full Name
+- Country
+- Affiliation (e.g., university, company, organization)
+- Application Interest (e.g., research, commercial use, educational purposes)
+- Brief Description of Intended Use (optional)
 
-Either with a software like Filezilla:
+Please email your request to: [sen2like@telespazio.com]
 
-```
-hostname = 'sftp.telespazio.fr'
-port = 22  # default SFTP port is 22
-username = 'sen2cor3'
-password = '4sen2like'
-remote_path = '/upload/Sen2Cor-3.03.00/Software/sen2cor_3.3.0_python_3.12_20250131.zip'
-```
+Once we receive your email, we will review your request and provide the download link accordingly.
 
-e.g: sftp://sen2cor3@sftp.telespazio.fr/upload/Sen2Cor-3.03.00/Software/sen2cor_3.3.0_python_3.12_20250131.zip
-
-or with the example script "sen2cor3_download.py" based on "paramiko" module.  
-It requires paramiko module that could be installed with conda [see below](#create-the-sen2like-conda-environment):
-
-```
-conda activate sen2like
-conda install paramiko -c conda-forge
-```
-
-```
-python sen2cor3_download.py sen2cor3_install_dir
-```
-
-## Unzip sen2cor_3.3.0_python_3.12.zip into the Sen2Cor 3 directory of your choice
+## Unzip sen2cor_3.3.1_python_3.12.zip into the Sen2Cor 3 directory of your choice
 
 ```
 e.g. sen2cor3_install_dir=/opt/sen2cor3/code/
 cd $sen2cor3_install_dir
-unzip sen2cor_3.3.0_python_3.12.zip
+unzip sen2cor_3.3.1_python_3.12.zip
 ```
 
 ## Auxiliary Data Symbolic linking
@@ -65,7 +40,7 @@ Examples of symbolic linking is given hereafter:
 
 
 ```
-cd $sen2cor3_install_dir/sen2cor_3.3.0_python_3.12/SEN2COR_3/aux_data
+cd $sen2cor3_install_dir/sen2cor_3.3.1_python_3.12/SEN2COR_3/aux_data
 ln -s /data/CAMS/daily ./ECMWF/daily
 ln -s /data/AUX_DATA/ESACCI-LC-L4-Snow-Cond-500m-MONTHLY-2000-2012-v2.4 ./ESACCI-LC-L4-Snow-Cond-500m-MONTHLY-2000-2012-v2.4
 ln -s /data/AUX_DATA/ESACCI-LC-L4-WB-Map-150m-P13Y-2000-v4.0.tif ./ESACCI-LC-L4-WB-Map-150m-P13Y-2000-v4.0.tif
@@ -81,7 +56,7 @@ https://repo.anaconda.com/miniconda/Miniconda3-py312_25.1.1-2-Linux-x86_64.sh
 Once you retrieved the code, go into Sen2Cor3 root source folder and run the following command to create a conda env named sen2like:
 
 ```
-cd $sen2cor3_install_dir/sen2cor_3.3.0_python_3.12
+cd $sen2cor3_install_dir/sen2cor_3.3.1_python_3.12
 conda env create --file requirements.yml
 ```
 
@@ -96,7 +71,7 @@ conda activate sen2like_py312
 ### Test the Command line execution
 
 ```
-python $sen2cor3_install_dir/sen2cor_3.3.0_python_3.12/SEN2COR_3/L2A_Process.py --help
+python $sen2cor3_install_dir/sen2cor_3.3.1_python_3.12/SEN2COR_3/L2A_Process.py --help
 
 output:
 usage: L2A_Process.py [-h] [--mode MODE] [--resolution {10,20,30,60}] [--datastrip DATASTRIP] [--tile TILE] [--output_dir OUTPUT_DIR] [--work_dir WORK_DIR]
@@ -105,7 +80,7 @@ usage: L2A_Process.py [-h] [--mode MODE] [--resolution {10,20,30,60}] [--datastr
                       [--GIP_L2A_SC GIP_L2A_SC] [--GIP_L2A_AC GIP_L2A_AC] [--GIP_L2A_PB GIP_L2A_PB] [--Hyper_MS]
                       input_dir
 
-Sen2Cor. Version: 03.03.00, created: 2025.01.31, supporting Level-1C product version 15.0, supporting Level-1TP Collection_1-2 Landsat_8-9, supporting Hyper MS Level-1C.
+Sen2Cor. Version: 03.03.01, created: 2025.04.10, supporting Level-1C product version 15.0, supporting Level-1TP Collection_1-2 Landsat_8-9, supporting Hyper MS Level-1C.
 
 positional arguments:
   input_dir             Directory of Level-1C input
@@ -149,6 +124,3 @@ options:
 
 
 ``` 
-
-
-

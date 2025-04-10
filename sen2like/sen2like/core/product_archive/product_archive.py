@@ -443,27 +443,47 @@ class InputProductArchive:
 
         return input_products_filtered
 
-    def _filter_and_sort_products(self, input_products: list[InputProduct], tile) -> list[InputProduct]:
-        # update tile coverage and filter
+    def _filter_and_sort_products(self, input_products: list[InputProduct], tile:str) -> list[InputProduct]:
+        """
+        Filter and select the best products for a specific tile.
+        
+        This function processes a list of input products through multiple filtering steps:
+        1. Filters products based on minimum tile coverage requirements
+        2. Groups products by date and instrument type
+        3. Applies product composition filtering within each group
+        4. Selects the product with the highest tile coverage from each group
+        
+        Args:
+            input_products (list[InputProduct]): List of products to filter and select from
+            tile (str): Tile identifier to use for coverage filtering
+            
+        Returns:
+            list[InputProduct]: List of best products, with one product selected from each 
+                            date/instrument group based on maximum tile coverage
+        """
+        # Filter products based on tile coverage
         filtered_input_products = self.filter_on_tile_coverage(input_products, tile)
 
-        # Group products by dates
-        flipped = defaultdict(lambda: defaultdict(list))
-        for input_product in filtered_input_products:
-            flipped[input_product.short_date][input_product.instrument].append(input_product)
+        # Group products by date and instrument
+        products_by_date_and_instrument = defaultdict(lambda: defaultdict(list))
+        for product in filtered_input_products:
+            products_by_date_and_instrument[product.short_date][product.instrument].append(product)
 
+        # Process each group and select the best product
         results = []
-        for date, instruments in flipped.items():
-            for instrument, _products in instruments.items():
+        for date, instruments_dict in products_by_date_and_instrument.items():
+            for instrument, products_list in instruments_dict.items():
+                # Filter products based on composition criteria
+                filtered_products = self.filter_product_composition(products_list)
+                
+                # Select product with highest tile coverage
+                best_product = max(
+                    filtered_products,
+                    key=lambda p: p.tile_coverage if p.tile_coverage is not None else 0
+                )
+                
+                results.append(best_product)
 
-                _products = self.filter_product_composition(_products)
-
-                results.append(sorted(_products, key=lambda p: p.tile_coverage if p.tile_coverage is not None else 0,
-                                      reverse=True)[0])
-
-        # Sort products by date, and S2 products before L8 products
-        results = sorted(sorted(results, key=lambda prod: prod.instrument, reverse=True),
-                         key=lambda prod: prod.short_date)
         return results
 
     @staticmethod
