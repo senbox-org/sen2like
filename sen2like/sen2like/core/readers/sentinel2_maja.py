@@ -24,11 +24,10 @@ from xml import parsers as pars
 
 import mgrs
 import numpy as np
-from osgeo import gdal, osr
-
 from atmcor.get_s2_angles import get_angles_band_index, reduce_angle_matrix
 from core.metadata_extraction import from_date_to_doy
 from core.readers.maja_reader import MajaReader
+from osgeo import gdal, osr
 
 log = logging.getLogger("Sen2Like")
 

@@ -25,7 +25,6 @@ from core import S2L_config
 from core.image_file import S2L_ImageFile
 from core.products.product import S2L_Product
 
-
 log = logging.getLogger("Sen2Like")
 
 

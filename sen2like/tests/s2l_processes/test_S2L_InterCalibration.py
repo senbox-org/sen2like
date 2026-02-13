@@ -1,12 +1,11 @@
 import os
 from unittest import TestCase
 
-from core.S2L_config import config
 from core.image_file import S2L_ImageFile
+from core.products.landsat_8.landsat8 import Landsat8Product
 from core.products.product import ProcessingContext
 from core.products.sentinel_2.sentinel2 import Sentinel2Product
-from core.products.landsat_8.landsat8 import Landsat8Product
-
+from core.S2L_config import config
 from s2l_processes.S2L_InterCalibration import S2L_InterCalibration
 from s2l_processes.S2L_Toa import S2L_Toa
 

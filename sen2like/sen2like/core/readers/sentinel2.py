@@ -25,7 +25,6 @@ from xml.dom import minidom
 
 import mgrs
 import numpy as np
-
 from core.metadata_extraction import from_date_to_doy
 from core.readers.reader import BaseReader, compute_scene_boundaries
 

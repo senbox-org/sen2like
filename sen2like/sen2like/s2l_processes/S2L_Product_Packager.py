@@ -24,10 +24,8 @@ import shutil
 from dataclasses import dataclass
 from xml.etree import ElementTree
 
-import numpy as np
-from skimage.transform import resize as skit_resize
-
 import core.QI_MTD.S2_structure
+import numpy as np
 import version
 from core import S2L_config
 from core.image_file import S2L_ImageFile
@@ -41,6 +39,7 @@ from core.QI_MTD.QIreport import QiWriter
 from core.QI_MTD.stac_interface import STACWriter
 from core.S2L_tools import quicklook
 from s2l_processes.S2L_Process import S2L_Process
+from skimage.transform import resize as skit_resize
 
 log = logging.getLogger("Sen2Like")
 

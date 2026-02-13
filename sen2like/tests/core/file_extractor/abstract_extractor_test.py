@@ -1,15 +1,14 @@
 """abstract reader test module
 """
 
+import filecmp
 import os
 import pathlib
 import shutil
-import filecmp
-
 from unittest import TestCase
 
+from core.file_extractor.file_extractor import ImageMasks, extractor_class
 from core.S2L_config import config
-from core.file_extractor.file_extractor import extractor_class, ImageMasks
 
 test_folder_path = os.path.dirname(__file__)
 configuration_file = os.path.join(test_folder_path, "config.ini")

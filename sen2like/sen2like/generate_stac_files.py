@@ -23,7 +23,6 @@ import os
 import sys
 
 import rasterio
-
 from core.products.hls_product import S2L_HLS_Product
 from core.QI_MTD.stac_interface import (
     S2LSTACCatalog,

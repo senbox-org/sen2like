@@ -28,16 +28,15 @@ from datetime import datetime
 
 import numpy as np
 import xarray as xr
-from osgeo import gdal
-from skimage.measure import block_reduce
-from skimage.transform import resize as skit_resize
-
 from atmcor.get_s2_angles import get_angles_band_index
 from core import S2L_config
 from core.image_file import S2L_ImageFile
 from core.products.product import S2L_Product
 from core.S2L_tools import out_stat
+from osgeo import gdal
 from s2l_processes.S2L_Process import S2L_Process
+from skimage.measure import block_reduce
+from skimage.transform import resize as skit_resize
 
 log = logging.getLogger("Sen2Like")
 

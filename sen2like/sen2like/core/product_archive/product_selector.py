@@ -19,12 +19,11 @@
 import logging
 from argparse import Namespace
 
-from osgeo import gdal
-
 from core.argparser import DateRange, Mode
 from core.product_archive import tile_db
 from core.product_archive.product_archive import InputProductArchive
 from core.S2L_config import config
+from osgeo import gdal
 
 logger = logging.getLogger("Sen2Like")
 

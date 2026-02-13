@@ -16,18 +16,16 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import affine
 import logging
 import os
 import subprocess
+
+import affine
 import lxml.etree as ET
-
-from osgeo import osr
 import mgrs
-
 from core import S2L_config
 from core.image_file import S2L_ImageFile
-
+from osgeo import osr
 
 logger = logging.getLogger("Sen2Like")
 

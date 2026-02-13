@@ -25,13 +25,6 @@ import os
 from xml.dom import minidom
 
 import numpy as np
-from fmask import config as fmask_config
-from fmask import landsatangles
-from osgeo import gdal
-from rios import fileinfo
-from skimage.morphology import erosion, square
-from skimage.transform import resize as skit_resize
-
 from atmcor import get_s2_angles as s2_angles
 from core.file_extractor.landsat_utils import downsample_coarse_image, make_angles_image
 from core.image_file import S2L_ImageFile
@@ -41,6 +34,12 @@ from core.readers.landsat_maja import LandsatMajaMTL
 from core.readers.reader import BaseReader
 from core.readers.sentinel2 import Sentinel2MTL, Sentinel2PrismaMTL
 from core.readers.sentinel2_maja import Sentinel2MajaMTL
+from fmask import config as fmask_config
+from fmask import landsatangles
+from osgeo import gdal
+from rios import fileinfo
+from skimage.morphology import erosion, square
+from skimage.transform import resize as skit_resize
 
 log = logging.getLogger("Sen2Like")
 

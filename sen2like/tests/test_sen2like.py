@@ -1,11 +1,10 @@
 from datetime import datetime
-
 from unittest import TestCase
 
-from sen2like.sen2like import group_product_list
 from sen2like.core.product_archive.product_archive import InputProduct
 from sen2like.core.products.landsat_8.landsat8 import Landsat8Product
 from sen2like.core.products.sentinel_2.sentinel2 import Sentinel2Product
+from sen2like.sen2like import group_product_list
 
 
 class TestSen2like(TestCase):

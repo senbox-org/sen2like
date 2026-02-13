@@ -11,7 +11,6 @@ from core.S2L_config import config
 from core.sen2cor_client import sen2cor_client
 from core.sen2cor_client.sen2cor_client import Sen2corClient as S2CClient
 
-
 test_folder_path = os.path.dirname(__file__)
 configuration_file = os.path.join(test_folder_path, "config.ini")
 

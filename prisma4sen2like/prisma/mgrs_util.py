@@ -23,8 +23,9 @@
 """
 import mgrs
 from geometry import LatLong
-from sen2like.grids import GridsConverter, MGRSGeoInfo
 from shapely.wkt import loads
+
+from sen2like.grids import GridsConverter, MGRSGeoInfo
 
 _MGRS = mgrs.MGRS()
 

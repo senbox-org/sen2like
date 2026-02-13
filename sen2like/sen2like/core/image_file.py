@@ -19,9 +19,8 @@ import logging
 import os
 
 import numpy as np
-from osgeo import gdal, osr
-
 from core import S2L_config
+from osgeo import gdal, osr
 
 log = logging.getLogger("Sen2Like")
 

@@ -24,10 +24,9 @@ from dataclasses import dataclass, field
 
 import cv2
 import numpy as np
+from core.image_file import S2L_ImageFile
 from pandas import DataFrame
 from skimage.transform import resize as skit_resize
-
-from core.image_file import S2L_ImageFile
 
 log = logging.getLogger("Sen2Like")
 

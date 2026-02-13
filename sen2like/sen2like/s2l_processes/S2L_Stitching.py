@@ -24,10 +24,9 @@ import logging
 import os
 
 import numpy as np
-from osgeo import gdal
-
 from core.image_file import S2L_ImageFile
 from core.products.product import S2L_Product
+from osgeo import gdal
 from s2l_processes.S2L_Process import S2L_Process
 
 log = logging.getLogger("Sen2Like")

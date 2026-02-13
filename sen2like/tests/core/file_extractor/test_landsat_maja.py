@@ -2,9 +2,9 @@
 """
 
 import os
-from core.readers.landsat_maja import LandsatMajaMTL
-from abstract_extractor_test import AbstractExtractorTestCase
 
+from abstract_extractor_test import AbstractExtractorTestCase
+from core.readers.landsat_maja import LandsatMajaMTL
 
 test_folder_path = os.path.dirname(__file__)
 roi_path_file = os.path.join(test_folder_path, "Avignon-communes-84-vaucluse.geojson")

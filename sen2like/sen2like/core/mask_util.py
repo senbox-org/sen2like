@@ -19,9 +19,7 @@ import logging
 from dataclasses import dataclass
 
 import numpy as np
-
 from core.image_file import S2L_ImageFile
-
 
 log = logging.getLogger("Sen2Like")
 

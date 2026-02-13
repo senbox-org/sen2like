@@ -24,11 +24,10 @@ from collections import defaultdict
 from datetime import datetime
 from urllib.request import urlopen
 
-from osgeo import ogr
-
 from core import S2L_config
 from core.product_archive import tile_db
 from core.products import get_s2l_product_class
+from osgeo import ogr
 
 logger = logging.getLogger("Sen2Like")
 

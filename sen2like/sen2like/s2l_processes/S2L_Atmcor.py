@@ -23,7 +23,6 @@ import logging
 import os
 
 import numpy as np
-
 from atmcor.atmospheric_parameters import ATMO_parameter
 from atmcor.cams_data_reader import ECMWF_Product
 from atmcor.smac import smac

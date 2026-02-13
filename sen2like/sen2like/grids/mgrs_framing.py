@@ -26,6 +26,9 @@ from typing import NamedTuple
 
 import numpy as np
 import pandas as pd
+
+# internal packages
+from core.image_file import S2L_ImageFile
 from numpy.typing import NDArray
 from osgeo import gdal, osr
 from shapely.geometry.base import BaseGeometry
@@ -34,9 +37,6 @@ from skimage.measure import block_reduce
 from skimage.transform import SimilarityTransform, estimate_transform
 from skimage.transform import resize as skit_resize
 from skimage.transform import warp as skit_warp
-
-# internal packages
-from core.image_file import S2L_ImageFile
 
 from . import grids
 

@@ -28,10 +28,6 @@ import re
 from os.path import basename, join
 
 import numpy as np
-from skimage.measure import block_reduce
-from skimage.morphology import dilation, square
-from skimage.transform import resize as skit_resize
-
 from core import S2L_config
 from core.image_file import S2L_ImageFile
 from core.products.hls_product import S2L_HLS_Product
@@ -39,6 +35,9 @@ from core.products.product import S2L_Product
 from core.S2L_tools import out_stat
 from grids import mgrs_framing
 from s2l_processes.S2L_Process import S2L_Process
+from skimage.measure import block_reduce
+from skimage.morphology import dilation, square
+from skimage.transform import resize as skit_resize
 
 log = logging.getLogger("Sen2Like")
 

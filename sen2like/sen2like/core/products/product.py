@@ -21,8 +21,6 @@ import logging
 import os
 
 import numpy as np
-from skimage.transform import resize as skit_resize
-
 from core import readers
 from core.file_extractor.file_extractor import extractor_class
 from core.image_file import S2L_ImageFile
@@ -32,6 +30,7 @@ from core.QI_MTD.mtd import Metadata
 from core.readers import BaseReader
 from core.S2L_config import S2L_Config
 from core.toa_reflectance import convert_to_reflectance_from_reflectance_cal_product
+from skimage.transform import resize as skit_resize
 
 logger = logging.getLogger("Sen2Like")
 

@@ -23,10 +23,9 @@ from datetime import timedelta
 from math import ceil, floor
 
 import numpy as np
+from core.S2L_config import S2L_Config
 from netCDF4 import Dataset
 from osgeo import gdal
-
-from core.S2L_config import S2L_Config
 
 log = logging.getLogger("Sen2Like")
 

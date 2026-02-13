@@ -32,7 +32,6 @@ from xml.etree.ElementTree import Element
 
 import xmlschema
 import xmltodict
-
 from core.products.product import S2L_Product
 from grids import grids
 

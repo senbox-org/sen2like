@@ -2,9 +2,9 @@
 """
 
 import os
-from core.readers.sentinel2_maja import Sentinel2MajaMTL
-from abstract_extractor_test import AbstractExtractorTestCase
 
+from abstract_extractor_test import AbstractExtractorTestCase
+from core.readers.sentinel2_maja import Sentinel2MajaMTL
 
 test_folder_path = os.path.dirname(__file__)
 roi_path_file = os.path.join(test_folder_path, "Avignon-communes-84-vaucluse.geojson")

@@ -21,7 +21,6 @@
 import logging
 
 import numpy as np
-
 from core import S2L_config
 
 log = logging.getLogger("Sen2Like")

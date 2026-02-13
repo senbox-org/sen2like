@@ -24,7 +24,7 @@ from concurrent.futures import ThreadPoolExecutor
 
 from core.product_preparation import ProductPreparator
 from core.products.product import S2L_Product
-from core.S2L_config import config, PROC_BLOCKS
+from core.S2L_config import PROC_BLOCKS, config
 from s2l_processes import S2L_Process, create_process_block
 
 logger = logging.getLogger("Sen2Like")

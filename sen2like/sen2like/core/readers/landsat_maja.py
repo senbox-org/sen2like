@@ -23,14 +23,13 @@ import re
 import shapely
 import shapely.geometry
 import shapely.wkt
-from osgeo import ogr
-
 from core.metadata_extraction import (
     compute_earth_solar_distance,
     from_date_to_doy,
     get_in_band_solar_irrandiance_value,
 )
 from core.readers.maja_reader import MajaReader
+from osgeo import ogr
 
 log = logging.getLogger("Sen2Like")
 

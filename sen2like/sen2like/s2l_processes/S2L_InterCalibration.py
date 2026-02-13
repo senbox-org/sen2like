@@ -21,7 +21,6 @@
 import logging
 
 import numpy as np
-
 from core.image_file import S2L_ImageFile
 from core.products.product import S2L_Product
 from s2l_processes.S2L_Process import S2L_Process

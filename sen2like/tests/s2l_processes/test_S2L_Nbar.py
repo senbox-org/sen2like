@@ -5,11 +5,10 @@ from datetime import datetime
 from tempfile import TemporaryDirectory
 from unittest import TestCase
 
-from core.S2L_config import config
 from core.products.product import ProcessingContext, S2L_Product
 from core.readers.reader import BaseReader
+from core.S2L_config import config
 from s2l_processes.S2L_Nbar import VJBMatriceBRDFCoefficient
-
 
 test_folder_path = os.path.dirname(__file__)
 configuration_file = os.path.join(test_folder_path, "config.ini")

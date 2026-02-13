@@ -25,9 +25,6 @@ import re
 from datetime import datetime
 
 import numpy as np
-from osgeo import gdal
-from shapely.wkt import loads
-
 import version
 from core.products.product import S2L_Product
 from core.QI_MTD.generic_writer import (
@@ -42,6 +39,8 @@ from core.QI_MTD.generic_writer import (
     search_db,
 )
 from core.S2L_config import config
+from osgeo import gdal
+from shapely.wkt import loads
 
 log = logging.getLogger("Sen2Like")
 

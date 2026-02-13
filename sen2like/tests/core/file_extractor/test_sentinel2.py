@@ -2,9 +2,9 @@
 """
 
 import os
-from core.readers.sentinel2 import Sentinel2MTL
-from abstract_extractor_test import AbstractExtractorTestCase
 
+from abstract_extractor_test import AbstractExtractorTestCase
+from core.readers.sentinel2 import Sentinel2MTL
 
 test_folder_path = os.path.dirname(__file__)
 roi_path_file = os.path.join(test_folder_path, "Arles-communes-13-bouches-du-rhone.geojson")

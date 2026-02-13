@@ -22,9 +22,6 @@ import logging
 import os
 import re
 
-# use lxml as it better manager namespaces
-from lxml import etree as ET
-
 from core.metadata_extraction import (
     NOT_FOUND,
     compute_earth_solar_distance,
@@ -32,6 +29,9 @@ from core.metadata_extraction import (
     reg_exp,
 )
 from core.readers.reader import BaseReader
+
+# use lxml as it better manager namespaces
+from lxml import etree as ET
 
 log = logging.getLogger("Sen2Like")
 

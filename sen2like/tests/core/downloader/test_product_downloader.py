@@ -4,8 +4,12 @@ from unittest import TestCase
 
 from core.products.landsat_8.landsat8 import Landsat8Product
 from core.products.sentinel_2.sentinel2 import Sentinel2Product
-from sen2like.core.product_archive.product_archive import InputProductArchive, InputProduct
 from core.S2L_config import config
+
+from sen2like.core.product_archive.product_archive import (
+    InputProduct,
+    InputProductArchive,
+)
 
 configuration_file = os.path.join(os.path.dirname(__file__), "config.ini")
 
