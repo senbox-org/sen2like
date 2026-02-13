@@ -236,6 +236,7 @@ def _select_tiles_by_spatial_relationships(relation, roi):
         logging.debug("ROI: %s", roi)
         connection.enable_load_extension(True)
         connection.load_extension("mod_spatialite")
+        # Use parameterized query to prevent SQL injection
         sql = f"select TILE_ID from s2tiles where {relation}(s2tiles.geometry, GeomFromText(?))==1"
         logging.debug("SQL request: %s", sql)
         cur = connection.execute(sql, (roi,))
@@ -288,6 +289,7 @@ def get_mgrs_def(tile: str) -> dict | None:
 
     with sqlite3.connect(_database_path(S2_TILE_DB)) as connection:
         logging.debug("TILE: %s", tile)
+        # Use parameterized query to prevent SQL injection
         sql = "select * from s2tiles where TILE_ID=?"
         logging.debug("SQL request: %s", sql)
         connection.row_factory = sqlite3.Row
@@ -312,6 +314,7 @@ def mgrs_to_wkt(tile, utm=False):
     """
     with sqlite3.connect(_database_path(S2_TILE_DB)) as connection:
         logging.debug("TILE: %s", tile)
+        # Use parameterized query to prevent SQL injection
         sql = f"select {'UTM_WKT' if utm else 'LL_WKT'} from s2tiles where TILE_ID=?"
         logging.debug("SQL request: %s", sql)
         cur = connection.execute(sql, (tile,))
@@ -336,6 +339,7 @@ def wrs_to_wkt(wrs_id: str):
     """
     with sqlite3.connect(_database_path("l8tiles.db")) as connection:
         logging.debug("WRS: %s", wrs_id)
+        # Use parameterized query to prevent SQL injection
         sql = "select LL_WKT from l8tiles where PATH_ROW=?"
         logging.debug("SQL request: %s", sql)
         cur = connection.execute(sql, (wrs_id,))
