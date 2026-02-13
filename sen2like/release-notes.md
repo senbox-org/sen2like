@@ -1,5 +1,12 @@
 # Sen2Like Release Notes
 
+## v4.5.3
+
+### New features
+
+* Add support for CreoDIAS ODATA API
+* Support CAMS CF-1.7 convention and previous CF-1.6 convention
+
 ## v4.5.2
 
 ### Fix

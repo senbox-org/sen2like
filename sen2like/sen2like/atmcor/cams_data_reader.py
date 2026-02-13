@@ -331,6 +331,19 @@ class ECMWF_Product:
             return nc_file
         return None
 
+
+    def assign_CAMS_Conventions(self, rootgrp):
+
+        try:
+            if rootgrp.variables['forecast_reference_time']:
+                assigned_conventions = 'CF-1.7'
+        except:
+            if rootgrp.variables['time']:
+                assigned_conventions = 'CF-1.6'
+
+        return assigned_conventions
+
+
     def set_daily_array(self, nc_file, observation_date):
         """ Retrieve for the given observation date
         The full array for each available atmospheric parameters
@@ -340,7 +353,6 @@ class ECMWF_Product:
         4 hours
         """
         rootgrp = Dataset(nc_file)
-        nctimes = rootgrp.variables['time'][:]
 
         key_in = list(rootgrp.variables.keys())
         log.debug(key_in)
@@ -351,18 +363,43 @@ class ECMWF_Product:
         if len(umatch) > 0:
             log.warning("Mismatch NETCDF elements with " + str(umatch))
 
-        # Try to find the two closest values
-        hour1900 = (self.observation_datetime - datetime.datetime(1900, 1, 1)).total_seconds() / 60. / 60.
+        # Check the possible CAMS convention
+        try:
+            CAMS_Conventions = rootgrp.Conventions
+        except:
+            CAMS_Conventions = self.assign_CAMS_Conventions(rootgrp)
 
-        u = np.abs(nctimes - hour1900)
-        # np.argpartition : used to retrieve the two closest values for statistiscs
-        val = [np.sort(u), np.argsort(u)]
-        # The two first index :
-        index1 = val[1][0]
-        v1 = datetime.datetime(1900, 1, 1) + timedelta(
-            hours=int(nctimes[index1]))  # VDE : failure for me if hours is type np.int32
-        index2 = val[1][1]
-        v2 = datetime.datetime(1900, 1, 1) + timedelta(hours=int(nctimes[index2]))
+        if CAMS_Conventions == 'CF-1.7':
+            nctimes = rootgrp.variables['forecast_reference_time'][:]
+            secs1970 = (self.observation_datetime - datetime.datetime(1970, 1, 1)).total_seconds()
+        else:
+            nctimes = rootgrp.variables['time'][:]
+            hour1900 = (self.observation_datetime - datetime.datetime(1900, 1, 1)).total_seconds() / 60. / 60.
+
+        log.info('L2A_Tables: CAMS Conventions ' + str(rootgrp.Conventions))
+
+        # Try to find the two closest values
+
+        if CAMS_Conventions == 'CF-1.7':
+            u = np.abs(nctimes - secs1970)
+            # np.argpartition : used to retrieve the two closest values for statistics
+            val = [np.sort(u), np.argsort(u)]
+            # The two first index :
+            index1 = val[1][0]
+            v1 = datetime.datetime(1970, 1, 1) + timedelta(
+                seconds=int(nctimes[index1]))  # VDE : failure for me if hours is type np.int32
+            index2 = val[1][1]
+            v2 = datetime.datetime(1970, 1, 1) + timedelta(seconds=int(nctimes[index2]))
+        else:
+            u = np.abs(nctimes - hour1900)
+            # np.argpartition : used to retrieve the two closest values for statistics
+            val = [np.sort(u), np.argsort(u)]
+            # The two first index :
+            index1 = val[1][0]
+            v1 = datetime.datetime(1900, 1, 1) + timedelta(
+                hours=int(nctimes[index1]))  # VDE : failure for me if hours is type np.int32
+            index2 = val[1][1]
+            v2 = datetime.datetime(1900, 1, 1) + timedelta(hours=int(nctimes[index2]))
 
         log.info('Input observation date (hour): ' + str(self.observation_datetime))
         log.info('The two selected CAMS Dates:')
