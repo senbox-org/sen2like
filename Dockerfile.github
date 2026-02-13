@@ -1,0 +1,35 @@
+FROM continuumio/miniconda3
+
+# Install system dependencies including GDAL
+RUN apt-get update && \
+    apt-get install -y gdal-bin libgdal-dev build-essential && \
+    rm -rf /var/lib/apt/lists/*
+
+# Copy the environment file
+COPY sen2like/environment.yml /tmp/environment.yml
+
+# Create the conda environment
+RUN conda env create -f /tmp/environment.yml
+
+# Make RUN commands use the new environment
+SHELL ["conda", "run", "-n", "sen2like", "/bin/bash", "-c"]
+
+# Activate the environment by default
+ENV CONDA_DEFAULT_ENV=sen2like
+ENV PATH="/opt/conda/envs/sen2like/bin:${PATH}"
+
+# Copy the project
+WORKDIR /app
+COPY . .
+
+# Install test and linting dependencies using conda
+RUN conda run -n sen2like bash -c "cd /app/sen2like && conda install -c conda-forge --file requirements_dev.txt && conda install --file requirements_tests.txt"
+
+# Set PYTHONPATH to include the project
+ENV PYTHONPATH=/app/sen2like:/app/sen2like/aux_data:/app:$PYTHONPATH
+
+# Set working directory to the sen2like project
+WORKDIR /app/sen2like
+
+# Default command
+CMD ["bash", "-c", "echo 'Docker image ready for linting and testing'"]

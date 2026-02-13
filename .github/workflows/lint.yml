@@ -1,0 +1,33 @@
+name: Lint
+
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  lint:
+    runs-on: ubuntu-latest
+
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Build Docker image
+      run: |
+        docker build -f Dockerfile.github -t sen2like-lint .
+
+    - name: Run linting tools in Docker
+      run: |
+        docker run sen2like-lint bash -c "
+          echo '=== Running Black check ===' &&
+          black --check --line-length=120 . &&
+          echo '=== Running isort check ===' &&
+          isort --check --profile black . &&
+          echo '=== Running Flake8 ===' &&
+          flake8 --max-line-length=120 --statistics . &&
+          echo '=== Running Bandit ===' &&
+          bandit -r --severity-level high . &&
+          echo '=== Running Pylint ===' &&
+          pylint --extension-pkg-whitelist=numpy,cv2 --max-line-length=120 -j 1 sen2like/**/*.py
+        "
