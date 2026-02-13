@@ -53,6 +53,7 @@ class PackagerConfig:
     Config class for concrete S2L Packager.
     Most of them are mtd field name used to retrieve mtd value
     """
+
     product_type_name: str
     mtd_mask_field: str
     mtd_product_name_field: str
@@ -103,26 +104,44 @@ class S2L_Product_Packager(S2L_Process):
 
         # generation time
         generation_time = dt.datetime.strftime(
-            product.metadata.mtd.get('product_creation_date', None),
-            DATE_FILE_FORMAT)
+            product.metadata.mtd.get("product_creation_date", None), DATE_FILE_FORMAT
+        )
 
         datatake_sensing_start = dt.datetime.strftime(product.dt_sensing_start, DATE_FILE_FORMAT)
         datastrip_sensing_start = dt.datetime.strftime(product.ds_sensing_start, DATE_FILE_FORMAT)
         absolute_orbit = product.absolute_orbit
 
         tile_code = product.mgrs
-        if tile_code.startswith('T'):
+        if tile_code.startswith("T"):
             tile_code = tile_code[1:]
 
         sensor = product.mtl.sensor[0:3]  # OLI / MSI / OLI_TIRS
 
-        product_name = "_".join(
-            [product.sensor_name, f'{sensor}{self.product_type_name}', datatake_sensing_start, f'N{version.baseline}',
-             f'R{relative_orbit:0>3}', f'T{tile_code}', generation_time]) + '.SAFE'
+        product_name = (
+            "_".join(
+                [
+                    product.sensor_name,
+                    f"{sensor}{self.product_type_name}",
+                    datatake_sensing_start,
+                    f"N{version.baseline}",
+                    f"R{relative_orbit:0>3}",
+                    f"T{tile_code}",
+                    generation_time,
+                ]
+            )
+            + ".SAFE"
+        )
 
-        granule_compact_name = "_".join([self.product_type_name, f'T{tile_code}', f'A{absolute_orbit}',
-                                         datastrip_sensing_start, product.sensor_name,
-                                         f'R{relative_orbit:0>3}'])
+        granule_compact_name = "_".join(
+            [
+                self.product_type_name,
+                f"T{tile_code}",
+                f"A{absolute_orbit}",
+                datastrip_sensing_start,
+                product.sensor_name,
+                f"R{relative_orbit:0>3}",
+            ]
+        )
 
         return product_name, granule_compact_name, tile_code, datatake_sensing_start
 
@@ -143,20 +162,20 @@ class S2L_Product_Packager(S2L_Process):
 
         """
         if not native:
-            out_path = os.path.join(ts_dir, product_name, 'GRANULE', granule_name, 'IMG_DATA', outfile)
+            out_path = os.path.join(ts_dir, product_name, "GRANULE", granule_name, "IMG_DATA", outfile)
         else:
-            out_path = os.path.join(ts_dir, product_name, 'GRANULE', granule_name, 'IMG_DATA', 'NATIVE', outfile)
+            out_path = os.path.join(ts_dir, product_name, "GRANULE", granule_name, "IMG_DATA", "NATIVE", outfile)
         return out_path
 
     def preprocess(self, product: S2L_Product):
 
         if not self.guard(product):
-            log.info('Abort pre process due to execution condition')
+            log.info("Abort pre process due to execution condition")
             return
 
         metadata = product.metadata
         # set it first as it is used in base_path_product
-        metadata.mtd['product_creation_date'] = metadata.mtd.get('product_creation_date', dt.datetime.now(dt.UTC))
+        metadata.mtd["product_creation_date"] = metadata.mtd.get("product_creation_date", dt.datetime.now(dt.UTC))
 
         product_name, granule_compact_name, tile_code, _ = self.base_path_product(product)
 
@@ -165,24 +184,26 @@ class S2L_Product_Packager(S2L_Process):
         metadata.mtd[self.mtd_product_name_field] = product_name
         metadata.mtd[self.mtd_granule_name_field] = granule_compact_name
 
-        out_dir = os.path.join(S2L_config.config.get('archive_dir'), tile_code)
+        out_dir = os.path.join(S2L_config.config.get("archive_dir"), tile_code)
 
         # Creation of S2 folder tree structure
         # tree = core.QI_MTD.S2_structure.generate_S2_structure_XML(out_xml='', product_name=product_name,
         #                                                    tile_name=granule_compact_name, save_xml=False)
         # core.QI_MTD.S2_structure.create_architecture(outdir, tree, create_empty_files=True)
 
-        log.debug('Create folder : %s', os.path.join(out_dir, product_name))
-        change_nodes = {'PRODUCT_NAME': product_name,
-                        'TILE_NAME': granule_compact_name,
-                        }
-        core.QI_MTD.S2_structure.create_architecture(out_dir, metadata.hardcoded_values.get('s2_struct_xml'),
-                                                     change_nodes=change_nodes, create_empty_files=False)
+        log.debug("Create folder : %s", os.path.join(out_dir, product_name))
+        change_nodes = {
+            "PRODUCT_NAME": product_name,
+            "TILE_NAME": granule_compact_name,
+        }
+        core.QI_MTD.S2_structure.create_architecture(
+            out_dir, metadata.hardcoded_values.get("s2_struct_xml"), change_nodes=change_nodes, create_empty_files=False
+        )
 
         # extract mask statistic for QI report
         if product.mask_info:
-            metadata.qi["NODATA_PIX_PERCENTAGE"] = f'{product.mask_info.get_nodata_pixel_percentage():.6f}'
-            metadata.qi["VALID_PIX_PERCENTAGE"] = f'{product.mask_info.get_valid_pixel_percentage():.6f}'
+            metadata.qi["NODATA_PIX_PERCENTAGE"] = f"{product.mask_info.get_nodata_pixel_percentage():.6f}"
+            metadata.qi["VALID_PIX_PERCENTAGE"] = f"{product.mask_info.get_valid_pixel_percentage():.6f}"
 
         # extract ROI (ROI based mode
         if product.roi_filename:
@@ -200,7 +221,7 @@ class S2L_Product_Packager(S2L_Process):
         """
 
         if not self.guard(product):
-            log.info('Abort process due to execution condition')
+            log.info("Abort process due to execution condition")
             return image
 
         # TODO : add production date?
@@ -216,34 +237,31 @@ class S2L_Product_Packager(S2L_Process):
         if not native:
             band = s2_band
 
-        band_root_name = "_".join([self.product_type_name, 'T' + tile_code,
-                                  datatake_sensing_start, sensor, f'R{relative_orbit:0>3}'])
+        band_root_name = "_".join(
+            [self.product_type_name, "T" + tile_code, datatake_sensing_start, sensor, f"R{relative_orbit:0>3}"]
+        )
 
         product.metadata.mtd[self.mtd_band_root_name_field] = band_root_name
 
-        output_format = S2L_config.config.get('output_format')
-        outfile = "_".join([band_root_name, band, f'{int(res)}m']) + '.' + S2L_ImageFile.FILE_EXTENSIONS[
-            output_format]
+        output_format = S2L_config.config.get("output_format")
+        outfile = "_".join([band_root_name, band, f"{int(res)}m"]) + "." + S2L_ImageFile.FILE_EXTENSIONS[output_format]
         # Naming convention from Sentinel-2-Products-Specification-Document (p294)
 
-        ts_dir = os.path.join(S2L_config.config.get('archive_dir'), tile_code)  # ts = temporal series
+        ts_dir = os.path.join(S2L_config.config.get("archive_dir"), tile_code)  # ts = temporal series
         new_path = self.band_path(ts_dir, product_name, granule_compact_name, outfile, native=native)
 
-        log.debug('New: %s',  new_path)
+        log.debug("New: %s", new_path)
         creation_options = []
 
-        if output_format in ('COG', 'GTIFF'):
-            creation_options.append('COMPRESS=LZW')
+        if output_format in ("COG", "GTIFF"):
+            creation_options.append("COMPRESS=LZW")
 
         nodata_mask = S2L_ImageFile(product.nodata_mask_filename).array
 
         if nodata_mask.shape != image.array.shape:
-            
+
             log.info(
-                "Resize no data mask for band %s from shape %s to shape %s",
-                band,
-                nodata_mask.shape,
-                image.array.shape
+                "Resize no data mask for band %s from shape %s to shape %s", band, nodata_mask.shape, image.array.shape
             )
 
             nodata_mask = skit_resize(
@@ -256,7 +274,7 @@ class S2L_Product_Packager(S2L_Process):
             output_format=output_format,
             band=band,
             nodata_value=0,
-            no_data_mask=nodata_mask
+            no_data_mask=nodata_mask,
         )
 
         product.metadata.mtd.get(self.mtd_band_path_field).append(new_path)
@@ -274,16 +292,16 @@ class S2L_Product_Packager(S2L_Process):
         """
 
         if not self.guard(product):
-            log.info('Abort post process due to execution condition')
+            log.info("Abort post process due to execution condition")
             return
 
         # output directory
         product_name, granule_compact_name, tile_code, datatake_sensing_start = self.base_path_product(product)
 
-        ts_dir = os.path.join(S2L_config.config.get('archive_dir'), tile_code)  # ts = temporal series
+        ts_dir = os.path.join(S2L_config.config.get("archive_dir"), tile_code)  # ts = temporal series
         product_path = os.path.join(ts_dir, product_name)
-        granule_dir = os.path.join(product_path, 'GRANULE', granule_compact_name)
-        qi_data_dir = os.path.join(granule_dir, 'QI_DATA')
+        granule_dir = os.path.join(product_path, "GRANULE", granule_compact_name)
+        qi_data_dir = os.path.join(granule_dir, "QI_DATA")
 
         # copy angles file
         self._copy_angles_file(product, qi_data_dir)
@@ -296,15 +314,15 @@ class S2L_Product_Packager(S2L_Process):
             shutil.copyfile(product.roi_filename, os.path.join(qi_data_dir, os.path.basename(product.roi_filename)))
 
         # QI directory
-        qi_path = os.path.join(ts_dir, 'QI')
+        qi_path = os.path.join(ts_dir, "QI")
         if not os.path.exists(qi_path):
             os.makedirs(qi_path)
 
         # save correl file in QI
-        if os.path.exists(os.path.join(product.working_dir, 'correl_res.txt')):
+        if os.path.exists(os.path.join(product.working_dir, "correl_res.txt")):
             corr_name = f"{product_name}_CORREL.csv"
             corr_path = os.path.join(qi_path, corr_name)
-            shutil.copy(os.path.join(product.working_dir, 'correl_res.txt'), corr_path)
+            shutil.copy(os.path.join(product.working_dir, "correl_res.txt"), corr_path)
 
         self.postprocess_quicklooks(qi_data_dir, product)
 
@@ -320,10 +338,11 @@ class S2L_Product_Packager(S2L_Process):
         # Write stac
         stac_writer = STACWriter()
         stac_writer.write_product(
-            product, product_path,
+            product,
+            product_path,
             product.metadata.mtd[self.mtd_band_path_field],
             f"{product.metadata.mtd[self.mtd_band_root_name_field]}_QL_B432.jpg",
-            granule_compact_name
+            granule_compact_name,
         )
 
     def postprocess_quicklooks(self, qi_data_dir: str, product: S2L_Product):
@@ -339,18 +358,26 @@ class S2L_Product_Packager(S2L_Process):
         band_list = ["B04", "B03", "B02"]
         pvi_filename = f"{product.metadata.mtd.get(self.mtd_band_root_name_field)}_PVI.TIF"
         ql_path = os.path.join(qi_data_dir, pvi_filename)
-        result_path = quicklook(product, self.images, band_list, ql_path, S2L_config.config.get(
-            "quicklook_jpeg_quality", 95),
-            xRes=320, yRes=320, creationOptions=['COMPRESS=LZW'],
-            out_format='GTIFF', offset=int(S2L_config.config.get('offset')))
+        result_path = quicklook(
+            product,
+            self.images,
+            band_list,
+            ql_path,
+            S2L_config.config.get("quicklook_jpeg_quality", 95),
+            xRes=320,
+            yRes=320,
+            creationOptions=["COMPRESS=LZW"],
+            out_format="GTIFF",
+            offset=int(S2L_config.config.get("offset")),
+        )
 
         if result_path is not None:
             product.metadata.mtd.get(self.mtd_quicklook_field).append(ql_path)
 
         if len(self.images.keys()) > 1:
             # true color QL
-            self.handle_product_quicklook(qi_data_dir, product, ["B04", "B03", "B02"], 'B432')
-            self.handle_product_quicklook(qi_data_dir, product, ["B12", "B11", "B8A"], 'B12118A')
+            self.handle_product_quicklook(qi_data_dir, product, ["B04", "B03", "B02"], "B432")
+            self.handle_product_quicklook(qi_data_dir, product, ["B12", "B11", "B8A"], "B12118A")
         else:
             # grayscale QL
             band_list = list(self.images.keys())
@@ -365,18 +392,23 @@ class S2L_Product_Packager(S2L_Process):
             band_list (list): list of band name of the product to use to generate the QL
             suffix (str): quicklook filename suffix (before extension)
         """
-        ql_name = "_".join([product.metadata.mtd.get(self.mtd_band_root_name_field), 'QL', suffix]) + '.jpg'
+        ql_name = "_".join([product.metadata.mtd.get(self.mtd_band_root_name_field), "QL", suffix]) + ".jpg"
         ql_path = os.path.join(qi_data_dir, ql_name)
-        result_path = quicklook(product, self.images, band_list, ql_path, S2L_config.config.get(
-            "quicklook_jpeg_quality", 95), offset=int(S2L_config.config.get('offset')))
+        result_path = quicklook(
+            product,
+            self.images,
+            band_list,
+            ql_path,
+            S2L_config.config.get("quicklook_jpeg_quality", 95),
+            offset=int(S2L_config.config.get("offset")),
+        )
 
         if result_path is not None:
             product.metadata.mtd.get(self.mtd_quicklook_field).append(ql_path)
 
-    def guard(self, product:S2L_Product):
+    def guard(self, product: S2L_Product):
         # pylint: disable=unused-argument
-        """ Define required condition to algorithm execution
-        """
+        """Define required condition to algorithm execution"""
         return True
 
     def _copy_masks(self, product, qi_data_dir, product_path):
@@ -384,30 +416,32 @@ class S2L_Product_Packager(S2L_Process):
         if product.sensor in ["S2", "Prisma"] and product.mtl.tile_metadata is not None:
             tree_in = ElementTree.parse(product.mtl.tile_metadata)  # Tree of the input mtd (S2 MTD.xml)
             root_in = tree_in.getroot()
-            mask_elements = find_element_by_path(root_in, './Quality_Indicators_Info/Pixel_Level_QI/MASK_FILENAME')
+            mask_elements = find_element_by_path(root_in, "./Quality_Indicators_Info/Pixel_Level_QI/MASK_FILENAME")
             for element in mask_elements:
                 mask_file = os.path.join(product.path, element.text)
                 if os.path.exists(mask_file):
                     shutil.copyfile(mask_file, os.path.join(qi_data_dir, os.path.basename(mask_file)))
-                    product.metadata.mtd.get(self.mtd_mask_field).append({"tag": "MASK_FILENAME", "attribs": element.attrib,
-                                                                  "text": element.text})
+                    product.metadata.mtd.get(self.mtd_mask_field).append(
+                        {"tag": "MASK_FILENAME", "attribs": element.attrib, "text": element.text}
+                    )
 
         # copy valid pixel mask
-        outfile = "_".join([product.metadata.mtd.get(self.mtd_band_root_name_field), 'MSK']) + '.TIF'
+        outfile = "_".join([product.metadata.mtd.get(self.mtd_band_root_name_field), "MSK"]) + ".TIF"
 
         fpath = os.path.join(qi_data_dir, outfile)
-        product.metadata.mtd.get(self.mtd_mask_field).append({"tag": "MASK_FILENAME", "attribs": {"type": "MSK_VALPXL"},
-                                                      "text": os.path.relpath(fpath, product_path)})
+        product.metadata.mtd.get(self.mtd_mask_field).append(
+            {"tag": "MASK_FILENAME", "attribs": {"type": "MSK_VALPXL"}, "text": os.path.relpath(fpath, product_path)}
+        )
 
-        if S2L_config.config.get('output_format') == 'COG':
-            img_object = S2L_ImageFile(product.mask_filename, mode='r')
-            img_object.write(filepath=fpath, output_format='COG', band='MASK')
+        if S2L_config.config.get("output_format") == "COG":
+            img_object = S2L_ImageFile(product.mask_filename, mode="r")
+            img_object.write(filepath=fpath, output_format="COG", band="MASK")
         else:
             shutil.copyfile(product.mask_filename, fpath)
 
     def _copy_angles_file(self, product, qi_data_dir):
         outfile = f"{product.metadata.mtd.get(self.mtd_band_root_name_field)}_ANG.TIF"
-        product.metadata.mtd['ang_filename'] = outfile
+        product.metadata.mtd["ang_filename"] = outfile
         shutil.copyfile(product.angles_file, os.path.join(qi_data_dir, outfile))
 
     def _write_qi_report(self, product, qi_data_dir):
@@ -415,17 +449,16 @@ class S2L_Product_Packager(S2L_Process):
         out_qi_path = os.path.join(qi_data_dir, self.mtd_qi_report_file_name_field)
 
         if product.mtl.l2a_qi_report_path is not None:
-            log.info('QI report for input product found here : %s', product.mtl.l2a_qi_report_path)
+            log.info("QI report for input product found here : %s", product.mtl.l2a_qi_report_path)
 
-        qi_writer = QiWriter(bb_qi_path,
-                             outfile=out_qi_path,
-                             init_qi_path=product.mtl.l2a_qi_report_path,
-                             H_F=self.product_suffix)
+        qi_writer = QiWriter(
+            bb_qi_path, outfile=out_qi_path, init_qi_path=product.mtl.l2a_qi_report_path, H_F=self.product_suffix
+        )
         qi_writer.manual_replaces(product)
         qi_writer.write(pretty_print=True, json_print=False)
         # validate against XSD
         product_qi_xsd = product.metadata.hardcoded_values.get(self.mtd_product_qi_xsd_field)
-        log.info('QI Report is valid : %s', qi_writer.validate_schema(product_qi_xsd, out_qi_path))
+        log.info("QI Report is valid : %s", qi_writer.validate_schema(product_qi_xsd, out_qi_path))
 
     def _write_tile_mtd(self, product, granule_dir):
 
@@ -441,7 +474,7 @@ class S2L_Product_Packager(S2L_Process):
         # log.info('Tile MTD is valid : {}'.format(mtd_tl_writer.validate_schema(product_tl_xsd, tile_MTD_outpath)))
 
     def _write_product_mtd(self, product, product_path):
-        product_mtd_file_name = f'MTD_{product.mtl.sensor[0:3]}{self.product_type_name}.xml'  # MSI / OLI/ OLI_TIRS
+        product_mtd_file_name = f"MTD_{product.mtl.sensor[0:3]}{self.product_type_name}.xml"  # MSI / OLI/ OLI_TIRS
         product_mtd_out_path = os.path.join(product_path, product_mtd_file_name)
 
         writer_class = get_product_mtl_writer_class(product.sensor)

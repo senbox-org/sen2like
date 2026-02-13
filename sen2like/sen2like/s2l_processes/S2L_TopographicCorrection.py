@@ -39,9 +39,7 @@ class Stat(NamedTuple):
     val: dict[str, float]
 
 
-def _get_resample_array(
-    image: S2L_ImageFile, file_path: str, resample_alg: int, description: str
-) -> NDArray:
+def _get_resample_array(image: S2L_ImageFile, file_path: str, resample_alg: int, description: str) -> NDArray:
     """Resample one band image file given by file_path to image shape
 
     Args:

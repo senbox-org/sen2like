@@ -24,9 +24,7 @@ import os
 import time
 
 
-def configure_loggers(
-    logger, log_path, is_debug, log_filename="sen2like.log", without_date=True
-):
+def configure_loggers(logger, log_path, is_debug, log_filename="sen2like.log", without_date=True):
     """Define the global parameters for the logger output.
 
     :param log_path: The path where to store log files.

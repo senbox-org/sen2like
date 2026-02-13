@@ -25,8 +25,8 @@ from collections import namedtuple
 
 logger = logging.getLogger("Sen2Like")
 
-S2_TILE_DB = 's2tiles.db'
-L8_TILE_DB = 'l8tiles.db'
+S2_TILE_DB = "s2tiles.db"
+L8_TILE_DB = "l8tiles.db"
 
 SELECT_NOT_ON_180TH_MERIDIAN = (
     "SELECT *, "
@@ -42,7 +42,7 @@ SELECT_NOT_ON_180TH_MERIDIAN = (
 )
 
 # named tuple fo "tile to tile" functions
-T2TRequest = namedtuple('T2TRequest', ['coverage', 'sql_request'])
+T2TRequest = namedtuple("T2TRequest", ["coverage", "sql_request"])
 
 
 def _database_path(database_name):
@@ -69,14 +69,14 @@ def is_spatialite_supported():
 
 
 def _select_on_attache_db(databases, request, parameters):
-    """ Attache all database on one memory database and execute request on them
+    """Attache all database on one memory database and execute request on them
     :param databases: dict of {'data base name use in request': 'path to database'}
     :param request: the sql_request
     :param parameters: sqlite3 request parameters
     """
 
-    logger.debug("_select_on_attache_db Request : %s", request )
-    logger.debug("_select_on_attache_db Params  : %s", parameters )
+    logger.debug("_select_on_attache_db Request : %s", request)
+    logger.debug("_select_on_attache_db Params  : %s", parameters)
 
     with sqlite3.connect(":memory:") as conn:
         conn.enable_load_extension(True)
@@ -93,16 +93,17 @@ def _select_on_attache_db(databases, request, parameters):
 
 def _prepare_tile_to_tile_request(coverage: float, tile_column: str, same_utm=True) -> T2TRequest:
     if coverage is None:
-        logger.warning(
-            "No minimum coverage defined in configuration, using {:.0%} as default coverage.".format(0.1))
+        logger.warning("No minimum coverage defined in configuration, using {:.0%} as default coverage.".format(0.1))
         coverage = 0.1
     else:
         logging.debug("Using {:.0%} coverage.".format(coverage))
     # Open db
     select_l8tile_not_on_180th_meridian = SELECT_NOT_ON_180TH_MERIDIAN.format(
-        geo_col='geometry', table='l8tiles.l8tiles')
+        geo_col="geometry", table="l8tiles.l8tiles"
+    )
     select_s2tile_not_on_180th_meridian = SELECT_NOT_ON_180TH_MERIDIAN.format(
-        geo_col='geometry', table='s2tiles.s2tiles')
+        geo_col="geometry", table="s2tiles.s2tiles"
+    )
 
     sql_request = (
         f"SELECT "
@@ -117,7 +118,7 @@ def _prepare_tile_to_tile_request(coverage: float, tile_column: str, same_utm=Tr
     )
 
     if same_utm:
-        sql_request+="AND cast(SUBSTR(s2.TILE_ID, 1, 2) as INTEGER ) == l8.UTM "
+        sql_request += "AND cast(SUBSTR(s2.TILE_ID, 1, 2) as INTEGER ) == l8.UTM "
 
     return T2TRequest(coverage, sql_request)
 
@@ -138,13 +139,13 @@ def mgrs_to_wrs(mgrs_tile, coverage=None, same_utm=True):
     t2t_request = _prepare_tile_to_tile_request(coverage, "s2.TILE_ID", same_utm)
 
     data = _select_on_attache_db(
-        {'l8tiles': _database_path(L8_TILE_DB), 's2tiles': _database_path(S2_TILE_DB)},
+        {"l8tiles": _database_path(L8_TILE_DB), "s2tiles": _database_path(S2_TILE_DB)},
         t2t_request.sql_request,
-        [mgrs_tile, t2t_request.coverage]
+        [mgrs_tile, t2t_request.coverage],
     )
     # Sort by coverage
     data = sorted(data, key=lambda t: t[2], reverse=True)
-    result = [([int(i) for i in entry[1].split('_')], entry[2]) for entry in data]
+    result = [([int(i) for i in entry[1].split("_")], entry[2]) for entry in data]
     return result
 
 
@@ -162,9 +163,9 @@ def wrs_to_mgrs(wrs_path, coverage=None):
     t2t_request = _prepare_tile_to_tile_request(coverage, "l8.PATH_ROW")
 
     data = _select_on_attache_db(
-        {'l8tiles': _database_path(L8_TILE_DB), 's2tiles': _database_path(S2_TILE_DB)},
+        {"l8tiles": _database_path(L8_TILE_DB), "s2tiles": _database_path(S2_TILE_DB)},
         t2t_request.sql_request,
-        ["{}_{}".format(*wrs_path), t2t_request.coverage]
+        ["{}_{}".format(*wrs_path), t2t_request.coverage],
     )
     # Sort by coverage
     data = sorted(data, key=lambda t: t[2], reverse=True)
@@ -190,9 +191,11 @@ def get_coverage(wrs_path: tuple, mgrs_tile: str, same_utm=True) -> float:
     print("wrs_path %s, same_utm %s", wrs_path, same_utm)
     coverage = 0
     select_l8tile_not_on_180th_meridian = SELECT_NOT_ON_180TH_MERIDIAN.format(
-        geo_col='geometry', table='l8tiles.l8tiles')
+        geo_col="geometry", table="l8tiles.l8tiles"
+    )
     select_s2tile_not_on_180th_meridian = SELECT_NOT_ON_180TH_MERIDIAN.format(
-        geo_col='geometry', table='s2tiles.s2tiles')
+        geo_col="geometry", table="s2tiles.s2tiles"
+    )
 
     sql_request = (
         f"SELECT "
@@ -205,13 +208,13 @@ def get_coverage(wrs_path: tuple, mgrs_tile: str, same_utm=True) -> float:
     )
 
     if same_utm:
-        sql_request+="AND cast(SUBSTR(s2.TILE_ID, 1, 2) as INTEGER ) == l8.UTM "
+        sql_request += "AND cast(SUBSTR(s2.TILE_ID, 1, 2) as INTEGER ) == l8.UTM "
 
     data = _select_on_attache_db(
-        {'l8tiles': _database_path(L8_TILE_DB), 's2tiles': _database_path(S2_TILE_DB)},
+        {"l8tiles": _database_path(L8_TILE_DB), "s2tiles": _database_path(S2_TILE_DB)},
         sql_request,
         # pylint: disable=consider-using-f-string
-        [mgrs_tile, "{}_{}".format(*wrs_path)]
+        [mgrs_tile, "{}_{}".format(*wrs_path)],
     )
     print("data: %s", data)
     if len(data) > 0:
@@ -238,7 +241,7 @@ def _select_tiles_by_spatial_relationships(relation, roi):
         cur = connection.execute(sql)
         # TODO: For now, first mgrs tile is excluded. To improve in a future version
         # TODO: Add coverage
-        tiles = [tile[0] for tile in cur.fetchall() if not tile[0].startswith('01') and not tile[0].startswith('60')]
+        tiles = [tile[0] for tile in cur.fetchall() if not tile[0].startswith("01") and not tile[0].startswith("60")]
         logging.debug("Tiles: %s", tiles)
     return tiles
 
@@ -271,14 +274,14 @@ def tiles_contains_roi(roi):
     return _select_tiles_by_spatial_relationships("contains", roi)
 
 
-def get_mgrs_def(tile: str) -> dict|None:
+def get_mgrs_def(tile: str) -> dict | None:
     """Get MGRS tile definition
 
     Args:
         tile (str): MGRS tile code
 
     Returns:
-        dict|None: MGRS def having keys: 
+        dict|None: MGRS def having keys:
         'index', 'TILE_ID', 'EPSG', 'UTM_WKT', 'MGRS_REF', 'LL_WKT', 'geometry'
         None if mgrs tile is not found
     """
@@ -292,7 +295,7 @@ def get_mgrs_def(tile: str) -> dict|None:
         res = cur.fetchall()
         if len(res) > 0:
             return res[0]
-        
+
         logging.error("tile %s not found in database", tile)
         return None
 

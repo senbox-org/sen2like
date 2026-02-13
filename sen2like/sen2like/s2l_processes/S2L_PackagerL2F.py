@@ -28,18 +28,18 @@ from s2l_processes.S2L_Product_Packager import PackagerConfig, S2L_Product_Packa
 log = logging.getLogger("Sen2Like")
 
 packager_config = PackagerConfig(
-    product_type_name='L2F',
-    mtd_mask_field='masks_F',
-    mtd_product_name_field='product_F_name',
-    mtd_granule_name_field='granule_F_name',
-    mtd_band_root_name_field='band_rootName_F',
-    mtd_band_path_field='bands_path_F',
-    mtd_quicklook_field='quicklooks_F',
-    mtd_bb_qi_path_field='bb_QIF_path',
-    mtd_qi_report_file_name_field='L2F_QUALITY.xml',
-    product_suffix='F',
-    mtd_product_qi_xsd_field='product_QIF_xsd',
-    tile_mtd_file_path='MTD_TL_L2F.xml'
+    product_type_name="L2F",
+    mtd_mask_field="masks_F",
+    mtd_product_name_field="product_F_name",
+    mtd_granule_name_field="granule_F_name",
+    mtd_band_root_name_field="band_rootName_F",
+    mtd_band_path_field="bands_path_F",
+    mtd_quicklook_field="quicklooks_F",
+    mtd_bb_qi_path_field="bb_QIF_path",
+    mtd_qi_report_file_name_field="L2F_QUALITY.xml",
+    product_suffix="F",
+    mtd_product_qi_xsd_field="product_QIF_xsd",
+    tile_mtd_file_path="MTD_TL_L2F.xml",
 )
 
 
@@ -64,14 +64,13 @@ class S2L_PackagerL2F(S2L_Product_Packager):
         super().postprocess_quicklooks(qi_data_dir, product)
         # Copy fusion auto check threshold mask
         if product.fusion_auto_check_threshold_msk_file is not None:
-            outfile = "_".join([product.metadata.mtd.get(self.mtd_band_root_name_field), 'FCM']) + '.TIF'
+            outfile = "_".join([product.metadata.mtd.get(self.mtd_band_root_name_field), "FCM"]) + ".TIF"
             fpath = os.path.join(qi_data_dir, outfile)
             shutil.copyfile(product.fusion_auto_check_threshold_msk_file, fpath)
             product.metadata.mtd.get(self.mtd_quicklook_field).append(fpath)
 
-    def guard(self, product:S2L_Product):
-        """ Define required condition to algorithm execution
-        """
+    def guard(self, product: S2L_Product):
+        """Define required condition to algorithm execution"""
         if not product.fusionable:
             log.info("Fusion has not been performed. So s2l does not write L2F product.")
             return False

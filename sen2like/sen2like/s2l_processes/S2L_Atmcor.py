@@ -38,10 +38,10 @@ log = logging.getLogger("Sen2Like")
 
 def get_cams_configuration():
     return {
-        "default": S2L_config.config.get('cams_dir'),
-        "hourly": S2L_config.config.get('cams_hourly_dir'),
-        "daily": S2L_config.config.get('cams_daily_dir'),
-        "climatology": S2L_config.config.get('cams_climatology_dir')
+        "default": S2L_config.config.get("cams_dir"),
+        "hourly": S2L_config.config.get("cams_hourly_dir"),
+        "daily": S2L_config.config.get("cams_daily_dir"),
+        "climatology": S2L_config.config.get("cams_climatology_dir"),
     }
 
 
@@ -52,7 +52,7 @@ def get_smac_coefficients(product, band):
 
     # smac coefficient are in the smac package
     smac_directory = os.path.dirname(os.path.abspath(smac.__file__))
-    smac_file = os.path.join(smac_directory, 'COEFS', filename)
+    smac_file = os.path.join(smac_directory, "COEFS", filename)
     if os.path.exists(smac_file):
         return smac_file
     return None
@@ -107,7 +107,7 @@ class S2L_Atmcor(S2L_Process):
         phi_v = 0  # View Azimuth Angle Landsat (Nadir)
 
         # Atmospheric parameters retrieve from CAMS :
-        r_toa = np.arange(101) / 100.
+        r_toa = np.arange(101) / 100.0
         r_surf_SMAC = np.zeros(101)
 
         # # Apply correction
@@ -124,9 +124,8 @@ class S2L_Atmcor(S2L_Process):
         # Run SMAC for r_toa ranging from 0.0 to 1.0
         for i in range(101):
             r_surf_SMAC[i] = smac.smac_inv(
-                r_toa[i], theta_s, phi_s,
-                theta_v, phi_v, self.pressure,
-                self.taup550, self.uO3, self.uH2O, smac_coefs)
+                r_toa[i], theta_s, phi_s, theta_v, phi_v, self.pressure, self.taup550, self.uO3, self.uH2O, smac_coefs
+            )
         #
         # Use a polynomial fit of order 2 to fit relation between surface reflectance and TOA reflectance
         poly_coefs = np.polyfit(r_toa, r_surf_SMAC, 2, full=True)
@@ -134,12 +133,18 @@ class S2L_Atmcor(S2L_Process):
         # Read image band
         Bands_toa = np.float32(array_in)
         #     # Apply fitted relation to convert TOA reflectance to surface reflectance
-        surf_ref = poly_coefs[0][2] + poly_coefs[0][1] * Bands_toa + poly_coefs[0][0] * Bands_toa ** 2
-        mask = (Bands_toa <= 0)
+        surf_ref = poly_coefs[0][2] + poly_coefs[0][1] * Bands_toa + poly_coefs[0][0] * Bands_toa**2
+        mask = Bands_toa <= 0
         surf_ref[mask] = 0
 
-        log.debug('2nd Polynomial Coefs / Residual for band %s: %f %f %f %f',
-            band, poly_coefs[0][2], poly_coefs[0][1], poly_coefs[0][0], poly_coefs[1][0])
+        log.debug(
+            "2nd Polynomial Coefs / Residual for band %s: %f %f %f %f",
+            band,
+            poly_coefs[0][2],
+            poly_coefs[0][1],
+            poly_coefs[0][0],
+            poly_coefs[1][0],
+        )
 
         return surf_ref
 
@@ -154,8 +159,8 @@ class S2L_Atmcor(S2L_Process):
         # # Get Sensing Time
         # # ----------------------------------------------------------------------------------
 
-        obs = str(mtl.observation_date) + 'T' + str(mtl.scene_center_time)
-        obs_datetime = dt.datetime.strptime(obs, '%Y-%m-%dT%H:%M:%S.%fZ')
+        obs = str(mtl.observation_date) + "T" + str(mtl.scene_center_time)
+        obs_datetime = dt.datetime.strptime(obs, "%Y-%m-%dT%H:%M:%S.%fZ")
 
         # # ----------------------------------------------------------------------------------
         # # Get CAMS Data corresponding to Extent and observation data time
@@ -221,8 +226,8 @@ class S2L_Atmcor(S2L_Process):
         array_out = self.smac_correction(product, array_in, band)
         out_image = image.duplicate(self.output_file(product, band), array_out)
         if self.generate_intermediate_products:
-            out_image.write(creation_options=['COMPRESS=LZW'])
-        
+            out_image.write(creation_options=["COMPRESS=LZW"])
+
         return out_image
 
     def postprocess(self, product: S2L_Product):

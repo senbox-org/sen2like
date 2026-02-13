@@ -24,7 +24,7 @@ from core.image_file import S2L_ImageFile
 from core.products import get_s2l_product_class_from_sensor_name
 from core.products.product import ProcessingContext, S2L_Product
 
-logger = logging.getLogger('Sen2Like')
+logger = logging.getLogger("Sen2Like")
 
 
 class S2L_HLS_Product(S2L_Product):
@@ -36,32 +36,33 @@ class S2L_HLS_Product(S2L_Product):
 
         # S2L_31TFJ_20171224_S2/
         try:
-            self.type, self.tilecode, self.datestr, self.sensor, self.relative_orbit = self.name.split('_')
+            self.type, self.tilecode, self.datestr, self.sensor, self.relative_orbit = self.name.split("_")
         except ValueError:
             logger.info("Cannot parse as old format %s: invalid filename", self.name)
             self.s2l_product_class = None
         else:
-            self.acqdate = dt.datetime.strptime(self.datestr, '%Y%m%d')
+            self.acqdate = dt.datetime.strptime(self.datestr, "%Y%m%d")
             self.s2l_product_class = get_s2l_product_class_from_sensor_name(self.sensor)
             if self.s2l_product_class is None:
                 logger.warning("Cannot determine Product associated to sensor %s", self.sensor)
 
         if self.s2l_product_class is None:
-            logger.info('Trying to parse S2like structure')
+            logger.info("Trying to parse S2like structure")
             try:
                 # S2A_MSIL2F_20170103T104432_N9999_R008_T31TFJ_20170103T104428.SAFE
-                self.sensor, self.type, self.datestr, self.pdgs, self.relative_orbit, self.tilecode, self.filedate = \
-                    os.path.splitext(self.name)[0].split('_')
+                self.sensor, self.type, self.datestr, self.pdgs, self.relative_orbit, self.tilecode, self.filedate = (
+                    os.path.splitext(self.name)[0].split("_")
+                )
             except ValueError:
                 logger.error("Error while trying to parse %s: invalid filename", self.name)
                 self.s2l_product_class = None
             else:
-                self.acqdate = dt.datetime.strptime(self.datestr, '%Y%m%dT%H%M%S')
+                self.acqdate = dt.datetime.strptime(self.datestr, "%Y%m%dT%H%M%S")
                 self.s2l_product_class = get_s2l_product_class_from_sensor_name(self.sensor)
                 if self.s2l_product_class is None:
                     logger.error("Cannot determine Product associated to sensor %s", self.sensor)
 
-    def get_band_file(self, band, plus=False) -> S2L_ImageFile|None:
+    def get_band_file(self, band, plus=False) -> S2L_ImageFile | None:
         # get band
         filepath = self.get_band_filepath(band, plus)
 
@@ -85,17 +86,19 @@ class S2L_HLS_Product(S2L_Product):
 
         for ext in extensions:
             # Old format
-            filename = '{}_{}_{}m.{}'.format(self.name, band, int(res), ext)
+            filename = "{}_{}_{}m.{}".format(self.name, band, int(res), ext)
             filepath = os.path.join(self.path, filename)
             if os.path.exists(filepath):
                 return filepath
 
             # New format
-            filename = glob.glob(os.path.join(
-                self.path, 'GRANULE', '*', 'IMG_DATA', '*{}_{}m.{}'.format(band, int(res), ext)))
-            filename += glob.glob(os.path.join(
-                self.path, 'GRANULE', '*', 'IMG_DATA', 'NATIVE', '*{}_{}m.{}'.format(band, int(res), ext)))
-            filepath = '' if not len(filename) != 0 else filename[0]
+            filename = glob.glob(
+                os.path.join(self.path, "GRANULE", "*", "IMG_DATA", "*{}_{}m.{}".format(band, int(res), ext))
+            )
+            filename += glob.glob(
+                os.path.join(self.path, "GRANULE", "*", "IMG_DATA", "NATIVE", "*{}_{}m.{}".format(band, int(res), ext))
+            )
+            filepath = "" if not len(filename) != 0 else filename[0]
             if os.path.exists(filepath):
                 return filepath
         logger.debug("Product band %s with res %s not found in %s", band, int(res), self.path)
@@ -113,13 +116,13 @@ class S2L_HLS_Product(S2L_Product):
         Quick access to band file path
         :return: band file path
         """
-        filename = glob.glob(os.path.join(self.path, 'GRANULE', '*', 'QI_DATA', '*_MSK.TIF'))
-        filepath = filename[0] if filename else ''
+        filename = glob.glob(os.path.join(self.path, "GRANULE", "*", "QI_DATA", "*_MSK.TIF"))
+        filepath = filename[0] if filename else ""
 
         if not os.path.exists(filepath):
             logger.warning("Product mask not found at %s", filepath)
             # Trying to parse with old format
-            filename = '{}_MSK.TIF'.format(self.name)
+            filename = "{}_MSK.TIF".format(self.name)
             filepath = os.path.join(self.path, filename)
 
             if not os.path.exists(filepath):

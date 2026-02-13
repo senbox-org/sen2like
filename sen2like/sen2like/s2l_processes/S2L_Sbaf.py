@@ -162,9 +162,7 @@ class S2L_Sbaf(S2L_Process):
             new_image_array = self._do_sbaf(product, image, band, self._sbaf_params[band])
 
             # Format Output : duplicate, link  to product as parameter
-            image = image.duplicate(
-                self.output_file(product, band), array=new_image_array.astype(np.float32)
-            )
+            image = image.duplicate(self.output_file(product, band), array=new_image_array.astype(np.float32))
 
             if self.generate_intermediate_products:
                 image.write(creation_options=["COMPRESS=LZW"])
@@ -196,9 +194,7 @@ class S2L_Sbaf(S2L_Process):
             product.metadata.qi[f"SBAF_COEFFICIENT_{s2_band}"] = params.slope
             product.metadata.qi[f"SBAF_OFFSET_{s2_band}"] = params.offset
 
-    def _do_sbaf(
-        self, product: S2L_Product, image: S2L_ImageFile, band: str, static_params: SbafParams
-    ) -> NDArray:
+    def _do_sbaf(self, product: S2L_Product, image: S2L_ImageFile, band: str, static_params: SbafParams) -> NDArray:
         """Apply sbaf to an image band.
         Depending the processing block configuration, static or adaptative method is applied.
         Even if adaptative method should be applied, some image band values will be treat
@@ -216,10 +212,7 @@ class S2L_Sbaf(S2L_Process):
         log.debug("Applying SBAF")
 
         new_image_array = None
-        if (
-            self._adaptative
-            and product.__class__.get_s2like_band(band) in self._adaptative_band_candidates
-        ):
+        if self._adaptative and product.__class__.get_s2like_band(band) in self._adaptative_band_candidates:
             log.info("Use adaptative method for band %s", band)
 
             ndvi_image_array = self._get_ndvi_image_array(product, image)
@@ -270,9 +263,7 @@ class S2L_Sbaf(S2L_Process):
         ndvi_image_array = ndvi_image.array
         if ndvi_image.xRes != image.xRes:
             log.info("Resample NDVI image band resolution %s", image.xRes)
-            ndvi_image_array = skit_resize(
-                ndvi_image.array, image.array.shape, order=3, preserve_range=True
-            )
+            ndvi_image_array = skit_resize(ndvi_image.array, image.array.shape, order=3, preserve_range=True)
             log.info("Resample done")
 
         return ndvi_image_array

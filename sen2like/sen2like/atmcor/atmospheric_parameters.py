@@ -78,25 +78,36 @@ class ATMO_parameter:
 
         # Compute geo extent around the point :
         # => extent definition : LR,LL,UL,UR
-        extent = [lon_array[a_lon], lat_array[a_lat],
-                  lon_array[b_lon], lat_array[a_lat],
-                  lon_array[b_lon], lat_array[b_lat],
-                  lon_array[a_lon], lat_array[b_lat]]
+        extent = [
+            lon_array[a_lon],
+            lat_array[a_lat],
+            lon_array[b_lon],
+            lat_array[a_lat],
+            lon_array[b_lon],
+            lat_array[b_lat],
+            lon_array[a_lon],
+            lat_array[b_lat],
+        ]
 
-        extent_index = [a_lon, a_lat,
-                        b_lon, a_lat,
-                        b_lon, b_lat,
-                        a_lon, b_lat]
+        extent_index = [a_lon, a_lat, b_lon, a_lat, b_lon, b_lat, a_lon, b_lat]
 
-        log.info(' - Selected vertex : ')
-        log.info('LL (px,ln) / (lon,lat) : (%s, %s) / (%s dd , %s dd)' % (
-            str(extent_index[0]), str(extent_index[1]), str(extent[0]), str(extent[1])))
-        log.info('LR (px,ln) / (lon,lat) : (%s, %s) / (%s dd , %s dd)' % (
-            str(extent_index[2]), str(extent_index[3]), str(extent[2]), str(extent[3])))
-        log.info('UR (px,ln) / (lon,lat) : (%s, %s) / (%s dd , %s dd)' % (
-            str(extent_index[4]), str(extent_index[5]), str(extent[4]), str(extent[5])))
-        log.info('UL (px,ln) / (lon,lat) : (%s, %s) / (%s dd , %s dd)' % (
-            str(extent_index[6]), str(extent_index[7]), str(extent[6]), str(extent[7])))
+        log.info(" - Selected vertex : ")
+        log.info(
+            "LL (px,ln) / (lon,lat) : (%s, %s) / (%s dd , %s dd)"
+            % (str(extent_index[0]), str(extent_index[1]), str(extent[0]), str(extent[1]))
+        )
+        log.info(
+            "LR (px,ln) / (lon,lat) : (%s, %s) / (%s dd , %s dd)"
+            % (str(extent_index[2]), str(extent_index[3]), str(extent[2]), str(extent[3]))
+        )
+        log.info(
+            "UR (px,ln) / (lon,lat) : (%s, %s) / (%s dd , %s dd)"
+            % (str(extent_index[4]), str(extent_index[5]), str(extent[4]), str(extent[5]))
+        )
+        log.info(
+            "UL (px,ln) / (lon,lat) : (%s, %s) / (%s dd , %s dd)"
+            % (str(extent_index[6]), str(extent_index[7]), str(extent[6]), str(extent[7]))
+        )
 
         # TIE Point grid defined - compute linear transformation
         # to estimate value at the lat/lon location
@@ -113,10 +124,7 @@ class ATMO_parameter:
         # Processing of all keys
         for key in self.ecmwf_data.mandatory_attributes:
             M = getattr(self.ecmwf_data, key)
-            v = self.linear_estimate(M,
-                                     beta_latitude,
-                                     beta_longitude,
-                                     extent_index)
+            v = self.linear_estimate(M, beta_latitude, beta_longitude, extent_index)
             setattr(self, key, v)
 
     @staticmethod
@@ -135,9 +143,9 @@ class ATMO_parameter:
 
         """
 
-        v1 = (A[extent_index[7], extent_index[6]])  # UL
-        v2 = (A[extent_index[5], extent_index[4]])  # UR
-        v3 = (A[extent_index[1], extent_index[0]])  # LL
+        v1 = A[extent_index[7], extent_index[6]]  # UL
+        v2 = A[extent_index[5], extent_index[4]]  # UR
+        v3 = A[extent_index[1], extent_index[0]]  # LL
 
         estimate_v = v1 + (v2 - v1) * beta_longitude + (v3 - v1) * beta_latitude
         return estimate_v
@@ -153,6 +161,6 @@ class ATMO_parameter:
         """
         A = np.empty((4, 3))
         for i in range(0, 4, 1):
-            A[i, :] = ([extent[2 * i], extent[2 * i + 1], 1])
+            A[i, :] = [extent[2 * i], extent[2 * i + 1], 1]
 
         return np.linalg.lstsq(A, v, rcond=None)[0]

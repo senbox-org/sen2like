@@ -132,9 +132,7 @@ class ProductProcess:
                 continue
 
             # override in context and False
-            if hasattr(self._product.context, _param) and not getattr(
-                self._product.context, _param
-            ):
+            if hasattr(self._product.context, _param) and not getattr(self._product.context, _param):
                 logger.debug("%s disable by configuration", block_name)
                 continue
 
@@ -156,34 +154,26 @@ class ProductProcess:
         for proc_block in self._processing_block_list:
 
             logger.info(
-                "----- Start %s preprocess for product %s -----",
-                proc_block.__class__.__name__ ,
-                self._product.name
+                "----- Start %s preprocess for product %s -----", proc_block.__class__.__name__, self._product.name
             )
 
             proc_block.preprocess(self._product)
 
             logger.info(
-                "----- End of %s preprocess for product %s -----",
-                proc_block.__class__.__name__ ,
-                self._product.name
+                "----- End of %s preprocess for product %s -----", proc_block.__class__.__name__, self._product.name
             )
 
     def _postprocess(self):
         # Run the postprocessing method of each block
         for proc_block in self._processing_block_list:
             logger.info(
-                "----- Start %s postprocess for product %s -----",
-                proc_block.__class__.__name__ ,
-                self._product.name
+                "----- Start %s postprocess for product %s -----", proc_block.__class__.__name__, self._product.name
             )
 
             proc_block.postprocess(self._product)
 
             logger.info(
-                "----- End of %s postprocess for product %s -----",
-                proc_block.__class__.__name__ ,
-                self._product.name
+                "----- End of %s postprocess for product %s -----", proc_block.__class__.__name__, self._product.name
             )
 
     def _run_parallel(self, bands):
@@ -231,9 +221,9 @@ class ProductProcess:
         for proc_block in self._processing_block_list:
             logger.info(
                 "----- Start %s process for band %s of %s -----",
-                proc_block.__class__.__name__ ,
+                proc_block.__class__.__name__,
                 band,
-                self._product.name
+                self._product.name,
             )
 
             image = proc_block.process(self._product, image, band)
@@ -242,7 +232,7 @@ class ProductProcess:
                 "----- Finish %s process of band %s of %s -----",
                 proc_block.__class__.__name__,
                 band,
-                self._product.name
+                self._product.name,
             )
 
         return image.filename

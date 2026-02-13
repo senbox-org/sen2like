@@ -1,4 +1,5 @@
 """Nbar tests module"""
+
 import os
 from datetime import datetime
 from tempfile import TemporaryDirectory
@@ -23,7 +24,7 @@ class DummyProduct(S2L_Product):
     def __init__(self, path, context):
         super().__init__(path, context)
         self.mtl = DummyReader(path)
-        self.acqdate = datetime.strptime("2017-11-14 10:42:59.000Z","%Y-%m-%d %H:%M:%S.%fZ") 
+        self.acqdate = datetime.strptime("2017-11-14 10:42:59.000Z", "%Y-%m-%d %H:%M:%S.%fZ")
 
 
 class DummyReader(BaseReader):
@@ -58,15 +59,13 @@ class TestS2L_Nbar(TestCase):
         """
 
         _product_path = os.path.join(
-            test_folder_path,
-            "data",
-            "S2B_MSIL1C_20171114T104259_N0500_R008_T31TFJ_20230822T002015.SAFE"
+            test_folder_path, "data", "S2B_MSIL1C_20171114T104259_N0500_R008_T31TFJ_20230822T002015.SAFE"
         )
         context = ProcessingContext(config, "31TFJ")
         # product = Sentinel2Product(_product_path, context)
 
         with TemporaryDirectory() as tem_dir:
-            
+
             # simulate a product
             product_dir = os.path.join(tem_dir, "L1C_in")
             os.mkdir(product_dir)

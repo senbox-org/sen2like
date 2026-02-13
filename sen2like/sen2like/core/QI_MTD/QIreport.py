@@ -33,12 +33,12 @@ from core.QI_MTD.generic_writer import (
 )
 from core.QI_MTD.mtd import Metadata
 
-log = logging.getLogger('Sen2Like')
+log = logging.getLogger("Sen2Like")
 
 
 class QiWriter(XmlWriter):
 
-    def __init__(self, backbone_path: str, init_qi_path: str = None, H_F='H', outfile: str = None):
+    def __init__(self, backbone_path: str, init_qi_path: str = None, H_F="H", outfile: str = None):
         """
         Init L2H/F_QUALITY.xml writer.
         When `init_qi_path`is given, the L2H/F_QUALITY.xml result inherit values from init_qi_path content
@@ -63,71 +63,86 @@ class QiWriter(XmlWriter):
         # Replace all 'value' nodes from mtd dict
         self._replace_values(metadata.qi)
 
-        chg_elm_with_tag(self.root_out, tag='version', new_value=version.baseline_dotted)
-        chg_elm_with_tag(self.root_out, tag='File_Version', new_value=version.baseline)
-        chg_elm_with_tag(self.root_out, tag='Creator_Version', new_value=version.__version__)
+        chg_elm_with_tag(self.root_out, tag="version", new_value=version.baseline_dotted)
+        chg_elm_with_tag(self.root_out, tag="File_Version", new_value=version.baseline)
+        chg_elm_with_tag(self.root_out, tag="Creator_Version", new_value=version.__version__)
 
         # L2A_Quality_Header
         # ------------------
-        change_elm(self.root_out, rpath='./L2{}_Quality_Header/Fixed_Header/Mission'.format(self.H_F),
-                   new_value=product.sensor_name)
+        change_elm(
+            self.root_out,
+            rpath="./L2{}_Quality_Header/Fixed_Header/Mission".format(self.H_F),
+            new_value=product.sensor_name,
+        )
 
-        product_creation_date = dt.datetime.strftime(metadata.mtd.get('product_creation_date'), 'UTC=%Y-%m-%dT%H:%M:%S')
-        change_elm(self.root_out, rpath='./L2{}_Quality_Header/Fixed_Header/Source/Creation_Date'.format(self.H_F),
-                   new_value=product_creation_date)
+        product_creation_date = dt.datetime.strftime(metadata.mtd.get("product_creation_date"), "UTC=%Y-%m-%dT%H:%M:%S")
+        change_elm(
+            self.root_out,
+            rpath="./L2{}_Quality_Header/Fixed_Header/Source/Creation_Date".format(self.H_F),
+            new_value=product_creation_date,
+        )
 
         # Data_Block
         # ----------
-        report_creation_date = dt.datetime.strftime(dt.datetime.now(dt.UTC), '%Y-%m-%dT%H:%M:%SZ')
-        change_elm(self.root_out, rpath='./Data_Block/report', attr_to_change='date',
-                   new_value=report_creation_date)
-        chg_elm_with_tag(self.root_out, tag='value', new_value=metadata.qi.get('MEAN', 'None'),
-                         attrs={"name": "COREGISTRATION_AFTER_CORRECTION"})
+        report_creation_date = dt.datetime.strftime(dt.datetime.now(dt.UTC), "%Y-%m-%dT%H:%M:%SZ")
+        change_elm(self.root_out, rpath="./Data_Block/report", attr_to_change="date", new_value=report_creation_date)
+        chg_elm_with_tag(
+            self.root_out,
+            tag="value",
+            new_value=metadata.qi.get("MEAN", "None"),
+            attrs={"name": "COREGISTRATION_AFTER_CORRECTION"},
+        )
 
         self._sbaf_replace(metadata)
 
         # Change all 'item' urls and names
         product_name_field = f"product_{self.H_F}_name"
         granule_name_field = f"granule_{self.H_F}_name"
-        urls = os.path.join(metadata.mtd.get(product_name_field), 'GRANULE',
-                            metadata.mtd.get(granule_name_field), 'QI_DATA')
-        url_aux = os.path.join(metadata.mtd.get(product_name_field), 'GRANULE',
-                               metadata.mtd.get(granule_name_field), 'AUX_DATA')
-        change_elm(self.root_out, rpath='./Data_Block/report/checkList/item', attr_to_change='url', new_value=urls)
-        change_elm(self.root_out, rpath='./Data_Block/report/checkList[parentID="L2A_AUX"]/item', attr_to_change='url',
-                   new_value=url_aux)
-        change_elm(self.root_out, rpath='./Data_Block/report/checkList/item', attr_to_change='name',
-                   new_value=metadata.mtd.get(granule_name_field))
+        urls = os.path.join(
+            metadata.mtd.get(product_name_field), "GRANULE", metadata.mtd.get(granule_name_field), "QI_DATA"
+        )
+        url_aux = os.path.join(
+            metadata.mtd.get(product_name_field), "GRANULE", metadata.mtd.get(granule_name_field), "AUX_DATA"
+        )
+        change_elm(self.root_out, rpath="./Data_Block/report/checkList/item", attr_to_change="url", new_value=urls)
+        change_elm(
+            self.root_out,
+            rpath='./Data_Block/report/checkList[parentID="L2A_AUX"]/item',
+            attr_to_change="url",
+            new_value=url_aux,
+        )
+        change_elm(
+            self.root_out,
+            rpath="./Data_Block/report/checkList/item",
+            attr_to_change="name",
+            new_value=metadata.mtd.get(granule_name_field),
+        )
 
         # process L2A input for PSD 15 support (DARK_FEATURES_PERCENTAGE replaced by CAST_SHADOW_PERCENTAGE)
-        if self.input_xml_path and product.psd == '15':
+        if self.input_xml_path and product.psd == "15":
             self._manage_psd_15()
 
     def _sbaf_replace(self, metadata: Metadata):
         extra_values_elem = './Data_Block/report/checkList[parentID="L2H_SBAF"]/check/extraValues'
         # # Removing unchanged SBAF values and inserting new ones
-        ns = self.remove_children(
-            extra_values_elem,
-            tag='value',
-            attrs={'name': 'SBAF_COEFFICIENT_'}
-        )
-        self.remove_children(extra_values_elem, tag='value', attrs={'name': 'SBAF_OFFSET_'})
+        ns = self.remove_children(extra_values_elem, tag="value", attrs={"name": "SBAF_COEFFICIENT_"})
+        self.remove_children(extra_values_elem, tag="value", attrs={"name": "SBAF_OFFSET_"})
 
         for key, item in sorted(metadata.qi.items()):
-            if 'SBAF_COEFFICIENT_' in key or 'SBAF_OFFSET_' in key:
-                create_child(
-                    self.root_out, extra_values_elem,
-                    tag=ns + 'value', text=str(item),
-                    attribs={"name": key}
-                )
+            if "SBAF_COEFFICIENT_" in key or "SBAF_OFFSET_" in key:
+                create_child(self.root_out, extra_values_elem, tag=ns + "value", text=str(item), attribs={"name": key})
 
     def _manage_psd_15(self):
         """
-        Replace element `value` attribute `name` DARK_FEATURES_PERCENTAGE with CAST_SHADOW_PERCENTAGE 
+        Replace element `value` attribute `name` DARK_FEATURES_PERCENTAGE with CAST_SHADOW_PERCENTAGE
         and set its value properly
         """
-        DARK_FEATURES_PERCENTAGE_PATH = './Data_Block/report/checkList[parentID="L2A_SC"]/check/extraValues/value[@name="DARK_FEATURES_PERCENTAGE"]'
-        CAST_SHADOW_PERCENTAGE_PATH = './Data_Block/report/checkList[parentID="L2A_SC"]/check/extraValues/value[@name="CAST_SHADOW_PERCENTAGE"]'
+        DARK_FEATURES_PERCENTAGE_PATH = (
+            './Data_Block/report/checkList[parentID="L2A_SC"]/check/extraValues/value[@name="DARK_FEATURES_PERCENTAGE"]'
+        )
+        CAST_SHADOW_PERCENTAGE_PATH = (
+            './Data_Block/report/checkList[parentID="L2A_SC"]/check/extraValues/value[@name="CAST_SHADOW_PERCENTAGE"]'
+        )
 
         elem = find_element_by_path(self.root_out, DARK_FEATURES_PERCENTAGE_PATH)
         if len(elem) != 1:
@@ -138,14 +153,11 @@ class QiWriter(XmlWriter):
 
         orig = find_element_by_path(self.root_in, CAST_SHADOW_PERCENTAGE_PATH)
         if len(orig) != 1:
-            log.error(
-                "PSD15: Unable to find CAST_SHADOW_PERCENTAGE in %s, 0 or > 1 elem match",
-                self.input_xml_path
-            )
+            log.error("PSD15: Unable to find CAST_SHADOW_PERCENTAGE in %s, 0 or > 1 elem match", self.input_xml_path)
             return
 
         elem[0].attrib["name"] = "CAST_SHADOW_PERCENTAGE"
-        elem[0].text=orig[0].text
+        elem[0].text = orig[0].text
 
     def _feed_values_dict(self, metadata):
         """
@@ -154,12 +166,12 @@ class QiWriter(XmlWriter):
         if not already in.
         """
         if self.root_in is not None:
-            for elem in self.root_in.iter('*'):
+            for elem in self.root_in.iter("*"):
                 node_name, _ = remove_namespace(elem.tag)
-                if node_name == 'value':
+                if node_name == "value":
                     # Don't overwrite values who were changed during Sen2Like processes
-                    if metadata.qi.get(elem.attrib.get('name')) in [None, "NONE", "None"]:
-                        metadata.qi[elem.attrib.get('name')] = elem.text
+                    if metadata.qi.get(elem.attrib.get("name")) in [None, "NONE", "None"]:
+                        metadata.qi[elem.attrib.get("name")] = elem.text
 
     def _replace_values(self, values_dict):
         """
@@ -168,4 +180,4 @@ class QiWriter(XmlWriter):
         :return:
         """
         for attr, new_value in values_dict.items():
-            chg_elm_with_tag(root=self.root_out, tag='value', new_value=new_value, attrs={'name': attr})
+            chg_elm_with_tag(root=self.root_out, tag="value", new_value=new_value, attrs={"name": attr})

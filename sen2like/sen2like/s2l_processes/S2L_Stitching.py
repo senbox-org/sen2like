@@ -40,10 +40,7 @@ class S2L_Stitching(S2L_Process):
 
     def _output_file(self, product, band=None, image=None, extension=None):
         if band is None and image is not None:
-            return os.path.join(
-                product.working_dir,
-                image.rootname + extension
-            )
+            return os.path.join(product.working_dir, image.rootname + extension)
 
         return self.output_file(product, band, extension)
 
@@ -52,15 +49,17 @@ class S2L_Stitching(S2L_Process):
         if dtype:
             # product image band case
             merged_array = product_image.array.astype(dtype)
-            np.copyto(merged_array, related_product_image.array.astype(merged_array.dtype), where=product_image.array == 0)
+            np.copyto(
+                merged_array, related_product_image.array.astype(merged_array.dtype), where=product_image.array == 0
+            )
         else:
             # aux data case
             merged_array = product_image.array.copy()
             np.copyto(merged_array, related_product_image.array, where=product_image.array == 0)
 
-        stitched_product_image = product_image.duplicate(array=merged_array,
-                                                             filepath=self._output_file(product, band, product_image,
-                                                                                       "_STITCHED"))
+        stitched_product_image = product_image.duplicate(
+            array=merged_array, filepath=self._output_file(product, band, product_image, "_STITCHED")
+        )
         return stitched_product_image
 
     @staticmethod
@@ -68,7 +67,7 @@ class S2L_Stitching(S2L_Process):
         ds_product_src = gdal.Open(product_file)
         ds_related_product_src = gdal.Open(related_product_file)
 
-        filepath_out = os.path.join(product.working_dir, 'tie_points_STITCHED.TIF')
+        filepath_out = os.path.join(product.working_dir, "tie_points_STITCHED.TIF")
 
         for i in range(1, ds_product_src.RasterCount + 1):
             array_product = ds_product_src.GetRasterBand(i).ReadAsArray()
@@ -77,10 +76,14 @@ class S2L_Stitching(S2L_Process):
 
             if i == 1:
                 # write with gdal
-                driver = gdal.GetDriverByName('GTiff')
-                ds_dst = driver.Create(filepath_out, bands=ds_product_src.RasterCount,
-                                       xsize=ds_product_src.RasterXSize, ysize=ds_product_src.RasterYSize,
-                                       eType=gdal.GDT_Int16)
+                driver = gdal.GetDriverByName("GTiff")
+                ds_dst = driver.Create(
+                    filepath_out,
+                    bands=ds_product_src.RasterCount,
+                    xsize=ds_product_src.RasterXSize,
+                    ysize=ds_product_src.RasterYSize,
+                    eType=gdal.GDT_Int16,
+                )
                 ds_dst.SetProjection(ds_product_src.GetProjection())
                 ds_dst.SetGeoTransform(ds_product_src.GetGeoTransform())
 
@@ -112,11 +115,9 @@ class S2L_Stitching(S2L_Process):
         if None not in [product.mask_filename, related_product.mask_filename]:
             log.info("Stitch mask of products % and %s", product.name, related_product.name)
             stitched_mask = self.stitch(
-                product,
-                S2L_ImageFile(product.mask_filename),
-                S2L_ImageFile(related_product.mask_filename)
+                product, S2L_ImageFile(product.mask_filename), S2L_ImageFile(related_product.mask_filename)
             )
-            stitched_mask.write(creation_options=['COMPRESS=LZW'])
+            stitched_mask.write(creation_options=["COMPRESS=LZW"])
             product.mask_filename = stitched_mask.filepath
 
         if None not in [product.nodata_mask_filename, related_product.nodata_mask_filename]:
@@ -124,27 +125,21 @@ class S2L_Stitching(S2L_Process):
             stitched_mask = self.stitch(
                 product,
                 S2L_ImageFile(product.nodata_mask_filename),
-                S2L_ImageFile(related_product.nodata_mask_filename)
+                S2L_ImageFile(related_product.nodata_mask_filename),
             )
-            stitched_mask.write(creation_options=['COMPRESS=LZW'])
+            stitched_mask.write(creation_options=["COMPRESS=LZW"])
             product.nodata_mask_filename = stitched_mask.filepath
 
         if product.ndvi_filename is not None and related_product.ndvi_filename is not None:
             log.info("Stitch ndvi of products % and %s", product.name, related_product.name)
             stitched_ndvi = self.stitch(
-                product,
-                S2L_ImageFile(product.ndvi_filename),
-                S2L_ImageFile(related_product.ndvi_filename)
+                product, S2L_ImageFile(product.ndvi_filename), S2L_ImageFile(related_product.ndvi_filename)
             )
-            stitched_ndvi.write(DCmode=True, creation_options=['COMPRESS=LZW'])
+            stitched_ndvi.write(DCmode=True, creation_options=["COMPRESS=LZW"])
             product.ndvi_filename = stitched_ndvi.filepath
 
         log.info("Stitch angles of products % and %s", product.name, related_product.name)
-        stitched_angles = self.stitch_multi(
-            product,
-            product.angles_file,
-            related_product.angles_file
-        )
+        stitched_angles = self.stitch_multi(product, product.angles_file, related_product.angles_file)
         product.angles_file = stitched_angles
 
     def process(self, product: S2L_Product, image: S2L_ImageFile, band: str) -> S2L_ImageFile:
@@ -155,7 +150,7 @@ class S2L_Stitching(S2L_Process):
         # stitch products band image
         related_image = product.related_product.related_image_dict[band]
         stitched_product_image = self.stitch(product, image, related_image, band, np.float32)
-        stitched_product_image.write(creation_options=['COMPRESS=LZW'], DCmode=True)
+        stitched_product_image.write(creation_options=["COMPRESS=LZW"], DCmode=True)
 
         product.filenames[band] = stitched_product_image.filepath
 

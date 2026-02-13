@@ -17,9 +17,9 @@
 
 """Version of the Application."""
 
-__version__ = '4.5.3'
+__version__ = "4.5.3"
 
-_splitted_version = __version__.split('.')
+_splitted_version = __version__.split(".")
 
 _major = f"{int(_splitted_version[0]):02d}"
 _minor = f"{int(_splitted_version[1]):02d}"

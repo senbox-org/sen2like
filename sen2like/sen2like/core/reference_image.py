@@ -69,7 +69,7 @@ def get_resampled_ref_image(image: S2L_ImageFile, ref_image_path: str) -> S2L_Im
         # new ref image filepath
         ref_image_no_ext = os.path.splitext(ref_image_path)[0]
         if ref_image_no_ext.endswith(f"_{int(ref_image.xRes)}m"):
-            ref_image_no_ext = ref_image_no_ext[:-len(f"_{int(ref_image.xRes)}m")]
+            ref_image_no_ext = ref_image_no_ext[: -len(f"_{int(ref_image.xRes)}m")]
         ref_image_path = ref_image_no_ext + f"_{int(image.xRes)}m.TIF"
 
         # compute (resample), or load if exists
@@ -78,7 +78,7 @@ def get_resampled_ref_image(image: S2L_ImageFile, ref_image_path: str) -> S2L_Im
             # compute
             ref_image = resample(ref_image, image.xRes, ref_image_path)
             # write for reuse
-            ref_image.write(DCmode=True, creation_options=['COMPRESS=LZW'])
+            ref_image.write(DCmode=True, creation_options=["COMPRESS=LZW"])
         else:
             # or load if exists
             logger.info("Change reference image to: %s", ref_image_path)

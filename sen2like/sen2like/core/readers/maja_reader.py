@@ -25,7 +25,7 @@ from xml.etree import ElementTree
 
 from core.readers.reader import BaseReader, compute_scene_boundaries
 
-log = logging.getLogger('Sen2Like')
+log = logging.getLogger("Sen2Like")
 
 
 class MajaReader(BaseReader):
@@ -36,17 +36,17 @@ class MajaReader(BaseReader):
 
         # Check product path as input
         if not os.path.exists(self.product_path):
-            log.error('Input product does not exist')
+            log.error("Input product does not exist")
             self.isValid = False
             return
 
         self.isValid = True
 
         try:
-            mtl_file_name = glob.glob(os.path.join(self.product_path, '*MTD*.xml'))[0]
+            mtl_file_name = glob.glob(os.path.join(self.product_path, "*MTD*.xml"))[0]
         except IndexError:
             self.isValid = False
-            sys.exit('No MTD product file information found')
+            sys.exit("No MTD product file information found")
 
         try:
             self.root = ElementTree.parse(mtl_file_name)
@@ -57,16 +57,22 @@ class MajaReader(BaseReader):
             sys.exit(-1)
 
         self.mtl_file_name = mtl_file_name
-        self.mission = self.root.findtext('.//Product_Characteristics/PLATFORM')
-        self.data_type = self.root.findtext('.//Product_Characteristics/PRODUCT_LEVEL')
-        self.processing_sw = self.root.findtext('.//Product_Characteristics/PRODUCT_VERSION')
+        self.mission = self.root.findtext(".//Product_Characteristics/PLATFORM")
+        self.data_type = self.root.findtext(".//Product_Characteristics/PRODUCT_LEVEL")
+        self.processing_sw = self.root.findtext(".//Product_Characteristics/PRODUCT_VERSION")
 
     def compute_boundary(self):
-         # Compute scene boundary - EXT_POS_LIST tag
-        scene_boundary_lat = [float(point.findtext('LAT')) for point in
-                              self.root.findall('.//Global_Geopositioning/Point') if point.attrib['name'] != 'center']
-        scene_boundary_lon = [float(point.findtext('LON')) for point in
-                              self.root.findall('.//Global_Geopositioning/Point') if point.attrib['name'] != 'center']
+        # Compute scene boundary - EXT_POS_LIST tag
+        scene_boundary_lat = [
+            float(point.findtext("LAT"))
+            for point in self.root.findall(".//Global_Geopositioning/Point")
+            if point.attrib["name"] != "center"
+        ]
+        scene_boundary_lon = [
+            float(point.findtext("LON"))
+            for point in self.root.findall(".//Global_Geopositioning/Point")
+            if point.attrib["name"] != "center"
+        ]
 
         boundaries = compute_scene_boundaries(scene_boundary_lat, scene_boundary_lon)
         self.scene_boundary_lat = boundaries[0]

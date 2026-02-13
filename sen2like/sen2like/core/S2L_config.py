@@ -36,18 +36,18 @@ import xmlschema
 # define here all the blocks that are implemented, then user to choose
 # which blocks are to be run through the on/off switches in the config.ini file
 PROC_BLOCKS = OrderedDict()
-PROC_BLOCKS['S2L_Geometry'] = {'extension': '_REFRAMED.TIF', 'applicability': 'L8_L9_S2_Prisma'}
-PROC_BLOCKS['S2L_Stitching'] = {'extension': '_STITCHED.TIF', 'applicability': 'L8_L9_S2_Prisma'}
-PROC_BLOCKS['S2L_GeometryCheck'] = {'extension': None, 'applicability': 'L8_L9_S2_Prisma'}
-PROC_BLOCKS['S2L_Toa'] = {'extension': '_TOA.TIF', 'applicability': 'L8_L9_S2_Prisma'}
-PROC_BLOCKS['S2L_InterCalibration'] = {'extension': '_INTERCAL.TIF', 'applicability': 'L8_L9_S2_Prisma'}
-PROC_BLOCKS['S2L_Atmcor'] = {'extension': '_SURF.TIF', 'applicability': 'L8_L9_S2_Prisma'}
-PROC_BLOCKS['S2L_Nbar'] = {'extension': '_BRDF.TIF', 'applicability': 'L8_L9_S2_Prisma'}
-PROC_BLOCKS['S2L_Sbaf'] = {'extension': '_SBAF.TIF', 'applicability': 'L8_L9_S2_Prisma'}
-PROC_BLOCKS['S2L_TopographicCorrection'] = {'extension': '_TOPOCORR.TIF', 'applicability': 'L8_L9_S2_Prisma'}
-PROC_BLOCKS['S2L_PackagerL2H'] = {'extension': None, 'applicability': 'L8_L9_S2_Prisma'}
-PROC_BLOCKS['S2L_Fusion'] = {'extension': '_FUSION.TIF', 'applicability': 'L8_L9_Prisma'}
-PROC_BLOCKS['S2L_PackagerL2F'] = {'extension': None, 'applicability': 'L8_L9_S2_Prisma'}
+PROC_BLOCKS["S2L_Geometry"] = {"extension": "_REFRAMED.TIF", "applicability": "L8_L9_S2_Prisma"}
+PROC_BLOCKS["S2L_Stitching"] = {"extension": "_STITCHED.TIF", "applicability": "L8_L9_S2_Prisma"}
+PROC_BLOCKS["S2L_GeometryCheck"] = {"extension": None, "applicability": "L8_L9_S2_Prisma"}
+PROC_BLOCKS["S2L_Toa"] = {"extension": "_TOA.TIF", "applicability": "L8_L9_S2_Prisma"}
+PROC_BLOCKS["S2L_InterCalibration"] = {"extension": "_INTERCAL.TIF", "applicability": "L8_L9_S2_Prisma"}
+PROC_BLOCKS["S2L_Atmcor"] = {"extension": "_SURF.TIF", "applicability": "L8_L9_S2_Prisma"}
+PROC_BLOCKS["S2L_Nbar"] = {"extension": "_BRDF.TIF", "applicability": "L8_L9_S2_Prisma"}
+PROC_BLOCKS["S2L_Sbaf"] = {"extension": "_SBAF.TIF", "applicability": "L8_L9_S2_Prisma"}
+PROC_BLOCKS["S2L_TopographicCorrection"] = {"extension": "_TOPOCORR.TIF", "applicability": "L8_L9_S2_Prisma"}
+PROC_BLOCKS["S2L_PackagerL2H"] = {"extension": None, "applicability": "L8_L9_S2_Prisma"}
+PROC_BLOCKS["S2L_Fusion"] = {"extension": "_FUSION.TIF", "applicability": "L8_L9_Prisma"}
+PROC_BLOCKS["S2L_PackagerL2F"] = {"extension": None, "applicability": "L8_L9_S2_Prisma"}
 
 logger = logging.getLogger("Sen2Like")
 
@@ -89,7 +89,7 @@ class XmlParser:
             element = section.find(option)
             if element is not None:
                 value = element.text
-                if value == 'None':
+                if value == "None":
                     value = None
                 break
         return value
@@ -107,7 +107,7 @@ class XmlParser:
         (do not take account of sections)
         """
         value = self.get(option)
-        return value.lower() == 'true'
+        return value.lower() == "true"
 
     def getfloat(self, option):
         """
@@ -125,9 +125,9 @@ class XmlParser:
         Section is 'RunTime' by default
         """
         # Add section if it does not exist
-        runtime_element = self.root.find('.//RunTime')
+        runtime_element = self.root.find(".//RunTime")
         if runtime_element is None:
-            runtime_element = ElementTree.Element('RunTime')
+            runtime_element = ElementTree.Element("RunTime")
             self.root.append(runtime_element)
         element = runtime_element.find(option)
         if element is None:
@@ -145,11 +145,11 @@ class XmlParser:
         if isinstance(dic, str):
             string = dic
             dic = {}
-            for keyval in string.strip().split(','):
-                [key, value] = keyval.split('=')
+            for keyval in string.strip().split(","):
+                [key, value] = keyval.split("=")
                 dic[key] = value
 
-        for (option, value) in list(dic.items()):
+        for option, value in list(dic.items()):
             for section in self.root:
                 element = section.find(option)
                 if element is not None:
@@ -198,7 +198,7 @@ class IniParser:
         for section in self.configObject.sections():
             if option in self.configObject.options(section):
                 value = self.configObject.get(section, option)
-                if value == 'None':
+                if value == "None":
                     value = None
                 break
         return value
@@ -235,11 +235,11 @@ class IniParser:
         Section is 'RunTime' by default
         """
         # add section if does not exist
-        if 'RunTime' not in self.configObject.sections():
-            self.configObject.add_section('RunTime')
+        if "RunTime" not in self.configObject.sections():
+            self.configObject.add_section("RunTime")
 
         # add option
-        self.configObject.set('RunTime', option, str(value))
+        self.configObject.set("RunTime", option, str(value))
 
     def overload(self, dic):
         """
@@ -251,11 +251,11 @@ class IniParser:
         if isinstance(dic, str):
             string = dic
             dic = {}
-            for keyval in string.strip().split(','):
-                [key, value] = keyval.split('=')
+            for keyval in string.strip().split(","):
+                [key, value] = keyval.split("=")
                 dic[key] = value
 
-        for (option, value) in list(dic.items()):
+        for option, value in list(dic.items()):
             for section in self.configObject.sections():
                 if option in self.configObject.options(section):
                     self.configObject.set(section, option, str(value))
@@ -269,14 +269,12 @@ class IniParser:
         if not os.path.exists(dirout):
             os.makedirs(dirout)
         # write in file
-        with open(configfile, 'w') as o:
+        with open(configfile, "w") as o:
             self.configObject.write(o)
 
 
 class S2L_Config:
-    parsers = {".xml": XmlParser,
-               ".ini": IniParser,
-               ".cfg": IniParser}
+    parsers = {".xml": XmlParser, ".ini": IniParser, ".cfg": IniParser}
 
     def __init__(self, configuration_file=None):
         self.parser = None
@@ -316,13 +314,13 @@ class S2L_Config:
 
         # set working dir
         output_folder = str(int(datetime.datetime.now(datetime.UTC).timestamp()))
-        self.set('wd', os.path.join(args.wd, output_folder))
-        self.set('debug', args.debug)
-        self.set('generate_intermediate_products', args.generate_intermediate_products)
-        if hasattr(args, 'l2a'):
-            self.set('s2_processing_level', 'LEVEL2A' if args.l2a else "LEVEL1C")
+        self.set("wd", os.path.join(args.wd, output_folder))
+        self.set("debug", args.debug)
+        self.set("generate_intermediate_products", args.generate_intermediate_products)
+        if hasattr(args, "l2a"):
+            self.set("s2_processing_level", "LEVEL2A" if args.l2a else "LEVEL1C")
 
-        self.set('allow_other_srs', args.allow_other_srs)
+        self.set("allow_other_srs", args.allow_other_srs)
 
 
 config = S2L_Config()

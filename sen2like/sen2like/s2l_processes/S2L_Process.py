@@ -43,9 +43,7 @@ class S2L_Process(ABC):
             Defaults to False.
         """
         self.generate_intermediate_products = generate_intermediate_products
-        self.ext = S2L_config.PROC_BLOCKS.get(self.__class__.__name__, {}).get(
-            "extension"
-        )
+        self.ext = S2L_config.PROC_BLOCKS.get(self.__class__.__name__, {}).get("extension")
 
     def preprocess(self, product: S2L_Product):
         """Do some preprocess on / for the product
@@ -56,9 +54,7 @@ class S2L_Process(ABC):
         log.info("%s: Nothing to preprocess here for %s", type(self).__name__, product.name)
 
     @abstractmethod
-    def process(
-        self, product: S2L_Product, image: S2L_ImageFile, band: str
-    ) -> S2L_ImageFile:
+    def process(self, product: S2L_Product, image: S2L_ImageFile, band: str) -> S2L_ImageFile:
         """Process the product/image/band
 
         Args:

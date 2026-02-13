@@ -46,7 +46,7 @@ class Metadata:
             "ang_filename": "NONE",
             "qi_path": "NONE",
             "pvi_filename": "NONE",
-            "S2_AC": 'ZZZ'
+            "S2_AC": "ZZZ",
         }
 
         # self.qi is a dict with the 'Value' nodes from the QI report. key=node_name, item=node_text
@@ -58,11 +58,11 @@ class Metadata:
             "KURTOSIS": "NONE",
             "REF_IMAGE": "NONE",
             "MEAN": "NONE",
-            'MEAN_X': "NONE",
-            'MEAN_Y': "NONE",
+            "MEAN_X": "NONE",
+            "MEAN_Y": "NONE",
             "STD": "NONE",
-            'STD_X': "NONE",
-            'STD_Y': "NONE",
+            "STD_X": "NONE",
+            "STD_Y": "NONE",
             "RMSE": "NONE",
             "NB_OF_POINTS": "NONE",
             "MEAN_DELTA_AZIMUTH": "NONE",
@@ -80,7 +80,7 @@ class Metadata:
             "product_QIF_xsd": "xsd_files/L2F_QUALITY.xsd",
             "PDGS": "9999",
             "L8_archiving_center": "ZZZ_",
-            "L8_archiving_time": "0000-00-00T00:00:00.000Z"
+            "L8_archiving_time": "0000-00-00T00:00:00.000Z",
         }
 
     def update(self, new_medatada):

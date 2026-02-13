@@ -32,18 +32,10 @@ class TestDemDownloader(TestCase):
         res = dem_downloader.get()
         assert os.path.isfile(res)
         assert res == "/tmp/DEM/COP-DEM_GLO-90-DGED__2022_1/Copernicus_DSM_90m_33TTG.TIF"
-        assert os.path.isfile(
-            "/tmp/DEM/COP-DEM_GLO-90-DGED__2022_1/geocells/Copernicus_DSM_30_N41_00_E011_00_DEM.tif"
-        )
-        assert os.path.isfile(
-            "/tmp/DEM/COP-DEM_GLO-90-DGED__2022_1/geocells/Copernicus_DSM_30_N41_00_E012_00_DEM.tif"
-        )
-        assert os.path.isfile(
-            "/tmp/DEM/COP-DEM_GLO-90-DGED__2022_1/geocells/Copernicus_DSM_30_N42_00_E011_00_DEM.tif"
-        )
-        assert os.path.isfile(
-            "/tmp/DEM/COP-DEM_GLO-90-DGED__2022_1/geocells/Copernicus_DSM_30_N42_00_E012_00_DEM.tif"
-        )
+        assert os.path.isfile("/tmp/DEM/COP-DEM_GLO-90-DGED__2022_1/geocells/Copernicus_DSM_30_N41_00_E011_00_DEM.tif")
+        assert os.path.isfile("/tmp/DEM/COP-DEM_GLO-90-DGED__2022_1/geocells/Copernicus_DSM_30_N41_00_E012_00_DEM.tif")
+        assert os.path.isfile("/tmp/DEM/COP-DEM_GLO-90-DGED__2022_1/geocells/Copernicus_DSM_30_N42_00_E011_00_DEM.tif")
+        assert os.path.isfile("/tmp/DEM/COP-DEM_GLO-90-DGED__2022_1/geocells/Copernicus_DSM_30_N42_00_E012_00_DEM.tif")
 
         # no additional download but create temp mosaic
         res = dem_downloader.get()
@@ -56,18 +48,10 @@ class TestDemDownloader(TestCase):
         res = dem_downloader.get()
         assert os.path.isfile(res)
         assert res == "/tmp/DEM/COP-DEM_GLO-90-DGED__2022_1/Copernicus_DSM_90m_12SYH.TIF"
-        assert os.path.isfile(
-            "/tmp/DEM/COP-DEM_GLO-90-DGED__2022_1/geocells/Copernicus_DSM_30_N37_00_W109_00_DEM.tif"
-        )
-        assert os.path.isfile(
-            "/tmp/DEM/COP-DEM_GLO-90-DGED__2022_1/geocells/Copernicus_DSM_30_N37_00_W108_00_DEM.tif"
-        )
-        assert os.path.isfile(
-            "/tmp/DEM/COP-DEM_GLO-90-DGED__2022_1/geocells/Copernicus_DSM_30_N38_00_W109_00_DEM.tif"
-        )
-        assert os.path.isfile(
-            "/tmp/DEM/COP-DEM_GLO-90-DGED__2022_1/geocells/Copernicus_DSM_30_N38_00_W108_00_DEM.tif"
-        )
+        assert os.path.isfile("/tmp/DEM/COP-DEM_GLO-90-DGED__2022_1/geocells/Copernicus_DSM_30_N37_00_W109_00_DEM.tif")
+        assert os.path.isfile("/tmp/DEM/COP-DEM_GLO-90-DGED__2022_1/geocells/Copernicus_DSM_30_N37_00_W108_00_DEM.tif")
+        assert os.path.isfile("/tmp/DEM/COP-DEM_GLO-90-DGED__2022_1/geocells/Copernicus_DSM_30_N38_00_W109_00_DEM.tif")
+        assert os.path.isfile("/tmp/DEM/COP-DEM_GLO-90-DGED__2022_1/geocells/Copernicus_DSM_30_N38_00_W108_00_DEM.tif")
 
     def test_unknow(self):
         arg = Arguments()

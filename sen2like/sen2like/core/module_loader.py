@@ -29,10 +29,10 @@ def get_modules(proj_dir, module):
     """Return all .py modules in given file_dir that are not __init__."""
     file_dir = abspath(join(proj_dir, module))
     for root, __, files in walk(file_dir):
-        mod_path = '{}{}'.format(basename(proj_dir), root.split(proj_dir)[1]).replace('/', '.').replace('\\', '.')
+        mod_path = "{}{}".format(basename(proj_dir), root.split(proj_dir)[1]).replace("/", ".").replace("\\", ".")
         for filename in files:
-            if filename.endswith('.py') and not filename.startswith('__init__'):
-                yield '.'.join([mod_path, filename[0:-3]])
+            if filename.endswith(".py") and not filename.startswith("__init__"):
+                yield ".".join([mod_path, filename[0:-3]])
 
 
 def dynamic_loader(proj_dir, module, compare_method):
@@ -52,4 +52,4 @@ def dynamic_loader(proj_dir, module, compare_method):
 
 def get_proj_dir(filename):
     """Return project base directory."""
-    return abspath(join(dirname(abspath(filename)), '..'))
+    return abspath(join(dirname(abspath(filename)), ".."))

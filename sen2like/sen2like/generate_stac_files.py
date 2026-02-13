@@ -48,14 +48,15 @@ def main(args):
     s2l_out = os.path.abspath(args.s2l_out)
     catalog = S2LSTACCatalog()
 
-    for tile_path in glob.glob(os.path.join(s2l_out, '*')):
+    for tile_path in glob.glob(os.path.join(s2l_out, "*")):
         if not os.path.isdir(tile_path):
             continue
         tile = os.path.basename(tile_path)
         stats[tile] = {"invalid": 0, "found": 0, "generated": 0}
         collections = S2LSTACCatalog_Tile(tile, tile)
         for product_path in sorted(
-                glob.glob(os.path.join(tile_path, '*')), key=lambda x: x[len(tile_path) + 12: len(tile_path) + 27]):
+            glob.glob(os.path.join(tile_path, "*")), key=lambda x: x[len(tile_path) + 12 : len(tile_path) + 27]
+        ):
             if not os.path.isdir(product_path):
                 continue
             print(f">> {product_path}")
@@ -66,12 +67,12 @@ def main(args):
             product.read_metadata()
 
             ql_name = glob.glob(os.path.join(os.path.dirname(product.mtl.tile_metadata), "QI_DATA", "*QL_B432.jpg"))
-            product_url = args.s2l_out_url + '/' + os.path.relpath(product_path, s2l_out)
+            product_url = args.s2l_out_url + "/" + os.path.relpath(product_path, s2l_out)
             for b in product.mtl.bands.keys():
                 ref_band = b
                 break
 
-            stats[tile]['found'] += 1
+            stats[tile]["found"] += 1
             try:
                 item = S2LSTACCatalog_Product(product, product_url, ref_band, cog=args.cog)
                 item.add_product_bands_asset()
@@ -79,9 +80,9 @@ def main(args):
                 collections.add_item(item, item.id)
             except rasterio.errors.RasterioIOError:
                 print("Product uses old format... Skipping")
-                stats[tile]['invalid'] += 1
+                stats[tile]["invalid"] += 1
             else:
-                stats[tile]['generated'] += 1
+                stats[tile]["generated"] += 1
         collections.update_extent_from_items()
         catalog.add_child(collections, title=collections.title)
 
@@ -91,19 +92,20 @@ def main(args):
     print_stats()
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("catalog_dir", help="Path to catalog output directory")
     parser.add_argument(
         "catalog_dir_url",
         help="The base url call by stac client to get catalog directory"
-        "(exemple: if calalog url is http://sen2like.com/stac/catalog.json, the base url is http://sen2like.com/stac)")
+        "(exemple: if calalog url is http://sen2like.com/stac/catalog.json, the base url is http://sen2like.com/stac)",
+    )
     parser.add_argument("s2l_out", help="The sen2like output directory")
     parser.add_argument("s2l_out_url", help="The base url to accesse to the sen2like output directory")
 
     # parser.add_argument("--is-tile", help="Indicates if the path is a tile path", action='store_true', dest='is_tile')
-    parser.add_argument("--dry-run", help="Only list products. Do not generate files.", action='store_true')
-    parser.add_argument("--cog", help="Set image assets type to COG", action='store_true')
+    parser.add_argument("--dry-run", help="Only list products. Do not generate files.", action="store_true")
+    parser.add_argument("--cog", help="Set image assets type to COG", action="store_true")
 
     args = parser.parse_args()
 

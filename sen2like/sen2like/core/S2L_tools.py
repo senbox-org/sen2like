@@ -27,7 +27,18 @@ from osgeo import gdal
 log = logging.getLogger("Sen2Like")
 
 
-def quicklook(product, images, bands, qlpath, quality=95, xRes=30, yRes=30, out_format='JPEG', creationOptions: list = None, offset: int = 0):
+def quicklook(
+    product,
+    images,
+    bands,
+    qlpath,
+    quality=95,
+    xRes=30,
+    yRes=30,
+    out_format="JPEG",
+    creationOptions: list = None,
+    offset: int = 0,
+):
     """
 
     :param product: S2L_Product object
@@ -42,7 +53,7 @@ def quicklook(product, images, bands, qlpath, quality=95, xRes=30, yRes=30, out_
     # bands for rgb
     for band in bands:
         if band not in images.keys():
-            log.warning('Bands not available for quicklook (%s)', bands)
+            log.warning("Bands not available for quicklook (%s)", bands)
             return None
         else:
             imagefiles.append(images[band])
@@ -59,7 +70,7 @@ def quicklook(product, images, bands, qlpath, quality=95, xRes=30, yRes=30, out_
         band_list = [1, 2, 3]
 
     # create single vrt with B4 B3 B2
-    vrtpath = qlpath + '.vrt'
+    vrtpath = qlpath + ".vrt"
 
     gdal.BuildVRT(vrtpath, imagefiles, separate=True)
     log.debug("save in : %s", vrtpath)
@@ -83,7 +94,7 @@ def quicklook(product, images, bands, qlpath, quality=95, xRes=30, yRes=30, out_
         src_max = 4000
 
     # FIXME: site specific should be in configuration
-    if product.mgrs == '34RGS':
+    if product.mgrs == "34RGS":
         src_max = 4000
         if bands == ["B12", "B11", "B8A"]:
             src_max = 10000
@@ -91,19 +102,28 @@ def quicklook(product, images, bands, qlpath, quality=95, xRes=30, yRes=30, out_
     scale = [[src_min + offset, src_max + offset, dst_min, dst_max]]
 
     # do gdal...
-    if out_format == 'GTIFF':
+    if out_format == "GTIFF":
         # Because the driver does not support QUALITY={quality} as create_options when format='Gtiff'
         create_options = creationOptions
     else:
-        create_options = [f'QUALITY={quality}'] if creationOptions is None else [f'QUALITY={quality}'] + creationOptions
+        create_options = [f"QUALITY={quality}"] if creationOptions is None else [f"QUALITY={quality}"] + creationOptions
 
-    dataset = gdal.Translate(qlpath, vrtpath, xRes=xRes, yRes=yRes, resampleAlg='bilinear', bandList=band_list,
-                   outputType=gdal.GDT_Byte, format=out_format, creationOptions=create_options,
-                   scaleParams=scale)
+    dataset = gdal.Translate(
+        qlpath,
+        vrtpath,
+        xRes=xRes,
+        yRes=yRes,
+        resampleAlg="bilinear",
+        bandList=band_list,
+        outputType=gdal.GDT_Byte,
+        format=out_format,
+        creationOptions=create_options,
+        scaleParams=scale,
+    )
 
     log.info("save in : %s", qlpath)
 
-    quantification_value = 10000.
+    quantification_value = 10000.0
     scaling = (src_max - src_min) / quantification_value / (dst_max - dst_min)
 
     try:
@@ -119,7 +139,7 @@ def quicklook(product, images, bands, qlpath, quality=95, xRes=30, yRes=30, out_
 
     except Exception as e:
         log.warning(e, exc_info=True)
-        log.warning('error updating the metadata of quicklook image')
+        log.warning("error updating the metadata of quicklook image")
 
     # clean
     os.remove(vrtpath)
@@ -128,7 +148,7 @@ def quicklook(product, images, bands, qlpath, quality=95, xRes=30, yRes=30, out_
 
 
 def out_stat(input_matrix, logger, label=""):
-    logger.debug('Maximum %s : %s', label, np.max(input_matrix))
-    logger.debug('Mean %s : %s', label, np.mean(input_matrix))
-    logger.debug('Std dev %s : %s', label, np.std(input_matrix))
-    logger.debug('Minimum %s : %s', label, np.min(input_matrix))
+    logger.debug("Maximum %s : %s", label, np.max(input_matrix))
+    logger.debug("Mean %s : %s", label, np.mean(input_matrix))
+    logger.debug("Std dev %s : %s", label, np.std(input_matrix))
+    logger.debug("Minimum %s : %s", label, np.min(input_matrix))

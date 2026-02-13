@@ -44,6 +44,7 @@ log = logging.getLogger("Sen2Like")
 
 # BRDF KERNEL Functions :
 
+
 def li_sparse_kernel(theta_s, theta_v, phi):
     """
     Function compute the geometric  BRDF LiSpare Kernel  derived from surface scattering
@@ -73,9 +74,11 @@ def li_sparse_kernel(theta_s, theta_v, phi):
     cos_zetha_p = np.cos(theta_s_p) * np.cos(theta_v_p) + np.sin(theta_s_p) * np.sin(theta_v_p) * np.cos(phi_r)
 
     D = np.power(
-        np.power(np.tan(theta_s_p), 2) +
-        np.power(np.tan(theta_v_p), 2) -
-        2 * np.tan(theta_s_p) * np.tan(theta_v_p) * np.cos(phi_r), 0.5)
+        np.power(np.tan(theta_s_p), 2)
+        + np.power(np.tan(theta_v_p), 2)
+        - 2 * np.tan(theta_s_p) * np.tan(theta_v_p) * np.cos(phi_r),
+        0.5,
+    )
     sec_theta_s_p = np.divide(1.0, np.cos(theta_s_p))
     sec_theta_v_p = np.divide(1.0, np.cos(theta_v_p))
 
@@ -122,11 +125,13 @@ def normalized_brdf(KVOL_norm, KGEO_norm, KVOL_input, KGEO_input, coef):
 
 # END BRDF KERNEL Functions :
 
+
 @dataclass
 class BandParam:
     """
     Internal dataclasses for S2L_Nbar._band_param dict values
     """
+
     band_name: str
     # brdf_coeff: None|BRDFCoefficient
     KVOL_NORM: None
@@ -136,7 +141,7 @@ class BandParam:
 
 
 class BRDFCoefficient(ABC):
-    mtd = 'NONE'
+    mtd = "NONE"
 
     def __init__(self, product):
         self.product = product
@@ -145,20 +150,17 @@ class BRDFCoefficient(ABC):
         return self.product.bands_mapping[band]
 
     @abstractmethod
-    def check(self, band) -> bool:
-        ...
+    def check(self, band) -> bool: ...
 
     @abstractmethod
-    def get_cmatrix_full(self, image: S2L_ImageFile, band_param: BandParam):
-        ...
+    def get_cmatrix_full(self, image: S2L_ImageFile, band_param: BandParam): ...
 
     @abstractmethod
-    def compute_Kvol(self, theta_s, theta_v, phi):
-        ...
+    def compute_Kvol(self, theta_s, theta_v, phi): ...
 
 
 class ROYBRDFCoefficient(BRDFCoefficient):
-    mtd = 'Roy and al. 2016'
+    mtd = "Roy and al. 2016"
 
     def _get_band(self, band):
         return band
@@ -168,7 +170,7 @@ class ROYBRDFCoefficient(BRDFCoefficient):
 
     def _get(self, band):
         brdf_coef_set = self.product.brdf_coefficients.get(self._get_band(band), {}).get("coef")
-        log.debug('BRDF Coefficient Set :%s', brdf_coef_set)
+        log.debug("BRDF Coefficient Set :%s", brdf_coef_set)
         return brdf_coef_set
 
     def get_cmatrix_full(self, image: S2L_ImageFile, band_param: BandParam):
@@ -177,7 +179,7 @@ class ROYBRDFCoefficient(BRDFCoefficient):
             band_param.KGEO_NORM,
             band_param.KVOL_INPUT,
             band_param.KGEO_INPUT,
-            self._get(band_param.band_name)
+            self._get(band_param.band_name),
         )
         return skit_resize(CMATRIX, image.array.shape)
 
@@ -205,7 +207,7 @@ class ROYBRDFCoefficient(BRDFCoefficient):
 
 class VJBMatriceBRDFCoefficient(BRDFCoefficient):
 
-    mtd = 'Vermote, E., C.O. Justice, et F.-M. Breon. 2009'
+    mtd = "Vermote, E., C.O. Justice, et F.-M. Breon. 2009"
 
     # AUX DATA filename sample : S2__USER_AUX_HABA___UV___20221027T000101_V20190105T103429_20191231T103339_T31TFJ_MLSS2_MO.nc
     # Note that group 6 (20221027T000101) is composed by production day + T + 00 + version number -> this is not a real date and time
@@ -227,11 +229,11 @@ class VJBMatriceBRDFCoefficient(BRDFCoefficient):
             log.info("Find VJB matrices : %s", self.vr_matrix_file)
             # do not use xarray cache to avoid memomy leak
             self.vr_matrix = xr.open_dataset(self.vr_matrix_file, cache=False)
-            self.vr_matrix_resolution = int(self.vr_matrix.attrs['SPATIAL_RESOLUTION'])
-            self.vr_matrix_bands = self.vr_matrix.attrs['BANDS_NUMBER']
+            self.vr_matrix_resolution = int(self.vr_matrix.attrs["SPATIAL_RESOLUTION"])
+            self.vr_matrix_bands = self.vr_matrix.attrs["BANDS_NUMBER"]
             self.vr_matrix.close()
 
-    def _select_vr_file(self, aux_data_folder_path) -> str|None:
+    def _select_vr_file(self, aux_data_folder_path) -> str | None:
         """Select aux data file in the given dir path having tile and validity dates
         that match product tile and acquisition date.
         If multiple files match, select the most recent.
@@ -288,10 +290,10 @@ class VJBMatriceBRDFCoefficient(BRDFCoefficient):
         # R0 <=> R_intercept_Bxx
         # R1 <=> R_slope_Bxx
 
-        V0 = self.vr_matrix[f'V_intercept_{self._get_band(band)}'] / 10000.0
-        V1 = self.vr_matrix[f'V_slope_{self._get_band(band)}'] / 10000.0
-        R0 = self.vr_matrix[f'R_intercept_{self._get_band(band)}'] / 10000.0
-        R1 = self.vr_matrix[f'R_slope_{self._get_band(band)}'] / 10000.0
+        V0 = self.vr_matrix[f"V_intercept_{self._get_band(band)}"] / 10000.0
+        V1 = self.vr_matrix[f"V_slope_{self._get_band(band)}"] / 10000.0
+        R0 = self.vr_matrix[f"R_intercept_{self._get_band(band)}"] / 10000.0
+        R1 = self.vr_matrix[f"R_slope_{self._get_band(band)}"] / 10000.0
 
         ndvi_img = S2L_ImageFile(self.product.ndvi_filename)
 
@@ -314,21 +316,17 @@ class VJBMatriceBRDFCoefficient(BRDFCoefficient):
 
         # ndvi = np.clip(ndvi, ndvi_min, ndvi_max)
 
-        out_stat(ndvi_min, log, 'BRDF AUX - minimum ndvi')
-        out_stat(ndvi_max, log, 'BRDF AUX - maximum ndvi')
-        out_stat(ndvi, log, 'NDVI of input products')
+        out_stat(ndvi_min, log, "BRDF AUX - minimum ndvi")
+        out_stat(ndvi_max, log, "BRDF AUX - maximum ndvi")
+        out_stat(ndvi, log, "NDVI of input products")
 
         _working_dir = self.product.working_dir
 
         if self._generate_intermediate_products:
-            ndvi_clip_img_path = os.path.join(_working_dir, 'ndvi_clipped.tif')
+            ndvi_clip_img_path = os.path.join(_working_dir, "ndvi_clipped.tif")
             if not os.path.isfile(ndvi_clip_img_path):
-                ndvi_clip_img = ndvi_img.duplicate(
-                    filepath=ndvi_clip_img_path,
-                    array=ndvi,
-                    res=img_res
-                )
-                ndvi_clip_img.write(DCmode=True, creation_options=['COMPRESS=LZW'])
+                ndvi_clip_img = ndvi_img.duplicate(filepath=ndvi_clip_img_path, array=ndvi, res=img_res)
+                ndvi_clip_img.write(DCmode=True, creation_options=["COMPRESS=LZW"])
 
         # Compute coefficiant
         c_vol = V0 + V1 * ndvi  # c_geo = f_geo/f_iso
@@ -339,17 +337,13 @@ class VJBMatriceBRDFCoefficient(BRDFCoefficient):
         np.nan_to_num(c_vol, copy=False)
         if self._generate_intermediate_products:
             c_geo_image = image.duplicate(
-                filepath=os.path.join(_working_dir, f'c_geo_{self._get_band(band)}.tif'),
-                array=c_geo,
-                res=img_res
+                filepath=os.path.join(_working_dir, f"c_geo_{self._get_band(band)}.tif"), array=c_geo, res=img_res
             )
-            c_geo_image.write(DCmode=True, creation_options=['COMPRESS=LZW'])
+            c_geo_image.write(DCmode=True, creation_options=["COMPRESS=LZW"])
             c_vol_image = image.duplicate(
-                filepath=os.path.join(_working_dir, f'c_vol_{self._get_band(band)}.tif'),
-                array=c_vol,
-                res=img_res
+                filepath=os.path.join(_working_dir, f"c_vol_{self._get_band(band)}.tif"), array=c_vol, res=img_res
             )
-            c_vol_image.write(DCmode=True, creation_options=['COMPRESS=LZW'])
+            c_vol_image.write(DCmode=True, creation_options=["COMPRESS=LZW"])
         return 1, c_geo, c_vol
 
     def get_cmatrix_full(self, image: S2L_ImageFile, band_param: BandParam):
@@ -358,13 +352,7 @@ class VJBMatriceBRDFCoefficient(BRDFCoefficient):
         KGEO_NORM = skit_resize(band_param.KGEO_NORM, IM1.shape)
         KVOL_INPUT = skit_resize(band_param.KVOL_INPUT, IM1.shape)
         KGEO_INPUT = skit_resize(band_param.KGEO_INPUT, IM1.shape)
-        return normalized_brdf(
-            KVOL_NORM,
-            KGEO_NORM,
-            KVOL_INPUT,
-            KGEO_INPUT,
-            self._get(image, band_param.band_name)
-        )
+        return normalized_brdf(KVOL_NORM, KGEO_NORM, KVOL_INPUT, KGEO_INPUT, self._get(image, band_param.band_name))
 
     def compute_Kvol(self, theta_s, theta_v, phi):
         """Compute Kvol with Maignan methode
@@ -387,7 +375,7 @@ class VJBMatriceBRDFCoefficient(BRDFCoefficient):
         zetha_0 = ct * 1.5
         numerator = (np.pi / 2.0 - zetha) * np.cos(zetha) + np.sin(zetha)
         denominator = np.cos(theta_v_r) + np.cos(theta_s_r)
-        hot_spot_factor = (1 + (1 + (zetha/zetha_0))**-1)
+        hot_spot_factor = 1 + (1 + (zetha / zetha_0)) ** -1
         #    Kvol = ( numerator / denominator ) - np.pi / 4.0
         Kvol = (4.0 / (3.0 * np.pi)) * (numerator / denominator) * hot_spot_factor - (1.0 / 3.0)
 
@@ -400,16 +388,19 @@ def get_mean_sun_angle(scene_center_latitude):
     k0 = 31.0076
     k1 = -0.1272
     k2 = 0.01187
-    k3 = 2.40E-05
-    k4 = -9.48E-07
-    k5 = -1.95E-09
-    k6 = 6.15E-11
-    theta_s = k6 * np.power(scene_center_latitude, 6) + \
-              k5 * np.power(scene_center_latitude, 5) + \
-              k4 * np.power(scene_center_latitude, 4) + \
-              k3 * np.power(scene_center_latitude, 3) + \
-              k2 * np.power(scene_center_latitude, 2) + \
-              k1 * np.power(scene_center_latitude, 1) + k0
+    k3 = 2.40e-05
+    k4 = -9.48e-07
+    k5 = -1.95e-09
+    k6 = 6.15e-11
+    theta_s = (
+        k6 * np.power(scene_center_latitude, 6)
+        + k5 * np.power(scene_center_latitude, 5)
+        + k4 * np.power(scene_center_latitude, 4)
+        + k3 * np.power(scene_center_latitude, 3)
+        + k2 * np.power(scene_center_latitude, 2)
+        + k1 * np.power(scene_center_latitude, 1)
+        + k0
+    )
 
     return theta_s
 
@@ -434,11 +425,9 @@ class S2L_Nbar(S2L_Process):
         scene_center_latitude = lat
         self._theta_s = get_mean_sun_angle(scene_center_latitude)
         # update method if any
-        if S2L_config.config.get('nbar_methode') == 'VJB' and product.ndvi_filename is not None:
+        if S2L_config.config.get("nbar_methode") == "VJB" and product.ndvi_filename is not None:
             self._brdf_coeff = VJBMatriceBRDFCoefficient(
-                product,
-                S2L_config.config.get('vjb_coeff_matrice_dir'),
-                self.generate_intermediate_products
+                product, S2L_config.config.get("vjb_coeff_matrice_dir"), self.generate_intermediate_products
             )
             log.info("Use VJB coefficient matrices in : %s", self._brdf_coeff.vr_matrix_file)
         else:
@@ -451,7 +440,7 @@ class S2L_Nbar(S2L_Process):
 
         # coeff for this band?
         if not self._brdf_coeff.check(band):
-            log.info('No BRDF coefficient for %s', band)
+            log.info("No BRDF coefficient for %s", band)
             image_out = image
         else:
             # Compute Kernels
@@ -463,7 +452,7 @@ class S2L_Nbar(S2L_Process):
             # Format Output : duplicate, link  to product as parameter
             image_out = image.duplicate(self.output_file(product, band), array=OUT.astype(np.float32))
             if self.generate_intermediate_products:
-                image_out.write(creation_options=['COMPRESS=LZW'])
+                image_out.write(creation_options=["COMPRESS=LZW"])
 
         return image_out
 
@@ -474,9 +463,9 @@ class S2L_Nbar(S2L_Process):
             product (S2L_Product): product to post process
         """
 
-        product.metadata.qi['BRDF_METHOD'] = self._brdf_coeff.mtd
-        product.metadata.qi['CONSTANT_SOLAR_ZENITH_ANGLE'] = self._theta_s
-        product.metadata.qi['MEAN_DELTA_AZIMUTH'] = np.mean(self._mean_delta_azimuth)
+        product.metadata.qi["BRDF_METHOD"] = self._brdf_coeff.mtd
+        product.metadata.qi["CONSTANT_SOLAR_ZENITH_ANGLE"] = self._theta_s
+        product.metadata.qi["MEAN_DELTA_AZIMUTH"] = np.mean(self._mean_delta_azimuth)
 
         # TODO : manage it with an abstract method in BRDFCoefficient
         if isinstance(self._brdf_coeff, VJBMatriceBRDFCoefficient) and self._brdf_coeff.vr_matrix_file:
@@ -489,7 +478,7 @@ class S2L_Nbar(S2L_Process):
 
     def _computeKernels(self, product: S2L_Product, band_param: BandParam):
 
-        log.debug('theta_s: %s', self._theta_s)
+        log.debug("theta_s: %s", self._theta_s)
         log.info("Compute kernels")
         # Read TP , unit = degree, scale=100
         src_ds = gdal.Open(product.angles_file)
@@ -515,48 +504,48 @@ class S2L_Nbar(S2L_Process):
 
         self._mean_delta_azimuth.append(np.mean(SAA - VAA) % 360)
 
-        if S2L_config.config.getboolean('debug'):
-            out_stat(VAA, log, 'VAA')
-            out_stat(VZA, log, 'VZA')
-            out_stat(SAA, log, 'SAA')
-            out_stat(SZA, log, 'SZA')
+        if S2L_config.config.getboolean("debug"):
+            out_stat(VAA, log, "VAA")
+            out_stat(VZA, log, "VZA")
+            out_stat(SAA, log, "SAA")
+            out_stat(SZA, log, "SZA")
 
         # Prepare KGEO Input
-        log.debug('--------------------  INPUT  --------------------------------------')
-        log.debug('---- ---------KGEO INPUT COMPUTATION ------------------------------')
+        log.debug("--------------------  INPUT  --------------------------------------")
+        log.debug("---- ---------KGEO INPUT COMPUTATION ------------------------------")
         band_param.KGEO_INPUT = li_sparse_kernel(SZA, VZA, SAA - VAA)
 
         # Prepare KVOL Input                      :
-        log.debug('------------- KVOL INPUT COMPUTATION ------------------------------')
+        log.debug("------------- KVOL INPUT COMPUTATION ------------------------------")
         band_param.KVOL_INPUT = self._brdf_coeff.compute_Kvol(SZA, VZA, SAA - VAA)
         # Prepare KGEO Norm    :
         SZA_NORM = np.ones(VAA.shape) * self._theta_s
         VZA_NORM = np.zeros(VAA.shape)
         DPHI_NORM = np.zeros(VAA.shape)
 
-        log.debug('-------------------NORM-------------------------------------------')
-        log.debug('------------- KGEO NORM COMPUTATION ------------------------------')
+        log.debug("-------------------NORM-------------------------------------------")
+        log.debug("------------- KGEO NORM COMPUTATION ------------------------------")
         band_param.KGEO_NORM = li_sparse_kernel(SZA_NORM, VZA_NORM, DPHI_NORM)
-        log.debug('---- KVOL NORM COMPUTATION ---')
+        log.debug("---- KVOL NORM COMPUTATION ---")
         band_param.KVOL_NORM = self._brdf_coeff.compute_Kvol(SZA_NORM, VZA_NORM, DPHI_NORM)
 
-        log.debug('------------------------------------------------------------------')
-        log.debug('--------------- KGEO INPUT STAT-----------------------------------')
+        log.debug("------------------------------------------------------------------")
+        log.debug("--------------- KGEO INPUT STAT-----------------------------------")
 
-        log.debug('---- KGEO INPUT ---')
-        if S2L_config.config.getboolean('debug'):
+        log.debug("---- KGEO INPUT ---")
+        if S2L_config.config.getboolean("debug"):
             out_stat(band_param.KGEO_INPUT, log)
 
-        log.debug('---- KVOL INPUT ---')
-        if S2L_config.config.getboolean('debug'):
+        log.debug("---- KVOL INPUT ---")
+        if S2L_config.config.getboolean("debug"):
             out_stat(band_param.KVOL_INPUT, log)
 
-        log.debug('---- KGEO NORM ---')
-        if S2L_config.config.getboolean('debug'):
+        log.debug("---- KGEO NORM ---")
+        if S2L_config.config.getboolean("debug"):
             out_stat(band_param.KGEO_NORM, log)
 
-        log.debug('---- KVOL NORM ---')
-        if S2L_config.config.getboolean('debug'):
+        log.debug("---- KVOL NORM ---")
+        if S2L_config.config.getboolean("debug"):
             out_stat(band_param.KVOL_NORM, log)
 
     def _nbar(self, image: S2L_ImageFile, band_param: BandParam):
@@ -567,9 +556,9 @@ class S2L_Nbar(S2L_Process):
 
         CMATRIX_full = self._brdf_coeff.get_cmatrix_full(image, band_param)
 
-        if S2L_config.config.getboolean('debug'):
+        if S2L_config.config.getboolean("debug"):
             U = input_img_array >= 0
-            log.debug('---- IMAGE before correction ---')
+            log.debug("---- IMAGE before correction ---")
             out_stat(input_img_array[U], log)
 
         log.info("Apply CMATRIX")
@@ -577,14 +566,10 @@ class S2L_Nbar(S2L_Process):
         output_image_array = CMATRIX_full * input_img_array
 
         # CORRECTION NBAR Limite a 20%
-        output_image_array = np.clip(
-            output_image_array,
-            0.8*input_img_array,
-            1.2*input_img_array
-        )
+        output_image_array = np.clip(output_image_array, 0.8 * input_img_array, 1.2 * input_img_array)
 
-        if S2L_config.config.getboolean('debug'):
-            log.debug('---- IMAGE after correction ( before removing negative values ---')
+        if S2L_config.config.getboolean("debug"):
+            log.debug("---- IMAGE after correction ( before removing negative values ---")
             out_stat(output_image_array, log)
 
         output_image_array[input_img_array <= 0] = 0
@@ -593,8 +578,7 @@ class S2L_Nbar(S2L_Process):
 
 
 def _resize(array, resolution_ratio: float):
-    """Multiplie shape of array by resolution_ratio
-    """
+    """Multiplie shape of array by resolution_ratio"""
     if resolution_ratio == 1:
         return array
 

@@ -36,34 +36,35 @@ def convert_to_reflectance_from_reflectance_cal_product(mtl, data_in, band):
     log.debug("Conversion to TOA")
 
     reflectance_data = None
-    if mtl.sensor in ('OLI', 'OLI_TIRS'):
+    if mtl.sensor in ("OLI", "OLI_TIRS"):
         # LANDSAT 8
         log.info("Sun Zenith angle : %s deg", mtl.sun_zenith_angle)
-        sun_elevation_angle = 90. - mtl.sun_zenith_angle
+        sun_elevation_angle = 90.0 - mtl.sun_zenith_angle
         log.info("Sun Elevation angle : %s deg", sun_elevation_angle)
 
         gain = offset = None
         for k, x in list(mtl.radio_coefficient_dic.items()):
-            if 'B' + x['Band_id'] == band:
-                gain = str(x['Gain'])
-                offset = str(x['Offset'])
-                log.info('Band Id : %s Gain : %s / Offset : %s', x['Band_id'], gain, offset)
+            if "B" + x["Band_id"] == band:
+                gain = str(x["Gain"])
+                offset = str(x["Offset"])
+                log.info("Band Id : %s Gain : %s / Offset : %s", x["Band_id"], gain, offset)
         if gain is not None and offset is not None:
-            if 'L2' in mtl.data_type:  # Level-2 product surface reflectance is independent from sun_elevation_angle
-                reflectance_data = (np.float32(data_in) * np.float32(gain) + np.float32(offset))
+            if "L2" in mtl.data_type:  # Level-2 product surface reflectance is independent from sun_elevation_angle
+                reflectance_data = np.float32(data_in) * np.float32(gain) + np.float32(offset)
             else:
                 reflectance_data = (np.float32(data_in) * np.float32(gain) + np.float32(offset)) / np.sin(
-                sun_elevation_angle * np.pi / 180.)
-            mask = (data_in <= 0)
+                    sun_elevation_angle * np.pi / 180.0
+                )
+            mask = data_in <= 0
             reflectance_data[mask] = 0
-        elif band in ('B10', 'B11'):
-            offset = float(S2L_config.config.get('offset'))
-            gain = float(S2L_config.config.get('gain'))
+        elif band in ("B10", "B11"):
+            offset = float(S2L_config.config.get("offset"))
+            gain = float(S2L_config.config.get("gain"))
             reflectance_data = np.float32(data_in) / gain - offset
-            mask = (data_in <= 0)
+            mask = data_in <= 0
             reflectance_data[mask] = 0
 
-    elif mtl.sensor == 'MSI':
+    elif mtl.sensor == "MSI":
 
         if mtl.radiometric_offset_dic is not None:
             radio_add_offset = mtl.radiometric_offset_dic[mtl.band_names.index(band)]

@@ -9,11 +9,11 @@ def read_file(file_name):
 
 
 setup(
-    name='sen2like',
+    name="sen2like",
     version=__version__,
-    package_dir={'': 'sen2like'},
-    packages=find_packages('', exclude=['tests']),
+    package_dir={"": "sen2like"},
+    packages=find_packages("", exclude=["tests"]),
     include_package_data=True,
-    license=read_file('LICENSE.txt'),
-    description='',
+    license=read_file("LICENSE.txt"),
+    description="",
 )

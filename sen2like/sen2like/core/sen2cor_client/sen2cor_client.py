@@ -42,9 +42,9 @@ def get_mgrs_center(tilecode: str, utm=False) -> tuple:
     Returns:
         tuple: (lat,long) coords if utm=False, else (utm, N/S, easting, northing)
     """
-    if tilecode.startswith('T'):
+    if tilecode.startswith("T"):
         tilecode = tilecode[1:]
-    centercode = tilecode + '5490045100'
+    centercode = tilecode + "5490045100"
     m = mgrs.MGRS()
     if utm:
         return m.MGRSToUTM(centercode)
@@ -53,19 +53,14 @@ def get_mgrs_center(tilecode: str, utm=False) -> tuple:
 
 class Sen2corClient:
 
-    gipp_template_file = os.path.join(
-        os.path.dirname(__file__),
-        'L2A_GIPP_ROI_Landsat_template.xml'
-    )
+    gipp_template_file = os.path.join(os.path.dirname(__file__), "L2A_GIPP_ROI_Landsat_template.xml")
 
     roi_ref_band = {
-        'LANDSAT_8': 'B04',
-        'LANDSAT_9': 'B04',
+        "LANDSAT_8": "B04",
+        "LANDSAT_9": "B04",
     }
 
-    mission_specific_cmd_params = {
-        "Prisma" : ["--Hyper_MS",  "--resolution", "30"]
-    }
+    mission_specific_cmd_params = {"Prisma": ["--Hyper_MS", "--resolution", "30"]}
 
     def __init__(self, sen2cor_command, out_mgrs, enable_topo_corr=False):
         """
@@ -83,10 +78,7 @@ class Sen2corClient:
         :params product_roi: bbox in MULTIPOLYGON wkt string, input product bbox
         """
         logger.debug("<<< RUNNING SEN2CORE... >>>")
-        sen2cor_output_dir = os.path.join(
-            S2L_config.config.get('wd'),
-            'sen2cor',
-            os.path.basename(product.path))
+        sen2cor_output_dir = os.path.join(S2L_config.config.get("wd"), "sen2cor", os.path.basename(product.path))
 
         if not os.path.exists(sen2cor_output_dir):
             os.makedirs(sen2cor_output_dir)
@@ -94,19 +86,23 @@ class Sen2corClient:
         try:
             gipp_path = self._write_gipp(product)
             cmd = [
-                'python', self.sen2cor_command,
+                "python",
+                self.sen2cor_command,
                 product.path,
-                "--output_dir", sen2cor_output_dir,
-                "--GIP_L2A", gipp_path,
-                "--work_dir", sen2cor_output_dir,
-                "--sc_classic"
+                "--output_dir",
+                sen2cor_output_dir,
+                "--GIP_L2A",
+                gipp_path,
+                "--work_dir",
+                sen2cor_output_dir,
+                "--sc_classic",
             ]
 
             additional_params = self.mission_specific_cmd_params.get(product.mtl.mission, None)
             if additional_params:
                 cmd.extend(additional_params)
 
-            logger.info(' '.join(cmd))
+            logger.info(" ".join(cmd))
             subprocess.run(cmd, check=True)
         except subprocess.CalledProcessError as run_error:
             logger.error("An error occurred during the run of sen2cor")
@@ -125,17 +121,17 @@ class Sen2corClient:
     def _write_gipp(self, product):
 
         gipp_path = os.path.join(
-            S2L_config.config.get('wd'), 'sen2cor',
-            product.name, f'sen2cor_gipp_{self.out_mgrs}.xml')
+            S2L_config.config.get("wd"), "sen2cor", product.name, f"sen2cor_gipp_{self.out_mgrs}.xml"
+        )
 
-        logger.debug('GIPP template : %s', self.gipp_template_file)
+        logger.debug("GIPP template : %s", self.gipp_template_file)
 
-        with open(self.gipp_template_file, mode='r', encoding='utf-8') as template:
-            tree = ET.parse(template)#, parser = _CommentedTreeBuilder())
+        with open(self.gipp_template_file, mode="r", encoding="utf-8") as template:
+            tree = ET.parse(template)  # , parser = _CommentedTreeBuilder())
 
         # configure topo correction
         root = tree.getroot()
-        dem_correction_node = root.find('Atmospheric_Correction/Flags/DEM_Terrain_Correction')
+        dem_correction_node = root.find("Atmospheric_Correction/Flags/DEM_Terrain_Correction")
         dem_correction_node.text = "TRUE" if self.enable_topo_corr else "FALSE"
 
         # ref_band = None is considered as S2 product format (S2A, S2B, S2P prisma)
@@ -147,21 +143,21 @@ class Sen2corClient:
 
             y, x = self._pixel_center(ref_band_file)
 
-            logger.debug('Pixel center : (%s, %s)', y, x)
+            logger.debug("Pixel center : (%s, %s)", y, x)
 
-            row0 = root.find('Common_Section/Region_Of_Interest/row0')
+            row0 = root.find("Common_Section/Region_Of_Interest/row0")
             row0.text = str(y)
-            col0 = root.find('Common_Section/Region_Of_Interest/col0')
+            col0 = root.find("Common_Section/Region_Of_Interest/col0")
             col0.text = str(x)
 
-            ET.ElementTree(root).write(gipp_path, encoding='utf-8', xml_declaration=True)
+            ET.ElementTree(root).write(gipp_path, encoding="utf-8", xml_declaration=True)
 
         else:
             logger.debug("For sentinel, sen2cor don't use ROI")
 
-        logger.info('GIPP L2A : %s', gipp_path)
+        logger.info("GIPP L2A : %s", gipp_path)
 
-        ET.ElementTree(root).write(gipp_path, encoding='utf-8', xml_declaration=True)
+        ET.ElementTree(root).write(gipp_path, encoding="utf-8", xml_declaration=True)
 
         return gipp_path
 
@@ -175,7 +171,7 @@ class Sen2corClient:
             tuple: (y,x) image coordinates
         """
 
-        lat, lon = get_mgrs_center(self.out_mgrs) # pylint: disable=W0632
+        lat, lon = get_mgrs_center(self.out_mgrs)  # pylint: disable=W0632
 
         # Transform src SRS
         wgs84_srs = osr.SpatialReference()
@@ -189,13 +185,10 @@ class Sen2corClient:
         easting, northing, _ = transformation.TransformPoint(lat, lon)
 
         # northing = y = latitude, easting = x = longitude
-        tr = affine.Affine(
-            image.yRes, 0, image.yMax,
-            0, image.xRes, image.xMin
-        )
+        tr = affine.Affine(image.yRes, 0, image.yMax, 0, image.xRes, image.xMin)
 
         # compute y,x in image coordinates
-        y, x = (northing, easting) * (~ tr)
+        y, x = (northing, easting) * (~tr)
         return int(y), int(x)
 
 

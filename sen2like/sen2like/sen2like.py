@@ -40,22 +40,22 @@ from core.S2L_config import config
 from core.sen2cor_client.sen2cor_client import Sen2corClient, Sen2corError
 from version import __version__
 
-logger = logging.getLogger('Sen2Like')
+logger = logging.getLogger("Sen2Like")
 
 
 def filter_product(product: S2L_Product):
-    """ Filter on product after created them base on cloud cover
+    """Filter on product after created them base on cloud cover
     :param product: a core.product.S2L_Product
     :return: bool
     """
-    cloud_cover = config.getfloat('cloud_cover')
+    cloud_cover = config.getfloat("cloud_cover")
     if float(product.mtl.cloud_cover) > cloud_cover:
-        logger.warning('cloud cover > %s : %s', cloud_cover, product.mtl.cloud_cover)
+        logger.warning("cloud cover > %s : %s", cloud_cover, product.mtl.cloud_cover)
         return False
     return True
 
 
-def pre_process_atmcor(s2l_product: S2L_Product, tile) -> S2L_Product|None:
+def pre_process_atmcor(s2l_product: S2L_Product, tile) -> S2L_Product | None:
     """
     Adapt processing parameters for atmo corr processing to use.
     THIS FUNCTION MODIFY SOME `s2l_product.context` PARAMETERS (use_sen2cor, doAtmcor, doStitching, doInterCalibration)
@@ -71,7 +71,7 @@ def pre_process_atmcor(s2l_product: S2L_Product, tile) -> S2L_Product|None:
     use_sen2cor = s2l_product.context.doAtmcor and s2l_product.context.use_sen2cor
 
     # Avoid sen2cor for very old LS products (not collection product)
-    if 'L8' in s2l_product.sensor and not s2l_product.mtl.collection_number.isdigit():
+    if "L8" in s2l_product.sensor and not s2l_product.mtl.collection_number.isdigit():
         # can only use SMAC for these product_urls, so force SMAC in case doAtmcor=True
         use_sen2cor = False
         s2l_product.context.use_sen2cor = use_sen2cor
@@ -81,15 +81,10 @@ def pre_process_atmcor(s2l_product: S2L_Product, tile) -> S2L_Product|None:
         logger.info("Use sen2cor instead of Atmcor SMAC")
 
         do_sen2cor_topo_corr = (
-            s2l_product.context.doTopographicCorrection and
-            s2l_product.context.sen2cor_topographic_correction
+            s2l_product.context.doTopographicCorrection and s2l_product.context.sen2cor_topographic_correction
         )
 
-        sen2cor = Sen2corClient(
-            os.path.abspath(config.get('sen2cor_path')),
-            tile,
-            do_sen2cor_topo_corr
-        )
+        sen2cor = Sen2corClient(os.path.abspath(config.get("sen2cor_path")), tile, do_sen2cor_topo_corr)
 
         # Disable SMAC Atmospheric correction
         s2l_product.context.doAtmcor = False
@@ -104,21 +99,15 @@ def pre_process_atmcor(s2l_product: S2L_Product, tile) -> S2L_Product|None:
         s2l_product.context.doInterCalibration = False
 
         # Disable sen2like topographic correction processing block if enabled in sen2cor
-        if (s2l_product.context.doTopographicCorrection and
-            s2l_product.context.sen2cor_topographic_correction):
-            logger.info(
-                "Disable sen2like topographic correction processing block because done with sen2cor"
-            )
+        if s2l_product.context.doTopographicCorrection and s2l_product.context.sen2cor_topographic_correction:
+            logger.info("Disable sen2like topographic correction processing block because done with sen2cor")
             s2l_product.context.doTopographicCorrection = False
 
         try:
             orig_processing_sw = s2l_product.mtl.processing_sw
 
             # run sen2cor on product and instantiate a new one from result
-            s2l_product = s2l_product.__class__(
-                sen2cor.run(s2l_product),
-                s2l_product.context
-            )
+            s2l_product = s2l_product.__class__(sen2cor.run(s2l_product), s2l_product.context)
 
             # restore L1 "orig" processing version (processing baseline for S2)
             # because sen2cor sets by default the processing baseline to 99.99
@@ -149,10 +138,10 @@ def process_no_run(tile: str, input_products: list[InputProduct]):
     if not input_products:
         logger.info("No product_urls found.")
     for product in input_products:
-        tile_message = f'[ Tile coverage = {100*product.tile_coverage:6.0f}% ]' \
-            if product.tile_coverage is not None else ''
-        cloud_message = f'[ Cloud coverage = {product.cloud_cover:6.0f}% ]' \
-            if product.cloud_cover is not None else ''
+        tile_message = (
+            f"[ Tile coverage = {100*product.tile_coverage:6.0f}% ]" if product.tile_coverage is not None else ""
+        )
+        cloud_message = f"[ Cloud coverage = {product.cloud_cover:6.0f}% ]" if product.cloud_cover is not None else ""
         logger.info("%s %s %s", tile_message, cloud_message, product.path)
 
 
@@ -161,10 +150,7 @@ def process_an_input_product(tile, input_product, conf, args, tile_ref_image):
     processing_context = ProcessingContext(conf, tile)
 
     # instantiate S2L_Product
-    s2l_product = input_product.s2l_product_class(
-        input_product.path,
-        processing_context
-    )
+    s2l_product = input_product.s2l_product_class(input_product.path, processing_context)
 
     product_name = s2l_product.name
 
@@ -203,8 +189,7 @@ def process_an_input_product(tile, input_product, conf, args, tile_ref_image):
     product_preparator = ProductPreparator(conf, args, tile_ref_image)
 
     # execute processing block on product
-    process = ProductProcess(
-        s2l_product, product_preparator, args.parallelize_bands, args.bands)
+    process = ProductProcess(s2l_product, product_preparator, args.parallelize_bands, args.bands)
     process.run()
 
     # clean process
@@ -238,8 +223,10 @@ def group_product_list(input_products_list: list[InputProduct]) -> dict[str, lis
     # Create the final ordered dictionary
     return {instrument: instrument_groups[instrument] for instrument in sorted_instruments}
 
-def process_tile(tile: str, search_urls: list[tuple], args: Namespace, start_date: datetime.datetime,
-                  end_date: datetime.datetime):
+
+def process_tile(
+    tile: str, search_urls: list[tuple], args: Namespace, start_date: datetime.datetime, end_date: datetime.datetime
+):
     """
     Process products on the tile for a period
     All products are not processed, only the one on the period, see InputProductArchive.search_product
@@ -257,8 +244,7 @@ def process_tile(tile: str, search_urls: list[tuple], args: Namespace, start_dat
     # Get input product list
     archive = InputProductArchive(config)
     input_products_list = archive.search_product(
-        search_urls, tile, start_date, end_date,
-        product_mode=args.operational_mode == Mode.PRODUCT
+        search_urls, tile, start_date, end_date, product_mode=args.operational_mode == Mode.PRODUCT
     )
 
     logger.debug("Selected products: %s", [p.path for p in input_products_list])
@@ -268,19 +254,19 @@ def process_tile(tile: str, search_urls: list[tuple], args: Namespace, start_dat
         return
 
     if len(input_products_list) == 0:
-        logger.error('No product for tile %s', tile)
+        logger.error("No product for tile %s", tile)
         return
 
     # get ref image for tile
-    _tile_ref_image = get_ref_image(args.refImage, config.get('references_map'), tile)
+    _tile_ref_image = get_ref_image(args.refImage, config.get("references_map"), tile)
 
     # Avoid atmocor for L2A in product mode because this mode does not have --l2a option
     # TODO: need refactor to better handles this case by having another way to process product-mode
     # instead of use the current function and also avoid to have to use InputProductArchive.search_product
     # for product-mode (no sense)
-    if args.operational_mode == Mode.PRODUCT and "L2" in input_products_list[0].path: # first should be S2 product
-        logger.warning('%s with a L2A product, force s2_processing_level to LEVEL2A', Mode.PRODUCT)
-        config.set('s2_processing_level', 'LEVEL2A')
+    if args.operational_mode == Mode.PRODUCT and "L2" in input_products_list[0].path:  # first should be S2 product
+        logger.warning("%s with a L2A product, force s2_processing_level to LEVEL2A", Mode.PRODUCT)
+        config.set("s2_processing_level", "LEVEL2A")
 
     grouped_by_instrument = group_product_list(input_products_list)
 
@@ -313,15 +299,17 @@ def process_concurrent_multi_tile(args, date_range, search_urls):
             "Number of jobs (%s) higher than `number_of_process` config param (%s), reduce it to (%s)",
             args.jobs,
             number_of_process,
-            number_of_process
+            number_of_process,
         )
     else:
         number_of_process = args.jobs
 
     logger.info("Use multi processing (%s concurrent)", number_of_process)
 
-    params = [(tile, _search_url, args, date_range.start_date, date_range.end_date)
-                for tile, _search_url in search_urls.items()]
+    params = [
+        (tile, _search_url, args, date_range.start_date, date_range.end_date)
+        for tile, _search_url in search_urls.items()
+    ]
     with Pool(number_of_process) as pool:
         pool.starmap(process_tile, params)
 
