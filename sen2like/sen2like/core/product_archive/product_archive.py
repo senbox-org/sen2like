@@ -127,7 +127,13 @@ class InputProductArchive:
         if parameter is None:
             # remote catalog
             parameter = self.config.get('url_parameters_pattern')
-            # Get location parameter depending on mission, then format it with available local variable
+            # Get location parameter depending on mission, then format it with available local variables
+            if "landsat" in mission.lower():
+                if row is None or path is None:
+                    logger.error("You must provide 'path' and 'row' with Landsat products")
+                    return None
+                row = f"{int(row):03d}"
+                path = f"{int(path):03d}"
             location = self.config.get(f'location_{mission}', "").format(**locals())
 
             if not location:
@@ -141,6 +147,8 @@ class InputProductArchive:
 
         # fill url with variable in local scope, including location
         url = parameter.format(**locals())
+        # replace blank space with "%20" for correct url request
+        url = url.replace(" ", "%20")
         logging.debug("Produced search url for %s: %s", mission, url)
         return url
 
@@ -195,23 +203,46 @@ class InputProductArchive:
             logger.error("Cannot download products from url: %s", url)
             return input_product_list
 
-        for product in products.get("features"):
-            input_product = InputProduct(tile_coverage=tile_coverage)
-            _product = product
-            for _property in self.config.get("thumbnail_property").split('/'):
-                _product = _product.get(_property, {})
-            input_product.path = _product
-            _cloud_cover = product
-            for _property in self.config.get("cloud_cover_property").split('/'):
-                _cloud_cover = _cloud_cover.get(_property, {})
-            input_product.cloud_cover = _cloud_cover
-            _gml_geometry = product
-            for _property in self.config.get("gml_geometry_property").split('/'):
-                _gml_geometry = _gml_geometry.get(_property, {})
-            input_product.gml_geometry = _gml_geometry
-            if input_product.path:
-                input_product_list.append(input_product)
+        if "features" in products:  # RESTO API
+            for product in products["features"]:
+                input_product = InputProduct(tile_coverage=tile_coverage)
+                # product path
+                _product = product
+                for _property in self.config.get("thumbnail_property").split('/'):
+                    _product = _product.get(_property, {})
+                input_product.path = _product
+                # cloud cover
+                _cloud_cover = product
+                for _property in self.config.get("cloud_cover_property").split('/'):
+                    _cloud_cover = _cloud_cover.get(_property, {})
+                input_product.cloud_cover = _cloud_cover
+                # geometry
+                _gml_geometry = product
+                for _property in self.config.get("gml_geometry_property").split('/'):
+                    _gml_geometry = _gml_geometry.get(_property, {})
+                input_product.gml_geometry = _gml_geometry
 
+                if input_product.path:
+                    input_product_list.append(input_product)
+
+        elif "value" in products:  # ODATA API
+            for product in products["value"]:
+                input_product = InputProduct(tile_coverage=tile_coverage)
+                input_product.path = product.get("S3Path")
+
+                # cloud cover
+                for a in product.get("Attributes", []):
+                    if a["Name"] == "cloudCover":
+                        input_product.cloud_cover = a["Value"]
+
+                # geometry
+                input_product.gml_geometry = json.dumps(product["GeoFootprint"])
+
+                if input_product.path:
+                    input_product_list.append(input_product)
+
+        else:
+            raise ValueError("Unknown API response: missing 'features' or 'value'")
         return input_product_list
 
     @staticmethod
@@ -426,8 +457,17 @@ class InputProductArchive:
                     'PRODUCT/TILE_COVERAGE: %s/%s', os.path.basename(input_product.path),
                     input_product.tile_coverage)
 
+            # Check tile coverage
             if input_product.instrument == 'S2' and input_product.gml_geometry:
-                product_polygon = ogr.CreateGeometryFromGML(input_product.gml_geometry)
+                if input_product.gml_geometry.startswith("<"):
+                    # RESTO GML
+                    product_polygon = ogr.CreateGeometryFromGML(input_product.gml_geometry)
+                elif input_product.gml_geometry.startswith("{"):
+                    # ODATA GeoFootprint (GeoJSON string)
+                    product_polygon = ogr.CreateGeometryFromJson(input_product.gml_geometry)
+                else:
+                    logger.debug(input_product.gml_geometry)
+                    raise ValueError("Unknown geometry string format")
 
                 input_product.tile_coverage = product_polygon.Intersection(
                     tile_polygon).GetArea() / tile_polygon.GetArea()
