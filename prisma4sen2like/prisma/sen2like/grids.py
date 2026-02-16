@@ -40,8 +40,9 @@ class GridsConverter:
     def _get_roi(self, tilecode):
         # search tilecode in "s2tiles" and return row as a pandas dataframe
         return pd.read_sql_query(
-            f'SELECT TILE_ID, EPSG, UTM_WKT, MGRS_REF, LL_WKT FROM s2tiles WHERE TILE_ID="{tilecode}"',  # nosec B608
+            "SELECT TILE_ID, EPSG, UTM_WKT, MGRS_REF, LL_WKT FROM s2tiles WHERE TILE_ID=?",
             self.conn,
+            params=(tilecode,),
         )
 
     def close(self):
