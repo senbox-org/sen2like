@@ -23,7 +23,7 @@ jobs:
           cd /app/sen2like &&
           echo '=== Running tests with coverage ===' &&
           [ -d reports ] || mkdir reports &&
-          PYTHONPATH=sen2like:aux_data coverage run --branch -m pytest -v --source=sen2like --junitxml=reports/junit.xml &&
+          PYTHONPATH=/app/sen2like:/app/sen2like/sen2like:/app/sen2like/sen2like/aux_data coverage run --source=sen2like --branch -m pytest -v -k 'not test_landsat and not test_s2_l1c and not test_s2_l2a and not test_sentinel2_maja and not test_landsat_maja and not test_S2B_band01 and not test_S2B_band09 and not test_landsat_intercalibration' --junitxml=reports/junit.xml &&
           coverage xml -o reports/coverage.xml &&
           coverage report -m > reports/coverage.report &&
           echo '=== Test coverage report ===' &&

@@ -21,9 +21,9 @@ jobs:
       run: |
         docker run sen2like-lint bash -c "
           echo '=== Running Black check ===' &&
-          black --check --line-length=120 . &&
+          black --check --diff --line-length=120 . &&
           echo '=== Running isort check ===' &&
-          isort --check --profile black . &&
+          isort --check --diff --profile black . &&
           echo '=== Running Flake8 ===' &&
           flake8 --max-line-length=120 --statistics . &&
           echo '=== Running Bandit ===' &&

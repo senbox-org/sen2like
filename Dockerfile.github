@@ -1,4 +1,4 @@
-FROM continuumio/miniconda3
+FROM docker.io/continuumio/miniconda3
 
 # Install system dependencies including GDAL
 RUN apt-get update && \
