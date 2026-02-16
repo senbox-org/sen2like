@@ -233,9 +233,10 @@ def _select_tiles_by_spatial_relationships(relation, roi):
         logging.debug("ROI: %s", roi)
         connection.enable_load_extension(True)
         connection.load_extension("mod_spatialite")
-        sql = f"select TILE_ID from s2tiles where {relation}(s2tiles.geometry, GeomFromText('{roi}'))==1"
+        # Use parameterized query to prevent SQL injection
+        sql = f"select TILE_ID from s2tiles where {relation}(s2tiles.geometry, GeomFromText(?))==1"
         logging.debug("SQL request: %s", sql)
-        cur = connection.execute(sql)
+        cur = connection.execute(sql, (roi,))
         # TODO: For now, first mgrs tile is excluded. To improve in a future version
         # TODO: Add coverage
         tiles = [tile[0] for tile in cur.fetchall() if not tile[0].startswith('01') and not tile[0].startswith('60')]
@@ -285,10 +286,11 @@ def get_mgrs_def(tile: str) -> dict|None:
 
     with sqlite3.connect(_database_path(S2_TILE_DB)) as connection:
         logging.debug("TILE: %s", tile)
-        sql = f"select * from s2tiles where TILE_ID='{tile}'"
+        # Use parameterized query to prevent SQL injection
+        sql = "select * from s2tiles where TILE_ID=?"
         logging.debug("SQL request: %s", sql)
         connection.row_factory = sqlite3.Row
-        cur = connection.execute(sql)
+        cur = connection.execute(sql, (tile,))
         res = cur.fetchall()
         if len(res) > 0:
             return res[0]
@@ -309,9 +311,10 @@ def mgrs_to_wkt(tile, utm=False):
     """
     with sqlite3.connect(_database_path(S2_TILE_DB)) as connection:
         logging.debug("TILE: %s", tile)
-        sql = f"select {'UTM_WKT' if utm else 'LL_WKT'} from s2tiles where TILE_ID='{tile}'"
+        # Use parameterized query to prevent SQL injection
+        sql = f"select {'UTM_WKT' if utm else 'LL_WKT'} from s2tiles where TILE_ID=?"
         logging.debug("SQL request: %s", sql)
-        cur = connection.execute(sql)
+        cur = connection.execute(sql, (tile,))
         res = cur.fetchall()
         if len(res) > 0:
             wkt = res[0][0]
@@ -333,9 +336,10 @@ def wrs_to_wkt(wrs_id: str):
     """
     with sqlite3.connect(_database_path("l8tiles.db")) as connection:
         logging.debug("WRS: %s", wrs_id)
-        sql = f"select LL_WKT from l8tiles where PATH_ROW='{wrs_id}'"
+        # Use parameterized query to prevent SQL injection
+        sql = "select LL_WKT from l8tiles where PATH_ROW=?"
         logging.debug("SQL request: %s", sql)
-        cur = connection.execute(sql)
+        cur = connection.execute(sql, (wrs_id,))
         wkt = cur.fetchall()[0][0]
         logging.debug("WRS WKT: %s", wkt)
     return wkt
