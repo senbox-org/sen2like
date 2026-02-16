@@ -19,14 +19,13 @@
 import logging
 from argparse import Namespace
 
-from osgeo import gdal
-
 from core.argparser import DateRange, Mode
 from core.product_archive import tile_db
 from core.product_archive.product_archive import InputProductArchive
 from core.S2L_config import config
+from osgeo import gdal
 
-logger = logging.getLogger('Sen2Like')
+logger = logging.getLogger("Sen2Like")
 
 
 def _read_polygon_from_json(json_file):
@@ -57,20 +56,22 @@ def _get_search_url(polygon, date_range: DateRange, tiles: list[str]) -> dict[st
         Dict[str, List[Tuple]]: dict of list of url,coverage tuple, indexed by tile.
         For local products, URL are directories that contains products (tile or path/row folder), NOT the complete product path
         URL are sorted by tile coverage desc in each tile list.
-        example : 
+        example :
         {
             '12SYH': [
-                ('/data/Products/Sentinel2/12SYH', 1), 
-                ('/data/Products/Landsat8/35/33', 0.7126961469055555), 
-                ('/data/Products/Landsat9/35/33', 0.7126961469055555), 
-                ('/data/Products/Landsat8/35/34', 0.46340014084620473), 
+                ('/data/Products/Sentinel2/12SYH', 1),
+                ('/data/Products/Landsat8/35/33', 0.7126961469055555),
+                ('/data/Products/Landsat9/35/33', 0.7126961469055555),
+                ('/data/Products/Landsat8/35/34', 0.46340014084620473),
                 ...
             ]
         }
     """
     archive = InputProductArchive(config, roi=polygon)
-    search_urls = {tile: [url for url in archive.get_search_url_from_tile(
-        tile, date_range.start_date, date_range.end_date)] for tile in tiles}
+    search_urls = {
+        tile: [url for url in archive.get_search_url_from_tile(tile, date_range.start_date, date_range.end_date)]
+        for tile in tiles
+    }
     return search_urls
 
 
@@ -117,7 +118,8 @@ def _get_roi_based_mode_search_url(args, date_range):
     else:
         if len(tiles) != 1:
             raise AssertionError(
-                f"Found more than one MGRS tile containing the ROI without specifying --tile param : {tiles}")
+                f"Found more than one MGRS tile containing the ROI without specifying --tile param : {tiles}"
+            )
 
     products = _get_search_url(polygon, date_range, tiles)
     return products, tiles
@@ -133,7 +135,7 @@ _get_search_urls_function = {
 }
 
 
-def get_search_url(args: Namespace, date_range: DateRange) -> dict[str, list[tuple[str, float]]]|None:
+def get_search_url(args: Namespace, date_range: DateRange) -> dict[str, list[tuple[str, float]]] | None:
     """Retrieve products search URL to process depending the selected mode.
     URLS are listed by tile coverage desc
 
@@ -143,7 +145,7 @@ def get_search_url(args: Namespace, date_range: DateRange) -> dict[str, list[tup
         date_range (DateRange): date interval to search product for
 
     Returns:
-        Dict[str, List[Tuple[str, float]]]: product indexed by tile 
+        Dict[str, List[Tuple[str, float]]]: product indexed by tile
         with value list of tuple that are product URL and tile coverage.
         - For local products, URL are directories that should contains products (tile or path/row folder),
           NOT the complete product path.
@@ -161,6 +163,7 @@ def get_search_url(args: Namespace, date_range: DateRange) -> dict[str, list[tup
         return None
     # Filter on original tiles:
     return {tile: item for (tile, item) in _search_urls.items() if tile in tiles}
+
 
 # def get_products_old(args: Namespace, date_range: DateRange):
 #     """Retrieve products to process.

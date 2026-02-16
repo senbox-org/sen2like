@@ -37,7 +37,7 @@ def downsample_coarse_image(image_path: str, out_dir: str, ds_factor: int) -> st
     """
     if not os.path.exists(out_dir):
         os.makedirs(out_dir)
-    coarse_res_image = os.path.join(out_dir, 'tie_points_coarseResImage.tif')
+    coarse_res_image = os.path.join(out_dir, "tie_points_coarseResImage.tif")
     gdal.Translate(coarse_res_image, image_path, xRes=30 * ds_factor, yRes=30 * ds_factor)
     return coarse_res_image
 
@@ -71,6 +71,6 @@ def make_angles_image(template_img, outfile, nadir_line, extent_sun_angles, sat_
     otherargs.radianScale = 100 * 180 / np.pi  # Store pixel values in degrees and scale factor of 100
     controls.setStatsIgnore(500)
     controls.setCalcStats(False)
-    controls.setOutputDriverName('GTiff')
+    controls.setOutputDriverName("GTiff")
 
     landsatangles.applier.apply(landsatangles.makeAngles, infiles, outfiles, otherargs, controls=controls)

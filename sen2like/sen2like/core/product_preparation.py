@@ -39,7 +39,7 @@ logger = logging.getLogger("Sen2Like")
 _LS_SENSOR_MISSION_MAPPING = {"L8": "Landsat8", "L9": "Landsat9"}
 
 
-class ProductPreparator: # pylint: disable=too-few-public-methods
+class ProductPreparator:  # pylint: disable=too-few-public-methods
     """Product preparator class"""
 
     def __init__(self, config: S2L_Config, args: Namespace, ref_image: str):
@@ -70,9 +70,7 @@ class ProductPreparator: # pylint: disable=too-few-public-methods
         # search and attach related product to product
         # only if S2L_Stitching activated
         if product.context.doStitching:
-            logger.debug(
-                "Stitching Enable, look for related product for %s", product.name
-            )
+            logger.debug("Stitching Enable, look for related product for %s", product.name)
             self._set_related_product(product)
         else:
             logger.debug("Stitching Disable, skip looking for related product")
@@ -81,9 +79,7 @@ class ProductPreparator: # pylint: disable=too-few-public-methods
         logger.info("Extract product files for product %s", product.name)
         self._extract_product_files(product)
 
-    def _search_interrelated_product(
-        self, product: S2L_Product, row_offset=1
-    ) -> list[InputProduct]:
+    def _search_interrelated_product(self, product: S2L_Product, row_offset=1) -> list[InputProduct]:
         """Search product before or after the given product depending offset (for landsat)
 
         Args:
@@ -174,18 +170,14 @@ class ProductPreparator: # pylint: disable=too-few-public-methods
 
         _same_utm_only = self._config.getboolean("same_utm_only")
         products = []
-        logger.debug(
-            "Product is located on [%s, %s]", product.mtl.path, product.mtl.row
-        )
+        logger.debug("Product is located on [%s, %s]", product.mtl.path, product.mtl.row)
         logger.debug(
             "Product tile coverage: %s",
             tile_db.get_coverage((product.mtl.path, product.mtl.row), product.mgrs),
         )
         # Get previous and next product, then test eligibility
         for row_offset in [-1, 1]:
-            products_found = self._search_interrelated_product(
-                product, row_offset=row_offset
-            )
+            products_found = self._search_interrelated_product(product, row_offset=row_offset)
             logger.debug("Products for row_offset: %s", row_offset)
             logger.debug([p.path for p in products_found])
             if len(products_found):
@@ -194,9 +186,7 @@ class ProductPreparator: # pylint: disable=too-few-public-methods
                 path = int(product.mtl.path)
                 row = int(product.mtl.row) + row_offset
 
-                coverage = tile_db.get_coverage(
-                    (path, row), product.mgrs, _same_utm_only
-                )
+                coverage = tile_db.get_coverage((path, row), product.mgrs, _same_utm_only)
 
                 logger.debug(
                     "Coverage form path/row/same_utm %s/%s/%s : %s",
@@ -240,9 +230,7 @@ class ProductPreparator: # pylint: disable=too-few-public-methods
             )
 
             # set related product working dir
-            product.related_product.working_dir = os.path.join(
-                self._config.get("wd"), product.related_product.name
-            )
+            product.related_product.working_dir = os.path.join(self._config.get("wd"), product.related_product.name)
 
             # set ref image to the related product
             product.related_product.ref_image = self._ref_image
@@ -264,21 +252,11 @@ class ProductPreparator: # pylint: disable=too-few-public-methods
         product.get_angle_images(os.path.join(working_dir, "tie_points.tif"))
 
         # extract masks
-        product.get_valid_pixel_mask(
-            os.path.join(working_dir, "valid_pixel_mask.tif"), self._roi_file
-        )
+        product.get_valid_pixel_mask(os.path.join(working_dir, "valid_pixel_mask.tif"), self._roi_file)
 
         # extract NDVI processing blocks that need it (NBAR with VJB or Adaptative SBAF)
-        if (
-            (self._config.getboolean("doNbar") and self._config.get("nbar_methode") == "VJB")
-            or
-            (
-                self._config.getboolean("doSbaf")
-                and
-                product.apply_sbaf_param
-                and
-                self._config.getboolean("adaptative")
-            )
+        if (self._config.getboolean("doNbar") and self._config.get("nbar_methode") == "VJB") or (
+            self._config.getboolean("doSbaf") and product.apply_sbaf_param and self._config.getboolean("adaptative")
         ):
             product.get_ndvi_image(os.path.join(working_dir, "ndvi.tif"))
 
@@ -308,18 +286,12 @@ class ProductPreparator: # pylint: disable=too-few-public-methods
         if product_reader.tile_metadata:
             shutil.copyfile(
                 product_reader.tile_metadata,
-                os.path.join(
-                    working_dir, os.path.basename(product_reader.tile_metadata)
-                ),
+                os.path.join(working_dir, os.path.basename(product_reader.tile_metadata)),
             )
 
         # Get scl map for valid pixel mask for L1C as aux data
         scl_dir = self._config.get("scl_dir")
-        if (
-            scl_dir
-            and (not product.context.use_sen2cor)
-            and product_reader.data_type != "Level-2A" # Sentinel
-        ):
+        if scl_dir and (not product.context.use_sen2cor) and product_reader.data_type != "Level-2A":  # Sentinel
             product_reader.scene_classif_band = self._get_scl_map(scl_dir, product)
 
         # extract aux files product and its related product if any
@@ -334,17 +306,11 @@ class ProductPreparator: # pylint: disable=too-few-public-methods
         scl_map = None
 
         if product.sensor == "S2":
-            acq_date = datetime.datetime.strftime(
-                product.dt_sensing_start, "%Y%m%dT%H%M%S"
-            )
+            acq_date = datetime.datetime.strftime(product.dt_sensing_start, "%Y%m%dT%H%M%S")
         else:
             acq_date = datetime.datetime.strftime(product.acqdate, "%Y%m%dT%H%M%S")
 
-        result = glob.glob(
-            os.path.join(
-                scl_dir, product.mgrs, f"T{product.mgrs}_{acq_date}_SCL_60m.tif"
-            )
-        )
+        result = glob.glob(os.path.join(scl_dir, product.mgrs, f"T{product.mgrs}_{acq_date}_SCL_60m.tif"))
         if result:
             scl_map = result[0]
 

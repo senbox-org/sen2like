@@ -19,9 +19,7 @@ import logging
 from dataclasses import dataclass
 
 import numpy as np
-
 from core.image_file import S2L_ImageFile
-
 
 log = logging.getLogger("Sen2Like")
 
@@ -36,6 +34,7 @@ class MaskImage:
     it should be the orig file from witch the mask is extracted/generated.
     'orig_image' can be None, in this case, 'write' function have no effect
     """
+
     orig_image: S2L_ImageFile
     mask_array: np.ndarray
     mask_filename: str
@@ -45,10 +44,10 @@ class MaskImage:
         """Write the mask in 'mask_filename' using 'orig_image'"""
         if self.orig_image:
             mask = self.orig_image.duplicate(self.mask_filename, array=self.mask_array, res=self.resolution)
-            mask.write(creation_options=['COMPRESS=LZW'])
-            log.info('Written: %s', self.mask_filename)
+            mask.write(creation_options=["COMPRESS=LZW"])
+            log.info("Written: %s", self.mask_filename)
         else:
-            log.warning('Cannot write: %s, please verify it have been written', self.mask_filename)
+            log.warning("Cannot write: %s, please verify it have been written", self.mask_filename)
             # this case happen in Sentinel2MTL._create_valid_mask_form_l1c_gml,
             # the mask is already created and written
             # shall we find a way to not write it and create it here ?
@@ -56,8 +55,8 @@ class MaskImage:
 
 @dataclass
 class ImageMasks:
-    """'MaskImage' container for validity and no data mask
-    """
+    """'MaskImage' container for validity and no data mask"""
+
     no_data_mask: MaskImage
     validity_mask: MaskImage
 
@@ -70,6 +69,7 @@ class ImageMasks:
 @dataclass
 class MaskInfo:
     """Mask information having info to compute valid and nodata pixel percentage"""
+
     mask_size: int
     nb_valid_pixel: int
     nb_nodata_pixel: int

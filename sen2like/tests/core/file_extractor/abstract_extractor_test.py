@@ -1,22 +1,21 @@
 """abstract reader test module
 """
+
+import filecmp
 import os
 import pathlib
 import shutil
-import filecmp
-
 from unittest import TestCase
 
+from core.file_extractor.file_extractor import ImageMasks, extractor_class
 from core.S2L_config import config
-from core.file_extractor.file_extractor import extractor_class, ImageMasks
 
 test_folder_path = os.path.dirname(__file__)
-configuration_file = os.path.join(test_folder_path, 'config.ini')
+configuration_file = os.path.join(test_folder_path, "config.ini")
 
 
 class AbstractExtractorTestCase(TestCase):
-    """Base TestCase class for FileExtrator test
-    """
+    """Base TestCase class for FileExtrator test"""
 
     def __init__(self, reader_class, roi_path_file, dataset, methodName):
         """Init instance
@@ -36,14 +35,13 @@ class AbstractExtractorTestCase(TestCase):
         self.roi_path_file = roi_path_file
         if not config.initialize(configuration_file):
             raise Exception
-        self._product_path = os.path.join(config.get('base_url'), dataset)
+        self._product_path = os.path.join(config.get("base_url"), dataset)
 
     def setUp(self):
-        config.set('tile', '31TFJ')
+        config.set("tile", "31TFJ")
 
     def tearDown(self):
-        test_dir = pathlib.Path(os.path.join(
-            test_folder_path, self._testMethodName))
+        test_dir = pathlib.Path(os.path.join(test_folder_path, self._testMethodName))
         shutil.rmtree(test_dir)
         print("End of %s", self._testMethodName)
 
@@ -59,35 +57,30 @@ class AbstractExtractorTestCase(TestCase):
             BaseReader: concrete BaseReader instantiated by the function
         """
         # init reader
-        s2_reader = self._reader_class(
-            os.path.join(self._product_path, product_path))
+        s2_reader = self._reader_class(os.path.join(self._product_path, product_path))
 
-        mask_filename = os.path.join(
-            test_folder_path, test_method_name, f"{test_method_name}.tif")
+        mask_filename = os.path.join(test_folder_path, test_method_name, f"{test_method_name}.tif")
 
-        image_masks = extractor_class.get(s2_reader.__class__.__name__)(s2_reader).get_valid_pixel_mask(mask_filename, self.roi_path_file)
+        image_masks = extractor_class.get(s2_reader.__class__.__name__)(s2_reader).get_valid_pixel_mask(
+            mask_filename, self.roi_path_file
+        )
 
         # get masks
         # s2_reader.get_valid_pixel_mask(os.path.join(
         #     test_folder_path, test_method_name, f"{test_method_name}.tif"))
 
         # verify nodata mask
-        nodata_mask_path = os.path.join(
-            test_folder_path, test_method_name, expected_no_data_file_name)
-        nodata_mask_ref_path = os.path.join(
-            test_folder_path, "ref_data", test_method_name, expected_no_data_file_name)
+        nodata_mask_path = os.path.join(test_folder_path, test_method_name, expected_no_data_file_name)
+        nodata_mask_ref_path = os.path.join(test_folder_path, "ref_data", test_method_name, expected_no_data_file_name)
         self._compare(nodata_mask_path, nodata_mask_ref_path)
 
         # verify validity mask
-        validity_mask_path = os.path.join(
-            test_folder_path, test_method_name, f"{test_method_name}.tif")
-        validity_mask_ref_path = os.path.join(
-            test_folder_path, "ref_data", test_method_name, f"{test_method_name}.tif")
+        validity_mask_path = os.path.join(test_folder_path, test_method_name, f"{test_method_name}.tif")
+        validity_mask_ref_path = os.path.join(test_folder_path, "ref_data", test_method_name, f"{test_method_name}.tif")
         self._compare(validity_mask_path, validity_mask_ref_path)
 
         # FOR COVERAGE ONLY
-        angle_file = os.path.join(
-            test_folder_path, test_method_name, f"{test_method_name}_tie_points.tif")
+        angle_file = os.path.join(test_folder_path, test_method_name, f"{test_method_name}_tie_points.tif")
         extractor_class.get(s2_reader.__class__.__name__)(s2_reader).get_angle_images(angle_file)
 
         return image_masks

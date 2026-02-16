@@ -21,8 +21,6 @@ import logging
 import os
 
 import numpy as np
-from skimage.transform import resize as skit_resize
-
 from core import readers
 from core.file_extractor.file_extractor import extractor_class
 from core.image_file import S2L_ImageFile
@@ -32,8 +30,9 @@ from core.QI_MTD.mtd import Metadata
 from core.readers import BaseReader
 from core.S2L_config import S2L_Config
 from core.toa_reflectance import convert_to_reflectance_from_reflectance_cal_product
+from skimage.transform import resize as skit_resize
 
-logger = logging.getLogger('Sen2Like')
+logger = logging.getLogger("Sen2Like")
 
 DATE_WITH_MILLI_FORMAT = "%Y-%m-%dT%H:%M:%S.%fZ"
 
@@ -46,25 +45,26 @@ class ProcessingContext:
     that are used by `ProductProcess` to run or not a processing block.
     See `ProductProcess._init_block_list` implementation for more details.
     """
+
     def __init__(self, config: S2L_Config, tile: str):
         self.tile = tile
 
-        self.doStitching = config.getboolean('doStitching') # pylint: disable=invalid-name
-        self.doInterCalibration = config.getboolean('doInterCalibration') # pylint: disable=invalid-name
+        self.doStitching = config.getboolean("doStitching")  # pylint: disable=invalid-name
+        self.doInterCalibration = config.getboolean("doInterCalibration")  # pylint: disable=invalid-name
 
-        self.doAtmcor = config.getboolean('doAtmcor') # pylint: disable=invalid-name
-        self.use_sen2cor = config.getboolean('use_sen2cor')
+        self.doAtmcor = config.getboolean("doAtmcor")  # pylint: disable=invalid-name
+        self.use_sen2cor = config.getboolean("use_sen2cor")
 
-        self.doTopographicCorrection = config.getboolean('doTopographicCorrection') # pylint: disable=invalid-name
-        self.sen2cor_topographic_correction = config.getboolean('sen2cor_topographic_correction')
+        self.doTopographicCorrection = config.getboolean("doTopographicCorrection")  # pylint: disable=invalid-name
+        self.sen2cor_topographic_correction = config.getboolean("sen2cor_topographic_correction")
 
-        if config.get('s2_processing_level') == 'LEVEL2A':
+        if config.get("s2_processing_level") == "LEVEL2A":
 
             if self.doAtmcor:
                 logger.warning("Disable atmospheric correction (SMAC and sen2cor) because process L2A product")
                 self.doAtmcor = False
                 self.use_sen2cor = False
-            
+
             if self.doInterCalibration:
                 logger.warning("Disable inter calibration because process L2A product")
                 self.doInterCalibration = False
@@ -72,16 +72,18 @@ class ProcessingContext:
         if not self.doTopographicCorrection:
             logger.warning("Disable sen2cor topographic correction because main topographic correction is disabled")
             self.sen2cor_topographic_correction = False
-        elif config.get('s2_processing_level') == 'LEVEL2A': # only for log
-            logger.warning("Will apply topographic correction on L2A product, please verify that the input L2A does not yet have topographic correction")
+        elif config.get("s2_processing_level") == "LEVEL2A":  # only for log
+            logger.warning(
+                "Will apply topographic correction on L2A product, please verify that the input L2A does not yet have topographic correction"
+            )
 
-        if not config.getboolean('doFusion') and config.getboolean('doPackagerL2F'):
+        if not config.getboolean("doFusion") and config.getboolean("doPackagerL2F"):
             logger.warning("Disable L2F packager because Fusion is disabled")
-            self.doPackagerL2F = False # pylint: disable=invalid-name
+            self.doPackagerL2F = False  # pylint: disable=invalid-name
 
-        if config.getboolean('doFusion') and not config.getboolean('doPackagerL2F'):
+        if config.getboolean("doFusion") and not config.getboolean("doPackagerL2F"):
             logger.warning("Disable Fusion because L2F Packaging is disabled")
-            self.doFusion = False # pylint: disable=invalid-name
+            self.doFusion = False  # pylint: disable=invalid-name
 
 
 class ClassPropertyDescriptor(object):
@@ -101,10 +103,11 @@ def classproperty(func):
 
     return ClassPropertyDescriptor(func)
 
+
 # FIXME : see to use ABC
 
 
-class S2L_Product():
+class S2L_Product:
     _bands = None
     brdf_coefficients = {}
     image30m = {}
@@ -153,7 +156,7 @@ class S2L_Product():
         self.fusionable = True
         self.ref_image = None
         self.metadata = Metadata()
-        self._psd: str|None = None
+        self._psd: str | None = None
 
     @staticmethod
     def date(name, regexp, date_format):
@@ -194,8 +197,7 @@ class S2L_Product():
         return self._psd
 
     def read_metadata(self):
-        """Extract metadata from input product reader.
-        """
+        """Extract metadata from input product reader."""
         # instantiate the reader
         reader_class = readers.get_reader(self.path)
         if reader_class is None:
@@ -204,15 +206,16 @@ class S2L_Product():
 
         # retrieve acquisition date in a datetime format
         scene_center_time = self.mtl.scene_center_time
-        n = len(self.mtl.scene_center_time.split('.')[-1]) - 1  # do not count Z
+        n = len(self.mtl.scene_center_time.split(".")[-1]) - 1  # do not count Z
         if n < 6:
             # fill with zeros
-            scene_center_time = self.mtl.scene_center_time.replace('Z', (6 - n) * '0' + 'Z')
-        self.acqdate = datetime.datetime.strptime(self.mtl.observation_date + ' ' + scene_center_time,
-                                                  "%Y-%m-%d %H:%M:%S.%fZ")
+            scene_center_time = self.mtl.scene_center_time.replace("Z", (6 - n) * "0" + "Z")
+        self.acqdate = datetime.datetime.strptime(
+            self.mtl.observation_date + " " + scene_center_time, "%Y-%m-%d %H:%M:%S.%fZ"
+        )
 
         # TODO : understand and comment this
-        if '.' in self.mtl.file_date:
+        if "." in self.mtl.file_date:
             self.file_date = datetime.datetime.strptime(self.mtl.file_date, DATE_WITH_MILLI_FORMAT)
         else:
             self.file_date = datetime.datetime.strptime(self.mtl.file_date, "%Y-%m-%dT%H:%M:%SZ")
@@ -243,7 +246,7 @@ class S2L_Product():
         # because need name for children classes
         return None
 
-    def get_band_file(self, band: str) -> S2L_ImageFile|None:
+    def get_band_file(self, band: str) -> S2L_ImageFile | None:
         """Get the image band file as S2L_ImageFile.
         Also Set the product band file path in filenames[band]
 
@@ -304,27 +307,27 @@ class S2L_Product():
 
     def get_ndvi_image(self, ndvi_filepath):
         logger.info("Extract NDVI to %s", ndvi_filepath)
-        B04_image = self.get_band_file(self.reverse_bands_mapping['B04'])
-        B8A_image = self.get_band_file(self.reverse_bands_mapping['B8A'])
+        B04_image = self.get_band_file(self.reverse_bands_mapping["B04"])
+        B8A_image = self.get_band_file(self.reverse_bands_mapping["B8A"])
         B04 = B04_image.array
         B8A = B8A_image.array
 
         if B04_image.xRes != B8A_image.xRes:
             # up scaling  of coarser matrix to finer:
-            print('band with resolution difference')
+            print("band with resolution difference")
             B8A = skit_resize(B8A, B04.shape, order=3, preserve_range=True)
 
         # NDVI toujours basé sur les valeurs de reflectance
-        B04_index = list(self.bands).index(self.reverse_bands_mapping['B04'])
-        B8A_index = list(self.bands).index(self.reverse_bands_mapping['B8A'])
-        B04 = convert_to_reflectance_from_reflectance_cal_product(self.mtl, B04, self.reverse_bands_mapping['B04'])
-        B8A = convert_to_reflectance_from_reflectance_cal_product(self.mtl, B8A, self.reverse_bands_mapping['B8A'])
+        B04_index = list(self.bands).index(self.reverse_bands_mapping["B04"])
+        B8A_index = list(self.bands).index(self.reverse_bands_mapping["B8A"])
+        B04 = convert_to_reflectance_from_reflectance_cal_product(self.mtl, B04, self.reverse_bands_mapping["B04"])
+        B8A = convert_to_reflectance_from_reflectance_cal_product(self.mtl, B8A, self.reverse_bands_mapping["B8A"])
         ndvi_arr = (B8A - B04) / (B04 + B8A)
         ndvi_arr = ndvi_arr.clip(min=-1.0, max=1.0)
         np.nan_to_num(ndvi_arr, copy=False)
         ndvi = B04_image.duplicate(array=ndvi_arr, filepath=ndvi_filepath)
         self.ndvi_filename = ndvi.filepath
-        ndvi.write(DCmode=True, creation_options=['COMPRESS=LZW'])
+        ndvi.write(DCmode=True, creation_options=["COMPRESS=LZW"])
         return True
 
     def get_valid_pixel_mask(self, mask_filename: str, roi_file_path: str) -> bool:
@@ -352,10 +355,9 @@ class S2L_Product():
 
             self.roi_filename = roi_file_path
 
-        image_masks = extractor_class.get(
-            self.mtl.__class__.__name__)(
-            self.mtl).get_valid_pixel_mask(
-            mask_filename, roi_file_path)
+        image_masks = extractor_class.get(self.mtl.__class__.__name__)(self.mtl).get_valid_pixel_mask(
+            mask_filename, roi_file_path
+        )
 
         if not image_masks:
             return False
@@ -368,14 +370,13 @@ class S2L_Product():
         no_data_mask = image_masks.no_data_mask.mask_array
 
         self.mask_info = MaskInfo(
-            validity_mask.size,
-            np.count_nonzero(validity_mask),
-            no_data_mask.size - np.count_nonzero(no_data_mask))
+            validity_mask.size, np.count_nonzero(validity_mask), no_data_mask.size - np.count_nonzero(no_data_mask)
+        )
 
         return True
 
     def get_angle_images(self, out_file: str):
-        """"Extract angle image file from S2L Product from input product.
+        """ "Extract angle image file from S2L Product from input product.
         set 'angles_file' in the product
         Args:
             out_file (str): file path to extract

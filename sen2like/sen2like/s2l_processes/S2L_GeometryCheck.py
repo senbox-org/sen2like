@@ -58,9 +58,7 @@ class S2L_GeometryCheck(S2L_Process):
     def process(self, product: S2L_Product, image: S2L_ImageFile, band: str) -> S2L_ImageFile:
 
         # do Geometry Assessment only if required
-        assess_geometry_bands = [
-            product.reverse_bands_mapping.get(band) for band in self._assess_bands
-        ]
+        assess_geometry_bands = [product.reverse_bands_mapping.get(band) for band in self._assess_bands]
 
         if assess_geometry_bands and band in assess_geometry_bands:
             # open validity mask
@@ -70,16 +68,12 @@ class S2L_GeometryCheck(S2L_Process):
 
             ref_image = get_resampled_ref_image(image, product.ref_image)
             if ref_image is None:
-                log.warning(
-                    "Abort geometry assessment, no reference image found for %s", image.filepath
-                )
+                log.warning("Abort geometry assessment, no reference image found for %s", image.filepath)
                 # abort, cannot do matching without ref image
                 return image
 
             # Coarse resolution of correlation grid (only for stats)
-            klt_result = self._matching(
-                ref_image, image, mask, product.working_dir, product.ref_image
-            )
+            klt_result = self._matching(ref_image, image, mask, product.working_dir, product.ref_image)
 
             log.info(
                 "Geometrical Offsets after correction if any (DX/DY): %sm %sm",
@@ -111,9 +105,7 @@ class S2L_GeometryCheck(S2L_Process):
         log.info("Start matching")
 
         # do matching with KLT
-        result = self._klt_matcher.do_matching(
-            working_dir, image_ref, image, mask.array, assessment=True
-        )
+        result = self._klt_matcher.do_matching(working_dir, image_ref, image, mask.array, assessment=True)
 
         dx = result.dx_array
         dy = result.dy_array

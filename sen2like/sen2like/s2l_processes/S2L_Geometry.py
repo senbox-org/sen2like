@@ -50,9 +50,7 @@ def reframe_mask(
     mask_file_path = getattr(product, product_mask_filename_attr, None)
     image = S2L_ImageFile(mask_file_path)
 
-    out_image = mgrs_framing.reframe(
-        image, product.mgrs, filepath_out, product.dx, product.dy, order=0
-    )
+    out_image = mgrs_framing.reframe(image, product.mgrs, filepath_out, product.dx, product.dy, order=0)
 
     out_image.write(creation_options=["COMPRESS=LZW"], **kwargs)
 
@@ -112,10 +110,7 @@ class S2L_Geometry(S2L_Process):
         # No geometric correction for refined products
         if product.mtl.is_refined:
             if self._force_geometric_correction:
-                log.info(
-                    "Product %s is refined but geometric correction is forced.",
-                    product.name
-                )
+                log.info("Product %s is refined but geometric correction is forced.", product.name)
             else:
                 log.info("Product %s is refined: no additional geometric correction.", product.name)
                 # have a dummy klt result for COREGISTRATION_BEFORE_CORRECTION computation
@@ -166,21 +161,15 @@ class S2L_Geometry(S2L_Process):
         Args:
             product (S2L_Product): product having aux data file to reframe
         """
-        valid_mask: S2L_ImageFile|None = None
-        no_data_mask: S2L_ImageFile|None = None
+        valid_mask: S2L_ImageFile | None = None
+        no_data_mask: S2L_ImageFile | None = None
         if product.mask_filename:
             log.info("MGRS Reframe mask of product %s", product.name)
-            valid_mask = reframe_mask(
-                product,
-                "mask_filename",
-                "valid_pixel_mask_REFRAMED_GEOM_CORRECTED.TIF"
-            )
+            valid_mask = reframe_mask(product, "mask_filename", "valid_pixel_mask_REFRAMED_GEOM_CORRECTED.TIF")
 
         if product.nodata_mask_filename:
             log.info("MGRS Reframe no data mask of product %s", product.name)
-            no_data_mask = reframe_mask(
-                product, "nodata_mask_filename", "nodata__mask_REFRAMED_GEOM_CORRECTED.TIF"
-            )
+            no_data_mask = reframe_mask(product, "nodata_mask_filename", "nodata__mask_REFRAMED_GEOM_CORRECTED.TIF")
 
         if product.ndvi_filename is not None:
             log.info("MGRS Reframe NDVI of product %s", product.name)
@@ -188,15 +177,15 @@ class S2L_Geometry(S2L_Process):
 
         if valid_mask and no_data_mask:
             log.info("Recompute mask info")
-            log.info("old: %s",product.mask_info)
+            log.info("old: %s", product.mask_info)
 
             product.mask_info = MaskInfo(
                 valid_mask.array.size,
                 np.count_nonzero(valid_mask.array),
-                no_data_mask.array.size - np.count_nonzero(no_data_mask.array)
+                no_data_mask.array.size - np.count_nonzero(no_data_mask.array),
             )
-            log.info("new: %s",product.mask_info)
-        
+            log.info("new: %s", product.mask_info)
+
     def _set_qi_information(self, product):
         """Set COREGISTRATION_BEFORE_CORRECTION, INPUT_RMSE_X, INPUT_RMSE_Y in QI report.
         If the processed product have a related product, the information is set for the product and its related one
@@ -207,17 +196,11 @@ class S2L_Geometry(S2L_Process):
             stats = {"dist_means": [], "rmse_x": [], "rmse_y": []}
 
             for klt_result in self._klt_results:
-                dist = np.sqrt(
-                    np.power(klt_result.dx_array, 2) + np.power(klt_result.dy_array, 2)
-                ).flatten()
+                dist = np.sqrt(np.power(klt_result.dx_array, 2) + np.power(klt_result.dy_array, 2)).flatten()
                 stats["dist_means"].append(np.round(np.mean(dist), 1))
 
-                stats["rmse_x"].append(
-                    np.round(np.sqrt(np.mean(np.power(klt_result.dx_array, 2))), 1)
-                )
-                stats["rmse_y"].append(
-                    np.round(np.sqrt(np.mean(np.power(klt_result.dy_array, 2))), 1)
-                )
+                stats["rmse_x"].append(np.round(np.sqrt(np.mean(np.power(klt_result.dx_array, 2))), 1))
+                stats["rmse_y"].append(np.round(np.sqrt(np.mean(np.power(klt_result.dy_array, 2))), 1))
 
             self._set_formatted_qi(product, "COREGISTRATION_BEFORE_CORRECTION", stats["dist_means"])
             self._set_formatted_qi(product, "INPUT_RMSE_X", stats["rmse_x"])
@@ -258,15 +241,9 @@ class S2L_Geometry(S2L_Process):
         # No geometric correction for refined products
         if product.mtl.is_refined:
             if self._force_geometric_correction:
-                log.info(
-                    "In process, product %s is refined but geometric correction is forced.",
-                    product.name
-                )
+                log.info("In process, product %s is refined but geometric correction is forced.", product.name)
             else:
-                log.info(
-                    "In process, product %s is refined: no additional geometric correction.",
-                    product.name
-                )
+                log.info("In process, product %s is refined: no additional geometric correction.", product.name)
 
                 # attempt to process related, it could be no refined
                 self._process_related(product, band)
@@ -296,15 +273,8 @@ class S2L_Geometry(S2L_Process):
         # when process is called first from preprocess, does not process the related product
         # let it to the call of preprocess for the related product
         if self._process_related_product and product.related_product is not None:
-            log.info(
-                "Process band %s of related product %s for %s",
-                band,
-                product.related_product.name,
-                product.name
-            )
-            related_image = self.process(
-                product.related_product, product.related_product.get_band_file(band), band
-            )
+            log.info("Process band %s of related product %s for %s", band, product.related_product.name, product.name)
+            related_image = self.process(product.related_product, product.related_product.get_band_file(band), band)
             # set related_image IN THE RELATED_PRODUCT of product
             product.related_product.related_image_dict[band] = related_image
 
@@ -342,9 +312,7 @@ class S2L_Geometry(S2L_Process):
 
         # matching to compute product dx/dy
         # Fine resolution of correlation grid (for accurate dx dy computation)
-        klt_result = self._klt_matcher.do_matching(
-            product.working_dir, ref_image, reframed_image, mask.array
-        )
+        klt_result = self._klt_matcher.do_matching(product.working_dir, ref_image, reframed_image, mask.array)
 
         # save values for future correction process on bands
         product.dx = klt_result.dx_array.mean()

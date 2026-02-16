@@ -24,32 +24,33 @@ from dataclasses import dataclass, field
 
 import cv2
 import numpy as np
+from core.image_file import S2L_ImageFile
 from pandas import DataFrame
 from skimage.transform import resize as skit_resize
 
-from core.image_file import S2L_ImageFile
-
 log = logging.getLogger("Sen2Like")
+
 
 def default_np() -> np.ndarray:
     return np.zeros([1, 1], float)
 
 
 @dataclass
-class KTLResult():
+class KTLResult:
     """
     Class to store KLT matching result
     Default init for result with no matching point
     to ease it usage.
     """
+
     dx_array: np.ndarray = field(default_factory=default_np)
     dy_array: np.ndarray = field(default_factory=default_np)
     nb_matching_point: int = 0
 
 
 class KLTMatcher:
-    """_summary_
-    """
+    """_summary_"""
+
     def _pointcheck_average(self, dx):
         return abs(dx - np.average(dx)) <= min(3 * np.std(dx), 20)
 
@@ -86,7 +87,15 @@ class KLTMatcher:
         result = np.uint8(result.clip(min=0, max=255))
         return result
 
-    def do_matching(self, working_dir:str, ref_image: S2L_ImageFile, image: S2L_ImageFile, mask, matching_winsize=25, assessment=False) -> KTLResult:
+    def do_matching(
+        self,
+        working_dir: str,
+        ref_image: S2L_ImageFile,
+        image: S2L_ImageFile,
+        mask,
+        matching_winsize=25,
+        assessment=False,
+    ) -> KTLResult:
         """Process to KLT matching, then compute dx/dy.
         Write some results stats in `working_dir/correl_res.txt`
 
@@ -96,13 +105,13 @@ class KLTMatcher:
             image (S2L_ImageFile): image to match
             mask (ndarray): mask to use during matching
             matching_winsize (int, optional): _description_. Defaults to 25.
-            assessment: (bool, optional): flag to indicate if matching is done for assessment or not. 
+            assessment: (bool, optional): flag to indicate if matching is done for assessment or not.
                 If not, then a file KLT.csv is written in the working dir and it contains KLT matching dataframe results.
                 Defaults to False
         Returns:
             KTLResult: matching result
         """
-        log.info('Start matching')
+        log.info("Start matching")
 
         log.info("extract_features")
         imagedata = self._extract_features(image.array)
@@ -112,16 +121,15 @@ class KLTMatcher:
         if mask.shape != imagedata.shape:
             log.info("resize mask")
             mask = skit_resize(mask.clip(min=-1.0, max=1.0), imagedata.shape, order=0, preserve_range=True).astype(
-                np.uint8)
+                np.uint8
+            )
 
         # compute the initial point set
         # goodFeaturesToTrack input parameters
-        feature_params = dict(maxCorners=20000, qualityLevel=0.1,
-                            minDistance=10, blockSize=15)
+        feature_params = dict(maxCorners=20000, qualityLevel=0.1, minDistance=10, blockSize=15)
         # goodFeaturesToTrack corner extraction-ShiThomasi Feature Detector
         log.info("goodFeaturesToTrack")
-        p0 = cv2.goodFeaturesToTrack(
-            reference, mask=mask, **feature_params)
+        p0 = cv2.goodFeaturesToTrack(reference, mask=mask, **feature_params)
         if p0 is None:
             log.error("No features extracted")
             return KTLResult()
@@ -129,17 +137,21 @@ class KLTMatcher:
         # define KLT parameters-for matching
         log.info("Using window of size %s for matching.", matching_winsize)
         # LSM input parameters - termination criteria for corner estimation/stopping criteria
-        lk_params = dict(winSize=(matching_winsize, matching_winsize),
-                        maxLevel=1,
-                        criteria=(cv2.TERM_CRITERIA_EPS | cv2.TERM_CRITERIA_COUNT, 30, 0.03))
+        lk_params = dict(
+            winSize=(matching_winsize, matching_winsize),
+            maxLevel=1,
+            criteria=(cv2.TERM_CRITERIA_EPS | cv2.TERM_CRITERIA_COUNT, 30, 0.03),
+        )
 
-        p1, st, __ = cv2.calcOpticalFlowPyrLK(reference, imagedata, p0, None,
-                                            **lk_params)  # LSM image matching- KLT tracker
+        p1, st, __ = cv2.calcOpticalFlowPyrLK(
+            reference, imagedata, p0, None, **lk_params
+        )  # LSM image matching- KLT tracker
 
         # Backward-check
         back_threshold = 0.01
-        p0r, st, __ = cv2.calcOpticalFlowPyrLK(imagedata, reference, p1, None,
-                                            **lk_params)  # LSM image matching- KLT tracker
+        p0r, st, __ = cv2.calcOpticalFlowPyrLK(
+            imagedata, reference, p1, None, **lk_params
+        )  # LSM image matching- KLT tracker
 
         d = abs(p0 - p0r).reshape(-1, 2).max(-1)
         st = d < back_threshold
@@ -167,15 +179,13 @@ class KLTMatcher:
         # mgrs reframing with polynomial strategy to have inputs to compute
         # transformation. It could also be used for other transformation.
         if not assessment:
-            data_frame = DataFrame.from_dict(
-                {"x0": x0, "y0": y0, "dx": dx, "dy": dy}
-            )
+            data_frame = DataFrame.from_dict({"x0": x0, "y0": y0, "dx": dx, "dy": dy})
             data_frame.sort_values(by=["x0", "y0"], inplace=True)
             data_frame.to_csv(os.path.join(working_dir, "KLT.csv"), sep=";", index=False)
         # End for PRISMA
 
         dx_res = np.array(dx) * ref_image.xRes
-        dy_res = np.array(dy) * (- ref_image.yRes)
+        dy_res = np.array(dy) * (-ref_image.yRes)
 
         log.debug("KLT Nb Points (init/final): %s / %s", nb_matching_point, len(dx_res))
         log.debug("KLT (avgx, avgy): %sm %sm", dx_res.mean(), dy_res.mean())
@@ -184,7 +194,7 @@ class KLTMatcher:
 
         self._write_results(result, working_dir, image.filename, ref_image.filename)
 
-        log.info('End matching')
+        log.info("End matching")
 
         return result
 
@@ -198,15 +208,16 @@ class KLTMatcher:
         log.debug(csvfile)
         if not os.path.exists(csvfile):
             # write header
-            titles = "refImg secImg total_valid_pixel sample_pixel confidence_th min_x max_x " \
-                     "median_x mean_x std_x min_y max_y median_y mean_y std_y"
-            with open(csvfile, 'w') as o:
+            titles = (
+                "refImg secImg total_valid_pixel sample_pixel confidence_th min_x max_x "
+                "median_x mean_x std_x min_y max_y median_y mean_y std_y"
+            )
+            with open(csvfile, "w") as o:
                 o.write(titles + "\n")
         # write values
-        values = [image_ref_filename, image_filename,
-                  klt_result.nb_matching_point, len(dx), -1]
+        values = [image_ref_filename, image_filename, klt_result.nb_matching_point, len(dx), -1]
         values += [dy.min(), dy.max(), np.median(dy), dy.mean(), np.std(dy)]
         values += [dx.min(), dx.max(), np.median(dx), dx.mean(), np.std(dx)]
         text = " ".join([str(x) for x in values])
-        with open(csvfile, 'a') as o:
+        with open(csvfile, "a") as o:
             o.write(text + "\n")

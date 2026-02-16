@@ -1,4 +1,5 @@
 """S2L processes module tests"""
+
 import os
 from unittest import TestCase
 
@@ -20,9 +21,7 @@ class TestS2LProcesses(TestCase):
         config.set("generate_intermediate_products", False)
 
     def test_create(self):
-        assert isinstance(
-            create_process_block("S2L_TopographicCorrection"), S2L_TopographicCorrection
-        )
+        assert isinstance(create_process_block("S2L_TopographicCorrection"), S2L_TopographicCorrection)
         assert isinstance(create_process_block("S2L_Toa"), S2L_Toa)
         assert isinstance(create_process_block("S2L_Sbaf"), S2L_Sbaf)
 

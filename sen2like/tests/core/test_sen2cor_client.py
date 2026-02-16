@@ -11,7 +11,6 @@ from core.S2L_config import config
 from core.sen2cor_client import sen2cor_client
 from core.sen2cor_client.sen2cor_client import Sen2corClient as S2CClient
 
-
 test_folder_path = os.path.dirname(__file__)
 configuration_file = os.path.join(test_folder_path, "config.ini")
 
@@ -24,9 +23,7 @@ def show_diff(tested, reference):
         file_2_text = file_2.readlines()
 
     # Find and print the diff:
-    for line in difflib.unified_diff(
-        file_1_text, file_2_text, fromfile="tested", tofile="reference", lineterm=""
-    ):
+    for line in difflib.unified_diff(file_1_text, file_2_text, fromfile="tested", tofile="reference", lineterm=""):
         print(line)
 
 
@@ -38,7 +35,7 @@ class Sen2corClient(S2CClient):
     def __init__(self, sen2cor_command, out_mgrs, enable_topo_corr=False):
         super().__init__(sen2cor_command, out_mgrs, enable_topo_corr)
 
-    def _pixel_center(self, ref_band_file:S2L_ImageFile):
+    def _pixel_center(self, ref_band_file: S2L_ImageFile):
         return 4, 5
 
 

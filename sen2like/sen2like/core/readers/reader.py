@@ -60,9 +60,7 @@ def compute_scene_boundaries(scene_boundary_lat, scene_boundary_lon):
     norm_r = np.roll(norm, -1)
     # Product of Norm || U || * || V ||
 
-    theta = np.roll(
-        np.arccos(np.divide(scalar, np.multiply(norm, norm_r))) * (np.divide(180, np.pi)),
-        1)
+    theta = np.roll(np.arccos(np.divide(scalar, np.multiply(norm, norm_r))) * (np.divide(180, np.pi)), 1)
     arr1 = np.delete(arr1, index)
     arr2 = np.delete(arr2, index)
     return (arr1[theta > 60.0].tolist(), arr2[theta > 60.0].tolist())
@@ -73,7 +71,7 @@ class BaseReader(ABC):
 
     def __init__(self, product_path):
         self.product_path = product_path
-        logger.info("%s Class",  self.__class__.__name__)
+        logger.info("%s Class", self.__class__.__name__)
         logger.info("Product: %s", self.product_path)
         self.is_refined = False
 
@@ -82,7 +80,7 @@ class BaseReader(ABC):
         self.product_name = None
         self.scene_boundary_lat = None
         self.scene_boundary_lon = None
-        self.absolute_orbit = 'N/A'
+        self.absolute_orbit = "N/A"
         self.sensor = None  # Instrument
         self.data_type = None  # Product level
         self.observation_date = None

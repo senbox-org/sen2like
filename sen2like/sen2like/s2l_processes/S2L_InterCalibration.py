@@ -21,7 +21,6 @@
 import logging
 
 import numpy as np
-
 from core.image_file import S2L_ImageFile
 from core.products.product import S2L_Product
 from s2l_processes.S2L_Process import S2L_Process
@@ -30,17 +29,18 @@ log = logging.getLogger("Sen2Like")
 
 COEFFICIENT = {
     "Sentinel-2B": {
-        'B01': {'coef': [1.011, 0]},
-        'B02': {'coef': [1.011, 0]},
-        'B03': {'coef': [1.011, 0]},
-        'B04': {'coef': [1.011, 0]},
-        'B05': {'coef': [1.011, 0]},
-        'B06': {'coef': [1.011, 0]},
-        'B07': {'coef': [1.011, 0]},
-        'B08': {'coef': [1.011, 0]},
-        'B8A': {'coef': [1.011, 0]},
+        "B01": {"coef": [1.011, 0]},
+        "B02": {"coef": [1.011, 0]},
+        "B03": {"coef": [1.011, 0]},
+        "B04": {"coef": [1.011, 0]},
+        "B05": {"coef": [1.011, 0]},
+        "B06": {"coef": [1.011, 0]},
+        "B07": {"coef": [1.011, 0]},
+        "B08": {"coef": [1.011, 0]},
+        "B8A": {"coef": [1.011, 0]},
     }
 }
+
 
 class S2L_InterCalibration(S2L_Process):
     """
@@ -68,7 +68,7 @@ class S2L_InterCalibration(S2L_Process):
         if product.mtl.mission in COEFFICIENT:
             if float(product.mtl.processing_sw) < 4.0:
                 if band in COEFFICIENT[product.mtl.mission]:
-                    slope, offset = COEFFICIENT[product.mtl.mission][band]['coef']
+                    slope, offset = COEFFICIENT[product.mtl.mission][band]["coef"]
                 else:
                     log.info("No inter calibration coefficient defined for %s", band)
                     return image
@@ -89,6 +89,6 @@ class S2L_InterCalibration(S2L_Process):
             # Format Output : duplicate, link  to product as parameter
             image = image.duplicate(self.output_file(product, band), array=new.astype(np.float32))
             if self.generate_intermediate_products:
-                image.write(creation_options=['COMPRESS=LZW'])
+                image.write(creation_options=["COMPRESS=LZW"])
 
         return image

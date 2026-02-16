@@ -28,10 +28,6 @@ import re
 from os.path import basename, join
 
 import numpy as np
-from skimage.measure import block_reduce
-from skimage.morphology import dilation, square
-from skimage.transform import resize as skit_resize
-
 from core import S2L_config
 from core.image_file import S2L_ImageFile
 from core.products.hls_product import S2L_HLS_Product
@@ -39,10 +35,13 @@ from core.products.product import S2L_Product
 from core.S2L_tools import out_stat
 from grids import mgrs_framing
 from s2l_processes.S2L_Process import S2L_Process
+from skimage.measure import block_reduce
+from skimage.morphology import dilation, square
+from skimage.transform import resize as skit_resize
 
 log = logging.getLogger("Sen2Like")
 
-'''
+"""
 -- BQA Dictionary definition --
      Define for a maximum of four dates (d1,d2,d3,d4) ,d4 is the most recent
 
@@ -62,24 +61,24 @@ log = logging.getLogger("Sen2Like")
 14       011010 - Selected date (d1,d2,d4)
 15       011110 - Selected date (d1,d2,d3,d4)
 
-'''
+"""
 
 bqa_val_dic = {}
-bqa_val_dic.update({"1": {"value": 1, "bin_sequence": 0b0000000000000001, "label": 'bkg_fill'}})
-bqa_val_dic.update({"2": {"value": 2, "bin_sequence": 0b0000000000000010, "label": 'one_date_d4'}})
-bqa_val_dic.update({"3": {"value": 4, "bin_sequence": 0b0000000000000100, "label": 'one_date_d3'}})
-bqa_val_dic.update({"4": {"value": 8, "bin_sequence": 0b0000000000001000, "label": 'one_date_d2'}})
-bqa_val_dic.update({"5": {"value": 16, "bin_sequence": 0b0000000000010000, "label": 'one_date_d1'}})
-bqa_val_dic.update({"6": {"value": 6, "bin_sequence": 0b0000000000000110, "label": 'two_date_d3_d4'}})
-bqa_val_dic.update({"7": {"value": 10, "bin_sequence": 0b0000000000001010, "label": 'two_date_d2_d4'}})
-bqa_val_dic.update({"8": {"value": 18, "bin_sequence": 0b0000000000010010, "label": 'two_date_d1_d4'}})
-bqa_val_dic.update({"9": {"value": 12, "bin_sequence": 0b0000000000001100, "label": 'two_date_d2_d3'}})
-bqa_val_dic.update({"10": {"value": 20, "bin_sequence": 0b0000000000010100, "label": 'two_date_d1_d3'}})
-bqa_val_dic.update({"11": {"value": 24, "bin_sequence": 0b0000000000011000, "label": 'two_date_d1_d2'}})
-bqa_val_dic.update({"12": {"value": 14, "bin_sequence": 0b0000000000001110, "label": 'three date_d2_d3_d4'}})
-bqa_val_dic.update({"13": {"value": 22, "bin_sequence": 0b0000000000010110, "label": 'three date_d1_d3_d4'}})
-bqa_val_dic.update({"14": {"value": 26, "bin_sequence": 0b0000000000011010, "label": 'three date_d1_d2_d4'}})
-bqa_val_dic.update({"15": {"value": 30, "bin_sequence": 0b0000000000011110, "label": 'four date_d1_d2_d3_d4'}})
+bqa_val_dic.update({"1": {"value": 1, "bin_sequence": 0b0000000000000001, "label": "bkg_fill"}})
+bqa_val_dic.update({"2": {"value": 2, "bin_sequence": 0b0000000000000010, "label": "one_date_d4"}})
+bqa_val_dic.update({"3": {"value": 4, "bin_sequence": 0b0000000000000100, "label": "one_date_d3"}})
+bqa_val_dic.update({"4": {"value": 8, "bin_sequence": 0b0000000000001000, "label": "one_date_d2"}})
+bqa_val_dic.update({"5": {"value": 16, "bin_sequence": 0b0000000000010000, "label": "one_date_d1"}})
+bqa_val_dic.update({"6": {"value": 6, "bin_sequence": 0b0000000000000110, "label": "two_date_d3_d4"}})
+bqa_val_dic.update({"7": {"value": 10, "bin_sequence": 0b0000000000001010, "label": "two_date_d2_d4"}})
+bqa_val_dic.update({"8": {"value": 18, "bin_sequence": 0b0000000000010010, "label": "two_date_d1_d4"}})
+bqa_val_dic.update({"9": {"value": 12, "bin_sequence": 0b0000000000001100, "label": "two_date_d2_d3"}})
+bqa_val_dic.update({"10": {"value": 20, "bin_sequence": 0b0000000000010100, "label": "two_date_d1_d3"}})
+bqa_val_dic.update({"11": {"value": 24, "bin_sequence": 0b0000000000011000, "label": "two_date_d1_d2"}})
+bqa_val_dic.update({"12": {"value": 14, "bin_sequence": 0b0000000000001110, "label": "three date_d2_d3_d4"}})
+bqa_val_dic.update({"13": {"value": 22, "bin_sequence": 0b0000000000010110, "label": "three date_d1_d3_d4"}})
+bqa_val_dic.update({"14": {"value": 26, "bin_sequence": 0b0000000000011010, "label": "three date_d1_d2_d4"}})
+bqa_val_dic.update({"15": {"value": 30, "bin_sequence": 0b0000000000011110, "label": "four date_d1_d2_d3_d4"}})
 
 
 def get_fractional_year(ad):
@@ -92,7 +91,7 @@ class S2L_Fusion(S2L_Process):
 
     def __init__(self, generate_intermediate_products: bool):
         super().__init__(generate_intermediate_products)
-        self.reference_products : list(S2L_HLS_Product) = []
+        self.reference_products: list(S2L_HLS_Product) = []
         self._fusion_method = None
 
     def preprocess(self, product: S2L_Product):
@@ -100,7 +99,7 @@ class S2L_Fusion(S2L_Process):
         self._set_reference_products(product)
 
         for ref_product in self.reference_products:
-            log.info('Selected product: %s', ref_product.name)
+            log.info("Selected product: %s", ref_product.name)
 
         product.fusionable = len(self.reference_products) > 0
 
@@ -113,15 +112,15 @@ class S2L_Fusion(S2L_Process):
     def process(self, product: S2L_Product, image: S2L_ImageFile, band: str) -> S2L_ImageFile:
 
         if not product.fusionable:
-            log.warning('Skipping Data Fusion. Reason: no S2 products available in the past')
+            log.warning("Skipping Data Fusion. Reason: no S2 products available in the past")
             return image
 
-        if band == 'B01':
-            log.warning('Skipping Data Fusion for B01.')
+        if band == "B01":
+            log.warning("Skipping Data Fusion for B01.")
             return image
 
         if not product.get_s2like_band(band):
-            log.warning('Skipping Data Fusion. Reason: no S2 matching band for %s', band)
+            log.warning("Skipping Data Fusion. Reason: no S2 matching band for %s", band)
             return image
 
         # general info
@@ -130,7 +129,7 @@ class S2L_Fusion(S2L_Process):
         output_shape = (image_file_L2F.ySize, image_file_L2F.xSize)
 
         # method: prediction (from the 2 most recent S2 products)
-        if self._fusion_method == 'predict':
+        if self._fusion_method == "predict":
             # Use QA (product selection) to apply Composting :
             qa_mask = self._get_qa_band(output_shape)
 
@@ -139,57 +138,54 @@ class S2L_Fusion(S2L_Process):
 
             # save
             if self.generate_intermediate_products:
-                self._save_as_image_file(image_file_L2F, qa_mask, product, band, '_FUSION_QA.TIF')
-                self._save_as_image_file(image_file_L2F, array_L2H_predict, product, band, '_FUSION_L2H_PREDICT.TIF')
-                self._save_as_image_file(image_file_L2F, array_L2F_predict, product, band, '_FUSION_L2F_PREDICT.TIF')
+                self._save_as_image_file(image_file_L2F, qa_mask, product, band, "_FUSION_QA.TIF")
+                self._save_as_image_file(image_file_L2F, array_L2H_predict, product, band, "_FUSION_L2H_PREDICT.TIF")
+                self._save_as_image_file(image_file_L2F, array_L2F_predict, product, band, "_FUSION_L2F_PREDICT.TIF")
 
         # method: composite (most recent valid pixels from N products)
-        elif self._fusion_method == 'composite':
+        elif self._fusion_method == "composite":
             # composite
             array_L2H_predict, array_L2F_predict = self._composite(band_s2, output_shape)
 
             # save
             if self.generate_intermediate_products:
-                self._save_as_image_file(image_file_L2F, array_L2H_predict, product, band, '_FUSION_L2H_COMPO.TIF')
-                self._save_as_image_file(image_file_L2F, array_L2F_predict, product, band, '_FUSION_L2F_COMPO.TIF')
+                self._save_as_image_file(image_file_L2F, array_L2H_predict, product, band, "_FUSION_L2H_COMPO.TIF")
+                self._save_as_image_file(image_file_L2F, array_L2F_predict, product, band, "_FUSION_L2F_COMPO.TIF")
 
         # method: unknown
         else:
-            log.error('Unknown predict method: %s. Please check your configuration.', self._fusion_method)
+            log.error("Unknown predict method: %s. Please check your configuration.", self._fusion_method)
             return None
 
         # fusion L8/S2
         mask_filename = product.nodata_mask_filename
         array_out = self._fusion(image, array_L2H_predict, array_L2F_predict, mask_filename).astype(np.float32)
-        image_out = self._save_as_image_file(image_file_L2F, array_out, product, band, '_FUSION_FINAL.TIF')
+        image_out = self._save_as_image_file(image_file_L2F, array_out, product, band, "_FUSION_FINAL.TIF")
 
         # fusion auto check
-        if band == S2L_config.config.get('fusion_auto_check_band'):
+        if band == S2L_config.config.get("fusion_auto_check_band"):
             nodata_value = 150
             proportion_diff, proportion_diff_mask = self.proportion_fusion_diff(
-                image, image_out, S2L_ImageFile(mask_filename), nodata_value=nodata_value)
-            log.debug('Fusion auto check proportional difference of L2F from L2H')
-            out_stat(proportion_diff * proportion_diff_mask, log, 'proportional diff')
+                image, image_out, S2L_ImageFile(mask_filename), nodata_value=nodata_value
+            )
+            log.debug("Fusion auto check proportional difference of L2F from L2H")
+            out_stat(proportion_diff * proportion_diff_mask, log, "proportional diff")
             if self.generate_intermediate_products:
                 proportion_diff_img = image.duplicate(
-                    filepath=os.path.join(
-                        product.working_dir,
-                        f'fusion_auto_check_proportion_diff_{band}.TIF'
-                    ),
-                    array=proportion_diff)
-                proportion_diff_img.write(creation_options=['COMPRESS=LZW'], DCmode=True, nodata_value=nodata_value)
+                    filepath=os.path.join(product.working_dir, f"fusion_auto_check_proportion_diff_{band}.TIF"),
+                    array=proportion_diff,
+                )
+                proportion_diff_img.write(creation_options=["COMPRESS=LZW"], DCmode=True, nodata_value=nodata_value)
 
             abs_proportion_diff = np.abs(proportion_diff * proportion_diff_mask)
             threshold_msk = np.zeros(abs_proportion_diff.shape, dtype=np.uint16)
-            threshold_msk[abs_proportion_diff < S2L_config.config.getfloat('fusion_auto_check_threshold')] = 1
+            threshold_msk[abs_proportion_diff < S2L_config.config.getfloat("fusion_auto_check_threshold")] = 1
             threshold_msk[proportion_diff_mask == 0] = 0
             threshold_msk = image.duplicate(
-                filepath=os.path.join(
-                    product.working_dir,
-                    f'fusion_auto_check_threshold_msk_{band}.TIF'
-                ),
-                array=threshold_msk)
-            threshold_msk.write(creation_options=['COMPRESS=LZW'])
+                filepath=os.path.join(product.working_dir, f"fusion_auto_check_threshold_msk_{band}.TIF"),
+                array=threshold_msk,
+            )
+            threshold_msk.write(creation_options=["COMPRESS=LZW"])
             product.fusion_auto_check_threshold_msk_file = threshold_msk.filepath
 
         return image_out
@@ -200,26 +196,23 @@ class S2L_Fusion(S2L_Process):
         Args:
             product (S2L_Product): product to post process
         """
-        product.metadata.qi["FUSION_AUTO_CHECK_THRESHOLD"] = S2L_config.config.getfloat(
-            'fusion_auto_check_threshold')
+        product.metadata.qi["FUSION_AUTO_CHECK_THRESHOLD"] = S2L_config.config.getfloat("fusion_auto_check_threshold")
 
         product.metadata.qi["PREDICTED_METHOD"] = self._fusion_method
 
     def _set_reference_products(self, product: S2L_Product):
         # check most recent HLS S2 products available
         log.info("Search reference products")
-        archive_dir = S2L_config.config.get('archive_dir')
+        archive_dir = S2L_config.config.get("archive_dir")
         tsdir = join(archive_dir, product.mgrs)
 
         # list products with dates
         product_list = []
 
         # Handle new format aswell
-        for product_path in sorted(glob.glob(tsdir + '/S2*L2F_*')):
+        for product_path in sorted(glob.glob(tsdir + "/S2*L2F_*")):
             product_name = basename(product_path)
-            date = dt.datetime.strptime(
-                os.path.splitext(product_name.split('_')[2])[0], '%Y%m%dT%H%M%S'
-            ).date()
+            date = dt.datetime.strptime(os.path.splitext(product_name.split("_")[2])[0], "%Y%m%dT%H%M%S").date()
 
             if date <= product.acqdate.date():
                 product_list.append([date, product_path])
@@ -228,7 +221,7 @@ class S2L_Fusion(S2L_Process):
         product_list.sort()
 
         # reset ref list and keep 2 last ones
-        nb_products = int(S2L_config.config.get('predict_nb_products', 2))
+        nb_products = int(S2L_config.config.get("predict_nb_products", 2))
         for date, product_name in product_list[-nb_products:]:
             ref_product = S2L_HLS_Product(product_name, product.context)
             if ref_product.s2l_product_class is not None:
@@ -236,23 +229,21 @@ class S2L_Fusion(S2L_Process):
 
     def _set_fusion_method(self):
         # method selection
-        predict_method = S2L_config.config.get('predict_method', 'predict')
+        predict_method = S2L_config.config.get("predict_method", "predict")
         if len(self.reference_products) == 1:
             log.warning(
-                'Not enough Sentinel2 products for the predict (only one product). Using last S2 product as ref.')
-            predict_method = 'composite'
+                "Not enough Sentinel2 products for the predict (only one product). Using last S2 product as ref."
+            )
+            predict_method = "composite"
 
         self._fusion_method = predict_method
         log.info("Set fusion method to %s", self._fusion_method)
 
     def _save_as_image_file(self, image_template, array, product, band, extension):
-        path = os.path.join(
-            product.working_dir,
-            product.get_band_file(band).rootname + extension
-        )
+        path = os.path.join(product.working_dir, product.get_band_file(band).rootname + extension)
         image_file = image_template.duplicate(path, array=array)
         if self.generate_intermediate_products:
-            image_file.write(creation_options=['COMPRESS=LZW'])
+            image_file.write(creation_options=["COMPRESS=LZW"])
         return image_file
 
     def _get_qa_band(self, shape):
@@ -271,7 +262,7 @@ class S2L_Fusion(S2L_Process):
             mskfile = ref_product.getMaskFile()
             log.debug(mskfile.filepath)
             log.info("Use mask %s of %s", mskfile.filepath, ref_product.name)
-            msk = mskfile.array#.astype(np.uint8)
+            msk = mskfile.array  # .astype(np.uint8)
 
             if msk.shape != shape:
                 log.info("Resize reference product mask from shape %s to shape %s", msk.shape, shape)
@@ -294,7 +285,7 @@ class S2L_Fusion(S2L_Process):
         :return: 2 composites (high res and low res upsampled to high res)
         """
 
-        log.info('compositing with %s products', len(self.reference_products))
+        log.info("compositing with %s products", len(self.reference_products))
 
         array_L2H_compo = None
         array_L2F_compo = None
@@ -303,7 +294,7 @@ class S2L_Fusion(S2L_Process):
 
             # image L2F
             image_file_L2F = ref_product.get_band_file(band_s2, plus=True)
-            array_L2F = image_file_L2F.array.astype(np.float32) / 10000.
+            array_L2F = image_file_L2F.array.astype(np.float32) / 10000.0
 
             # image L2H
             array_L2H = self.get_harmonized_product(ref_product, band_s2, output_shape, False)
@@ -318,7 +309,8 @@ class S2L_Fusion(S2L_Process):
             # resample mask if needed
             if msk.shape != array_L2F.shape:
                 msk = skit_resize(msk.clip(min=-1.0, max=1.0), output_shape, order=0, preserve_range=True).astype(
-                    np.uint8)
+                    np.uint8
+                )
 
             # apply in composite
             if array_L2H_compo is None:
@@ -335,7 +327,7 @@ class S2L_Fusion(S2L_Process):
         Input : Expected DOY
                 S2 TDS
         """
-        log.info('prediction')
+        log.info("prediction")
 
         # From QA
         if output_shape != qa_mask.shape:
@@ -348,21 +340,21 @@ class S2L_Fusion(S2L_Process):
         M3[qa_mask == 2] = 1  # d4
 
         # init output images
-        output_images = {'L2H': None, 'L2F': None}
+        output_images = {"L2H": None, "L2F": None}
 
         # (oldest date) and (newest date)
         ref_product_1 = self.reference_products[0]
         doy_1 = get_fractional_year(ref_product_1.acqdate)
-        log.debug('%s %s', ref_product_1.name, doy_1)
+        log.debug("%s %s", ref_product_1.name, doy_1)
         ref_product_2 = self.reference_products[1]
         doy_2 = get_fractional_year(ref_product_2.acqdate)
 
         # doy of input product
         input_xdoy = get_fractional_year(product.acqdate)
-        log.debug('input_xdoy: %s', input_xdoy)
+        log.debug("input_xdoy: %s", input_xdoy)
 
         for mode in output_images.keys():
-            plus = mode == 'L2F'
+            plus = mode == "L2F"
 
             # image1 (oldest date)
             array1 = self.get_harmonized_product(ref_product_1, band_s2, output_shape, plus)
@@ -381,7 +373,7 @@ class S2L_Fusion(S2L_Process):
 
             output_images[mode] = array_dp
 
-        return output_images['L2H'], output_images['L2F']
+        return output_images["L2H"], output_images["L2F"]
 
     @staticmethod
     def get_harmonized_product(product: S2L_HLS_Product, band_s2, output_shape, plus):
@@ -392,11 +384,11 @@ class S2L_Fusion(S2L_Process):
         border = None
 
         if image_file is None:
-            log.info('Resampling to 30m: Start...')
+            log.info("Resampling to 30m: Start...")
             # Search for S2 L2H at native (full) resolution (10 m, 20 m)
             band_file: S2L_ImageFile = product.get_band_file(band_s2, plus=True)
             # Construct temporary nodata mask with pixels equal to 0
-            nodata = (band_file.array == 0)
+            nodata = band_file.array == 0
             # Dilate temporary nodata mask by one pixel using a square operator of size 3
             nodatadil = dilation(nodata, square(3))
             # Substract nodata mask to dilated mask to create border mask array
@@ -404,37 +396,38 @@ class S2L_Fusion(S2L_Process):
             # border mask array is at native (full) resolution (10 m, 20 m)
             border = nodatadil ^ nodata
 
-            match = re.search(r'_(\d{2})m', band_file.filename)
+            match = re.search(r"_(\d{2})m", band_file.filename)
             if match:
-                resampled_file = band_file.filename.replace(match.group(1), '30')
+                resampled_file = band_file.filename.replace(match.group(1), "30")
             else:
-                resampled_file = band_file.filename.replace('.', '_resampled_30m.')
+                resampled_file = band_file.filename.replace(".", "_resampled_30m.")
 
             # Resample S2 L2H at native (full) resolution (10 m, 20 m) to 30 m
             image_file = mgrs_framing.resample(band_file, 30, os.path.join(band_file.dirpath, resampled_file))
-            log.info('Resampling to 30m: End')
+            log.info("Resampling to 30m: End")
 
         # Convert array from DN to float
         # TODO: check if radiometric offset (since S2 PB 04.00) needs to be take into account. It seems it is not mandatory
-        array = image_file.array.astype(np.float32) / 10000.
+        array = image_file.array.astype(np.float32) / 10000.0
 
         if output_shape != array.shape:
             array = skit_resize(array.clip(min=-1.0, max=1.0), output_shape).astype(np.float32)
             # Perform the reset of border values to initial L2H (native resolution) values only when border has been created
             if border is not None:
-                array[border] = band_file.array[border].astype(np.float32) / 10000.
+                array[border] = band_file.array[border].astype(np.float32) / 10000.0
 
         return array
 
     def _fusion(self, L8_HLS, S2_HLS_img, S2_HLS_plus_img, mask_filename=None):
 
-        log.info('fusion')
+        log.info("fusion")
         # read array
         L8_HLS_img = L8_HLS.array
 
         # resize low res to high res
         L8_HLS_plus_BILINEAR_img = skit_resize(L8_HLS_img.clip(min=-1.0, max=1.0), S2_HLS_plus_img.shape).astype(
-            np.float32)
+            np.float32
+        )
         S2_HLS_plus_LOWPASS_img = S2_HLS_img
 
         # high pass of high res
@@ -448,8 +441,9 @@ class S2L_Fusion(S2L_Process):
             mask_file = S2L_ImageFile(mask_filename)
             msk = mask_file.array
             if msk.shape != L8_HLS_plus_FUSION_img.shape:
-                msk = skit_resize(msk.clip(min=-1.0, max=1.0), L8_HLS_plus_FUSION_img.shape, order=0,
-                                  preserve_range=True).astype(np.uint8)
+                msk = skit_resize(
+                    msk.clip(min=-1.0, max=1.0), L8_HLS_plus_FUSION_img.shape, order=0, preserve_range=True
+                ).astype(np.uint8)
             L8_HLS_plus_FUSION_img[msk == 0] = 0
 
         return L8_HLS_plus_FUSION_img
@@ -461,14 +455,15 @@ class S2L_Fusion(S2L_Process):
         res_factor = int(l2h_image.xRes / l2f_image.xRes)
         l2f_array_resize = l2f_image.array.copy()
         if res_factor != 1:
-            l2f_array_resize = block_reduce(
-                l2f_array_resize, block_size=(res_factor, res_factor), func=np.mean)
+            l2f_array_resize = block_reduce(l2f_array_resize, block_size=(res_factor, res_factor), func=np.mean)
         l2h_array = l2h_image.array
 
         # compute percent_diff
-        proportion_diff = (np.clip(l2h_array, 0.0001, 1.5) - np.clip(l2f_array_resize, 0.0001, 1.5)) / np.clip(l2h_array, 0.0001, 1.5)
-        proportion_diff = np.clip(proportion_diff, -1., 1.)
-        proportion_diff[nodata_mask.array == 0.] = np.nan
+        proportion_diff = (np.clip(l2h_array, 0.0001, 1.5) - np.clip(l2f_array_resize, 0.0001, 1.5)) / np.clip(
+            l2h_array, 0.0001, 1.5
+        )
+        proportion_diff = np.clip(proportion_diff, -1.0, 1.0)
+        proportion_diff[nodata_mask.array == 0.0] = np.nan
         proportion_diff_mask = np.ones(proportion_diff.shape)
         # compute mask of valid percentage
         proportion_diff_mask[np.isnan(proportion_diff)] = 0

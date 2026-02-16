@@ -19,9 +19,8 @@ import logging
 import os
 
 import numpy as np
-from osgeo import gdal, osr
-
 from core import S2L_config
+from osgeo import gdal, osr
 
 log = logging.getLogger("Sen2Like")
 
@@ -29,16 +28,16 @@ log = logging.getLogger("Sen2Like")
 class S2L_ImageFile:
 
     FILE_EXTENSIONS = {
-        'GTIFF': 'TIF',
-        'COG': 'TIF',
-        'JPEG2000': 'jp2',
+        "GTIFF": "TIF",
+        "COG": "TIF",
+        "JPEG2000": "jp2",
     }
 
-    def __init__(self, path, mode='r'):
+    def __init__(self, path, mode="r"):
         self.setFilePath(path)
 
         # geo information
-        if mode == 'r':
+        if mode == "r":
             self.readHeader()
         else:
             self.xSize = None
@@ -64,7 +63,7 @@ class S2L_ImageFile:
 
     @property
     def array(self):
-        """"Access to image array (numpy array)"""
+        """ "Access to image array (numpy array)"""
 
         # read file is not already done
         if self._array is None:
@@ -131,7 +130,7 @@ class S2L_ImageFile:
 
         if outSR is not None:
             inSR = osr.SpatialReference(wkt=self.projection)
-            if hasattr(outSR, 'SetAxisMappingStrategy'):
+            if hasattr(outSR, "SetAxisMappingStrategy"):
                 outSR.SetAxisMappingStrategy(osr.OAMS_TRADITIONAL_GIS_ORDER)
             t = osr.CoordinateTransformation(inSR, outSR)
             (ul_x, ul_y, z) = t.TransformPoint(self.xMin, self.yMax)
@@ -176,7 +175,7 @@ class S2L_ImageFile:
             array = self._array
 
         # init new instance, copy header, # set array and return new instance
-        new_image = S2L_ImageFile(filepath, mode='w')
+        new_image = S2L_ImageFile(filepath, mode="w")
         self.copyHeaderTo(new_image)
 
         if array is not None:
@@ -206,13 +205,22 @@ class S2L_ImageFile:
         # check dimensions
         if array.shape[0] != new_image.ySize or array.shape[1] != new_image.xSize:
             log.error(
-                'ERROR: Input array dimensions do not fit xSize and ySize defined in the file header to be duplicated')
+                "ERROR: Input array dimensions do not fit xSize and ySize defined in the file header to be duplicated"
+            )
             return None
 
         return new_image
 
-    def write(self, creation_options=None, DCmode=False, filepath=None, nodata_value=None, output_format: str = 'GTIFF',
-              band: str = None, no_data_mask=None):
+    def write(
+        self,
+        creation_options=None,
+        DCmode=False,
+        filepath=None,
+        nodata_value=None,
+        output_format: str = "GTIFF",
+        band: str = None,
+        no_data_mask=None,
+    ):
         """
         write to file
         :param creation_options: gdal create options
@@ -243,10 +251,10 @@ class S2L_ImageFile:
 
         # write with gdal
         e_type = gdal.GetDataTypeByName(self.array.dtype.name)
-        if self.array.dtype.name.endswith('int8'):
+        if self.array.dtype.name.endswith("int8"):
             # work around to GDT_Unknown
             e_type = 1
-        elif 'float' in self.array.dtype.name and not DCmode:
+        elif "float" in self.array.dtype.name and not DCmode:
             # float to UInt16
             e_type = gdal.GDT_UInt16
 
@@ -257,24 +265,24 @@ class S2L_ImageFile:
         if not os.path.exists(self.dirpath):
             os.makedirs(self.dirpath)
 
-        if output_format == 'GTIFF':
-            driver = gdal.GetDriverByName('GTiff')
-            dst_ds = driver.Create(self.filepath, xsize=self.xSize,
-                                   ysize=self.ySize, bands=1, eType=e_type, options=creation_options)
+        if output_format == "GTIFF":
+            driver = gdal.GetDriverByName("GTiff")
+            dst_ds = driver.Create(
+                self.filepath, xsize=self.xSize, ysize=self.ySize, bands=1, eType=e_type, options=creation_options
+            )
         else:
-            driver = gdal.GetDriverByName('MEM')
-            dst_ds = driver.Create('', xsize=self.xSize,
-                                   ysize=self.ySize, bands=1, eType=e_type)
+            driver = gdal.GetDriverByName("MEM")
+            dst_ds = driver.Create("", xsize=self.xSize, ysize=self.ySize, bands=1, eType=e_type)
 
         dst_ds.SetProjection(self.projection)
         geo_transform = (self.xMin, self.xRes, 0, self.yMax, 0, self.yRes)
         log.debug(geo_transform)
         dst_ds.SetGeoTransform(geo_transform)
 
-        if 'float' in self.array.dtype.name and not DCmode:
+        if "float" in self.array.dtype.name and not DCmode:
             # float to UInt16 with scaling factor of 10000
-            offset = float(S2L_config.config.get('offset'))
-            gain = float(S2L_config.config.get('gain'))
+            offset = float(S2L_config.config.get("offset"))
+            gain = float(S2L_config.config.get("gain"))
 
             array_out = (self.array.clip(min=0) * gain + offset).astype(np.uint16)
 
@@ -292,86 +300,97 @@ class S2L_ImageFile:
         if nodata_value is not None:
             dst_ds.GetRasterBand(1).SetNoDataValue(nodata_value)
 
-        if output_format == 'JPEG2000':
-            driver_JPG = gdal.GetDriverByName('JP2OpenJPEG')
+        if output_format == "JPEG2000":
+            driver_JPG = gdal.GetDriverByName("JP2OpenJPEG")
 
             # Overloading creation options
-            creation_options = dict(map(lambda o: o.split('='), creation_options))
-            if S2L_config.config.getboolean('lossless_jpeg2000'):
+            creation_options = dict(map(lambda o: o.split("="), creation_options))
+            if S2L_config.config.getboolean("lossless_jpeg2000"):
                 creation_options["QUALITY"] = 100
-                creation_options["REVERSIBLE"] = 'YES'
-                creation_options["YCBCR420"] = 'NO'
+                creation_options["REVERSIBLE"] = "YES"
+                creation_options["YCBCR420"] = "NO"
 
             if self.xRes == 60:
-                creation_options.update({
-                    'CODEBLOCK_WIDTH': 4,
-                    'CODEBLOCK_HEIGHT': 4,
-                    'BLOCKXSIZE': 192,
-                    'BLOCKYSIZE': 192,
-                    'PROGRESSION': 'LRCP',
-                    'PRECINCTS': '{64,64},{64,64},{64,64},{64,64},{64,64},{64,64}',
-                })
+                creation_options.update(
+                    {
+                        "CODEBLOCK_WIDTH": 4,
+                        "CODEBLOCK_HEIGHT": 4,
+                        "BLOCKXSIZE": 192,
+                        "BLOCKYSIZE": 192,
+                        "PROGRESSION": "LRCP",
+                        "PRECINCTS": "{64,64},{64,64},{64,64},{64,64},{64,64},{64,64}",
+                    }
+                )
             elif self.xRes == 20:
-                creation_options.update({
-                    'CODEBLOCK_WIDTH': 8,
-                    'CODEBLOCK_HEIGHT': 8,
-                    'BLOCKXSIZE': 640,
-                    'BLOCKYSIZE': 640,
-                    'PROGRESSION': 'LRCP',
-                    'PRECINCTS': '{128,128},{128,128},{128,128},{128,128},{128,128},{128,128}',
-                })
+                creation_options.update(
+                    {
+                        "CODEBLOCK_WIDTH": 8,
+                        "CODEBLOCK_HEIGHT": 8,
+                        "BLOCKXSIZE": 640,
+                        "BLOCKYSIZE": 640,
+                        "PROGRESSION": "LRCP",
+                        "PRECINCTS": "{128,128},{128,128},{128,128},{128,128},{128,128},{128,128}",
+                    }
+                )
             elif self.xRes == 10:
-                creation_options.update({
-                    'CODEBLOCK_WIDTH': 64,
-                    'CODEBLOCK_HEIGHT': 64,
-                    'BLOCKXSIZE': 1024,
-                    'BLOCKYSIZE': 1024,
-                    'PROGRESSION': 'LRCP',
-                    'PRECINCTS': '{256,256},{256,256},{256,256},{256,256},{256,256},{256,256}',
-                })
-            creation_options = list(map(lambda ops: ops[0] + '=' + str(ops[1]), creation_options.items()))
+                creation_options.update(
+                    {
+                        "CODEBLOCK_WIDTH": 64,
+                        "CODEBLOCK_HEIGHT": 64,
+                        "BLOCKXSIZE": 1024,
+                        "BLOCKYSIZE": 1024,
+                        "PROGRESSION": "LRCP",
+                        "PRECINCTS": "{256,256},{256,256},{256,256},{256,256},{256,256},{256,256}",
+                    }
+                )
+            creation_options = list(map(lambda ops: ops[0] + "=" + str(ops[1]), creation_options.items()))
 
             # pylint: disable=unused-variable
             data_set2 = driver_JPG.CreateCopy(self.filepath, dst_ds, options=creation_options)
             # this is the way to close gdal dataset
             data_set2 = None
 
-        if output_format == 'COG':
-            resampling_algo = S2L_config.config.get('resampling_algo_MASK') if band in ['QA', 'MASK'] else S2L_config.config.get(
-                'resampling_algo')
-            downsampling_levels = S2L_config.config.get('downsampling_levels_{}'.format(int(self.xRes)), S2L_config.config.get(
-                'downsampling_levels_10'))  # If the res isn't [10, 15, 20, 30, 60], consider it as 30
+        if output_format == "COG":
+            resampling_algo = (
+                S2L_config.config.get("resampling_algo_MASK")
+                if band in ["QA", "MASK"]
+                else S2L_config.config.get("resampling_algo")
+            )
+            downsampling_levels = S2L_config.config.get(
+                "downsampling_levels_{}".format(int(self.xRes)), S2L_config.config.get("downsampling_levels_10")
+            )  # If the res isn't [10, 15, 20, 30, 60], consider it as 30
             downsampling_levels = [int(x) for x in downsampling_levels.split(" ")]
 
             # Overloading creation options
-            creation_options = dict(map(lambda o: o.split('='), creation_options))
+            creation_options = dict(map(lambda o: o.split("="), creation_options))
             creation_options.update(
                 {
-                    'TILED': 'YES',
-                    "COMPRESS": S2L_config.config.get('compression'),
-                    "INTERLEAVE": S2L_config.config.get('interleave'),
-                    "BLOCKXSIZE": str(S2L_config.config.get('internal_tiling')),
-                    "BLOCKYSIZE": str(S2L_config.config.get('internal_tiling')),
-                    "PREDICTOR": str(S2L_config.config.get('predictor')),
+                    "TILED": "YES",
+                    "COMPRESS": S2L_config.config.get("compression"),
+                    "INTERLEAVE": S2L_config.config.get("interleave"),
+                    "BLOCKXSIZE": str(S2L_config.config.get("internal_tiling")),
+                    "BLOCKYSIZE": str(S2L_config.config.get("internal_tiling")),
+                    "PREDICTOR": str(S2L_config.config.get("predictor")),
                 }
             )
-            creation_options = list(map(lambda ops: ops[0] + '=' + str(ops[1]), creation_options.items()))
+            creation_options = list(map(lambda ops: ops[0] + "=" + str(ops[1]), creation_options.items()))
             # FIXME : in this gdal version, driver GTiff does not support creation option GDAL_TIFF_OVR_BLOCKSIZE
             # FIXME : to set the internal overview blocksize ; however it is set at 128 as default, as requested here
             # Source : https://gdal.org/drivers/raster/gtiff.html#raster-gtiff
             # add in options : "GDAL_TIFF_OVR_BLOCKSIZE=" + str(config.get('internal_overviews'))
 
             dst_ds.BuildOverviews(resampling_algo, downsampling_levels)
-            driver_Gtiff = gdal.GetDriverByName('GTiff')
+            driver_Gtiff = gdal.GetDriverByName("GTiff")
             try:
-                data_set2 = driver_Gtiff.CreateCopy(self.filepath, dst_ds,
-                                                    options=creation_options + ['COPY_SRC_OVERVIEWS=YES'])
+                data_set2 = driver_Gtiff.CreateCopy(
+                    self.filepath, dst_ds, options=creation_options + ["COPY_SRC_OVERVIEWS=YES"]
+                )
                 data_set2 = None  # noqa: F841
             except RuntimeError as err:
                 log.error(err)
 
             else:
-                log.info('Written: %s', self.filepath)
+                log.info("Written: %s", self.filepath)
 
         dst_ds.FlushCache()
         dst_ds = None

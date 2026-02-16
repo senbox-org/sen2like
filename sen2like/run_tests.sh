@@ -8,7 +8,7 @@ export PYTHONPATH=.:${PYTHONPATH}
 
 if hash coverage 2> /dev/null; then
     echo **Running tests
-    PYTHONPATH=sen2like:aux_data coverage run --branch -m pytest -source=sen2like --log-level=DEBUG --junitxml reports/junit.xml "$@" |& tee reports/tests.report
+    PYTHONPATH=sen2like:aux_data coverage run --branch --source=sen2like -m pytest --log-level=DEBUG --junitxml reports/junit.xml "$@" |& tee reports/tests.report
     out=${PIPESTATUS[0]}
     if [ $out -ne 0 ];
     then

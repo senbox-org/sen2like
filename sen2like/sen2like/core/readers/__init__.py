@@ -22,7 +22,7 @@ import sys
 from core.module_loader import dynamic_loader, get_proj_dir
 from core.readers.reader import BaseReader
 
-log = logging.getLogger('Sen2Like')
+log = logging.getLogger("Sen2Like")
 
 READERS = {}
 
@@ -42,13 +42,13 @@ def get_reader(product_path):
     if len(readers) == 1:
         return readers[0]
     if len(readers) > 1:
-        log.error('Multiple readers compatible with %s', product_path)
+        log.error("Multiple readers compatible with %s", product_path)
     else:
         log.error("No reader compatible with %s", product_path)
     return None
 
 
 # Loads readers
-for reader in dynamic_loader(get_proj_dir(__file__), 'readers', is_reader):
+for reader in dynamic_loader(get_proj_dir(__file__), "readers", is_reader):
     READERS[reader.__name__] = reader
     setattr(sys.modules[__name__], reader.__name__, reader)

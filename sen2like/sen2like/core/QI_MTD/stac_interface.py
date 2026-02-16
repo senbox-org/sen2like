@@ -36,16 +36,12 @@ def get_bbox_and_footprint(raster_uri):
     with rasterio.open(raster_uri) as ds:
         bounds = ds.bounds
 
-        left, bottom, right, top = rasterio.warp.transform_bounds(ds.crs, "EPSG:4326", bounds.left, bounds.bottom,
-                                                                  bounds.right, bounds.top)
+        left, bottom, right, top = rasterio.warp.transform_bounds(
+            ds.crs, "EPSG:4326", bounds.left, bounds.bottom, bounds.right, bounds.top
+        )
 
         bbox = [left, bottom, right, top]
-        footprint = Polygon([
-            [left, bottom],
-            [left, top],
-            [right, top],
-            [right, bottom]
-        ])
+        footprint = Polygon([[left, bottom], [left, top], [right, top], [right, bottom]])
 
         return bbox, mapping(footprint)
 
@@ -85,17 +81,22 @@ class STACWriter:
             if os.path.isfile(self.catalog_path):
                 os.remove(self.catalog_path)
             if self.with_bbox:
-                self._catalog = pystac.Collection(id="Sen2Like_catalog" if self.sid is None else self.sid,
-                                                  title="Sen2Like Catalog" if self.title is None else self.title,
-                                                  href=self.catalog_path,
-                                                  description="Catalog containing Sen2Like generated products",
-                                                  extent=pystac.Extent(pystac.SpatialExtent([180, -56, 180, 83]),
-                                                                       pystac.TemporalExtent([None, None])))
+                self._catalog = pystac.Collection(
+                    id="Sen2Like_catalog" if self.sid is None else self.sid,
+                    title="Sen2Like Catalog" if self.title is None else self.title,
+                    href=self.catalog_path,
+                    description="Catalog containing Sen2Like generated products",
+                    extent=pystac.Extent(
+                        pystac.SpatialExtent([180, -56, 180, 83]), pystac.TemporalExtent([None, None])
+                    ),
+                )
             else:
-                self._catalog = pystac.Catalog(id="Sen2Like_catalog" if self.sid is None else self.sid,
-                                               title="Sen2Like Catalog" if self.title is None else self.title,
-                                               href=self.catalog_path,
-                                               description="Catalog containing Sen2Like generated products")
+                self._catalog = pystac.Catalog(
+                    id="Sen2Like_catalog" if self.sid is None else self.sid,
+                    title="Sen2Like Catalog" if self.title is None else self.title,
+                    href=self.catalog_path,
+                    description="Catalog containing Sen2Like generated products",
+                )
 
         return self._catalog
 
@@ -103,18 +104,20 @@ class STACWriter:
         # Get common properties from B04
 
         # If file is not found, it may have been generated with old version where image format was not correclty managed
-        if not os.path.exists(ref_image) and ref_image.endswith('.jp2'):
+        if not os.path.exists(ref_image) and ref_image.endswith(".jp2"):
             ref_image = f"{ref_image[:-4]}.TIF"
 
         bbox, footprint = get_bbox_and_footprint(ref_image)
 
         # Create item
-        eo_item = pystac.Item(id=product_id,
-                              geometry=footprint,
-                              bbox=bbox,
-                              datetime=product.acqdate,
-                              properties={},
-                              href=os.path.normpath(output_name))
+        eo_item = pystac.Item(
+            id=product_id,
+            geometry=footprint,
+            bbox=bbox,
+            datetime=product.acqdate,
+            properties={},
+            href=os.path.normpath(output_name),
+        )
 
         EOExtension.add_to(eo_item)
         eo_ext = EOExtension.ext(eo_item)
@@ -123,35 +126,38 @@ class STACWriter:
         eo_item.properties["Instrument"] = product.mtl.sensor
         eo_item.properties["Sun azimuth"] = f"{float(product.mtl.sun_azimuth_angle):.3f}\u00b0"
         eo_item.properties["Sun elevation"] = f"{float(product.mtl.sun_zenith_angle):.3f}\u00b0"
-        eo_item.properties["Processing level"] = os.path.basename(ref_image).split('_')[0]
-        eo_item.properties[
-            "Cloud cover"] = f"{float(product.mtl.cloud_cover):.2f}%" if product.mtl.cloud_cover is not None else None
+        eo_item.properties["Processing level"] = os.path.basename(ref_image).split("_")[0]
+        eo_item.properties["Cloud cover"] = (
+            f"{float(product.mtl.cloud_cover):.2f}%" if product.mtl.cloud_cover is not None else None
+        )
         return eo_item
 
     def write_product(self, product, output_dir, bands, ql_name, granule_compact_name):
-        product_id = os.path.basename(output_dir).split('.')[0]
+        product_id = os.path.basename(output_dir).split(".")[0]
         output_name = f"{os.path.join(output_dir, product_id)}.json"
 
         item = self._create_item(product, product_id, output_name, bands[0])
         # sort mainly to avoid error during compare with ref file in tests
         for image in sorted(set(bands)):
-            band = image.split('_')[-2]
-            if not os.path.exists(image) and image.endswith('.jp2'):
+            band = image.split("_")[-2]
+            if not os.path.exists(image) and image.endswith(".jp2"):
                 log.warning("Overwrite .jp2 extension from metadata -> image file is a TIF !!!!!")
                 image = f"{image[:-4]}.TIF"
-            asset = pystac.Asset(href=os.path.normpath(image),
-                                 media_type=pystac.MediaType.COG if self.cog else (
-                                     pystac.MediaType.GEOTIFF if image.endswith(
-                                         ".TIF") else pystac.MediaType.JPEG2000),
-                                 extra_fields={
-                                     'eo:bands': [self.s2_index.index(band)] if band in self.s2_index else []})
+            asset = pystac.Asset(
+                href=os.path.normpath(image),
+                media_type=(
+                    pystac.MediaType.COG
+                    if self.cog
+                    else (pystac.MediaType.GEOTIFF if image.endswith(".TIF") else pystac.MediaType.JPEG2000)
+                ),
+                extra_fields={"eo:bands": [self.s2_index.index(band)] if band in self.s2_index else []},
+            )
             item.add_asset(band, asset)
 
             # Get Quicklook
-            ql_path = os.path.join(output_dir, 'GRANULE', granule_compact_name, 'QI_DATA', ql_name)
+            ql_path = os.path.join(output_dir, "GRANULE", granule_compact_name, "QI_DATA", ql_name)
             if os.path.isfile(ql_path):
-                ql_asset = pystac.Asset(href=os.path.normpath(ql_path),
-                                        media_type=pystac.MediaType.JPEG)
+                ql_asset = pystac.Asset(href=os.path.normpath(ql_path), media_type=pystac.MediaType.JPEG)
                 item.add_asset("thumbnail", ql_asset)
             else:
                 log.warning("%s not found: No thumbnail for band %s", ql_path, band)
@@ -169,8 +175,11 @@ class STACWriter:
         if self.catalog is None:
             log.error("Cannot write an empty catalog.")
         else:
-            if self.with_bbox and isinstance(self.catalog, pystac.Collection) and len(
-                    list(self.catalog.get_all_items())):
+            if (
+                self.with_bbox
+                and isinstance(self.catalog, pystac.Collection)
+                and len(list(self.catalog.get_all_items()))
+            ):
                 self.catalog.update_extent_from_items()
             self.catalog.save(catalog_type=pystac.CatalogType.ABSOLUTE_PUBLISHED)
             log.debug("STAC catalog generated: %s", self.catalog_path)
@@ -207,7 +216,7 @@ class S2LSTACCatalog(pystac.Catalog):
         self.normalize_hrefs(outdir_url)
         # Remove collection file (due to dest_href that create dict with same path)
         for col in self.get_collections():
-            colfile = os.path.join(outdir, col.id, 'collection.json')
+            colfile = os.path.join(outdir, col.id, "collection.json")
             if os.path.isfile(colfile):
                 os.remove(colfile)
             for item in col.get_all_items():
@@ -220,9 +229,9 @@ class S2LSTACCatalog(pystac.Catalog):
         # Fix collection save dir, dest_href don't work properly
         for col in self.get_collections():
             colpath = os.path.join(outdir, col.id)
-            badpath = os.path.join(colpath, 'collection_badpath')
-            shutil.move(os.path.join(colpath, 'collection.json'), badpath)
-            contents = glob.glob(os.path.join(badpath, '*'))
+            badpath = os.path.join(colpath, "collection_badpath")
+            shutil.move(os.path.join(colpath, "collection.json"), badpath)
+            contents = glob.glob(os.path.join(badpath, "*"))
             for path in contents:
                 shutil.move(path, colpath)
             shutil.rmtree(badpath)
@@ -237,7 +246,7 @@ class S2LSTACCatalog_Tile(pystac.Collection):
             id=sid,
             title=title,
             description="Catalog containing Sen2Like generated products",
-            extent=pystac.Extent(pystac.SpatialExtent(self.bbox), pystac.TemporalExtent([None, None]))
+            extent=pystac.Extent(pystac.SpatialExtent(self.bbox), pystac.TemporalExtent([None, None])),
         )
 
 
@@ -261,16 +270,10 @@ class S2LSTACCatalog_Product(pystac.Item):
     s2_index = [band.name for band in s2_bands]
 
     def __init__(self, product, product_url, ref_band, cog=False):
-        product_id = product.name.split('.')[0]
+        product_id = product.name.split(".")[0]
         ref_image = self._fix_image_particule(product.mtl.bands[ref_band])
         bbox, footprint = get_bbox_and_footprint(ref_image)
-        super().__init__(
-            id=product_id,
-            geometry=footprint,
-            properties={},
-            bbox=bbox,
-            datetime=product.acqdate
-        )
+        super().__init__(id=product_id, geometry=footprint, properties={}, bbox=bbox, datetime=product.acqdate)
 
         EOExtension.add_to(self)
         eo_ext = EOExtension.ext(self)
@@ -279,9 +282,10 @@ class S2LSTACCatalog_Product(pystac.Item):
         self.properties["Instrument"] = product.mtl.sensor
         self.properties["Sun azimuth"] = f"{float(product.mtl.sun_azimuth_angle):.3f}\u00b0"
         self.properties["Sun elevation"] = f"{float(product.mtl.sun_zenith_angle):.3f}\u00b0"
-        self.properties["Processing level"] = os.path.basename(ref_image).split('_')[0]
-        self.properties[
-            "Cloud cover"] = f"{float(product.mtl.cloud_cover):.2f}%" if product.mtl.cloud_cover is not None else None
+        self.properties["Processing level"] = os.path.basename(ref_image).split("_")[0]
+        self.properties["Cloud cover"] = (
+            f"{float(product.mtl.cloud_cover):.2f}%" if product.mtl.cloud_cover is not None else None
+        )
 
         self.cog = cog
         self.product = product
@@ -289,7 +293,7 @@ class S2LSTACCatalog_Product(pystac.Item):
 
     @staticmethod
     def _fix_image_particule(image):
-        if not os.path.exists(image) and image.endswith('.jp2'):
+        if not os.path.exists(image) and image.endswith(".jp2"):
             log.warning("Overwrite .jp2 extension from metadata -> image file is a TIF !!!!!")
             return f"{image[:-4]}.TIF"
         return image
@@ -298,20 +302,22 @@ class S2LSTACCatalog_Product(pystac.Item):
         for band, image in self.product.mtl.bands.items():
             image = self._fix_image_particule(image)
             rel_path = os.path.relpath(image, self.product.path)
-            url = self.product_url + '/' + rel_path
+            url = self.product_url + "/" + rel_path
 
-            asset = pystac.Asset(href=url,
-                                 media_type=pystac.MediaType.COG if self.cog else (
-                                     pystac.MediaType.GEOTIFF if image.endswith(
-                                         ".TIF") else pystac.MediaType.JPEG2000),
-                                 extra_fields={
-                                     'eo:bands': [self.s2_index.index(band)] if band in self.s2_index else []})
+            asset = pystac.Asset(
+                href=url,
+                media_type=(
+                    pystac.MediaType.COG
+                    if self.cog
+                    else (pystac.MediaType.GEOTIFF if image.endswith(".TIF") else pystac.MediaType.JPEG2000)
+                ),
+                extra_fields={"eo:bands": [self.s2_index.index(band)] if band in self.s2_index else []},
+            )
             self.add_asset(band, asset)
 
     def add_quicklook_asset(self, granule_compact_name, ql_name):
         # granule_compact_name and ql_name are not necessary in product object (i.e. landsat)
-        rel_path = os.path.join('GRANULE', granule_compact_name, 'QI_DATA', ql_name)
-        url = self.product_url + '/' + rel_path
-        ql_asset = pystac.Asset(href=url,
-                                media_type=pystac.MediaType.JPEG)
+        rel_path = os.path.join("GRANULE", granule_compact_name, "QI_DATA", ql_name)
+        url = self.product_url + "/" + rel_path
+        ql_asset = pystac.Asset(href=url, media_type=pystac.MediaType.JPEG)
         self.add_asset("thumbnail", ql_asset)

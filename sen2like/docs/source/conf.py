@@ -14,8 +14,8 @@ import os
 import sys
 from datetime import date
 
-sys.path.insert(0, os.path.abspath(os.path.join('..', '..', 'sen2like')))
-sys.path.insert(0, os.path.abspath(os.path.join('..', '..')))
+sys.path.insert(0, os.path.abspath(os.path.join("..", "..", "sen2like")))
+sys.path.insert(0, os.path.abspath(os.path.join("..", "..")))
 
 # import version from sen2like
 # pylint: disable=wrong-import-position
@@ -24,9 +24,9 @@ import version
 # -- Project information -----------------------------------------------------
 
 # pylint: disable=invalid-name
-project = 'Sen2Like'
-author = 'Telespazio'
-copyright = f'{date.today().year}, {author}' # pylint: disable=redefined-builtin
+project = "Sen2Like"
+author = "Telespazio"
+copyright = f"{date.today().year}, {author}"  # pylint: disable=redefined-builtin
 version = version.__version__
 release = version
 
@@ -35,19 +35,20 @@ release = version
 # Add any Sphinx extension module names here, as strings. They can be
 # extensions coming with Sphinx (named 'sphinx.ext.*') or your custom
 # ones.
-extensions = ['sphinx.ext.todo',
-              'sphinx.ext.viewcode',
-              'sphinx.ext.autodoc',
-              'sphinx.ext.autosummary',
-              'sphinx.ext.coverage',
-              'sphinx_rtd_theme',
-              'm2r2'
-              ]
+extensions = [
+    "sphinx.ext.todo",
+    "sphinx.ext.viewcode",
+    "sphinx.ext.autodoc",
+    "sphinx.ext.autosummary",
+    "sphinx.ext.coverage",
+    "sphinx_rtd_theme",
+    "m2r2",
+]
 
 # Add any paths that contain templates here, relative to this directory.
-templates_path = ['_templates']
+templates_path = ["_templates"]
 
-source_suffix = ['.rst', '.md']
+source_suffix = [".rst", ".md"]
 
 # List of patterns, relative to source directory, that match files and
 # directories to ignore when looking for source files.
@@ -59,7 +60,7 @@ exclude_patterns = []
 # The theme to use for HTML and HTML Help pages.  See the documentation for
 # a list of builtin themes.
 #
-html_theme = 'sphinx_rtd_theme'
+html_theme = "sphinx_rtd_theme"
 
 # Add any paths that contain custom static files (such as style sheets) here,
 # relative to this directory. They are copied after the builtin static files,

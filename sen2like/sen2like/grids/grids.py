@@ -27,7 +27,7 @@ from osgeo import ogr, osr
 from shapely.wkt import loads
 
 sen2like_dir = abspath(dirname(dirname(__file__)))
-DB_file = os.path.join(sen2like_dir, 'core/product_archive/data/s2tiles.db')
+DB_file = os.path.join(sen2like_dir, "core/product_archive/data/s2tiles.db")
 
 
 class GridsConverter:
@@ -43,7 +43,8 @@ class GridsConverter:
         # search tilecode in "s2tiles" and return row as a pandas dataframe
         return pd.read_sql_query(
             'SELECT TILE_ID, EPSG, UTM_WKT, MGRS_REF, LL_WKT FROM s2tiles WHERE TILE_ID="{}"'.format(tilecode),
-            self.conn)
+            self.conn,
+        )
 
     def close(self):
         self.conn.close()
@@ -51,12 +52,12 @@ class GridsConverter:
     def getROIfromMGRS(self, tilecode):
 
         # read db and get "sites" table
-        if tilecode.startswith('T'):
+        if tilecode.startswith("T"):
             tilecode = tilecode[1:]
         roi = self._get_roi(tilecode)
 
         # return as dict
-        return roi.to_dict(orient='list')
+        return roi.to_dict(orient="list")
 
     # Don't know why but with this method the SRS code is not added in the geojson
     # if the GDAL_DATA variable is set in the environment. However we need
@@ -71,7 +72,7 @@ class GridsConverter:
         srs.ImportFromEPSG(int(epsg_code))
 
         # Create the output Driver
-        outDriver = ogr.GetDriverByName('GeoJSON')
+        outDriver = ogr.GetDriverByName("GeoJSON")
 
         # Create the output GeoJSON
         if not os.path.exists(os.path.dirname(filename)):
@@ -100,15 +101,14 @@ class GridsConverter:
         geojson = multipolygon.ExportToJson()
 
         param = "{\n"
-        param += "\"type\": \"FeatureCollection\",\n"
-        param += "\"crs\": { \"type\": \"name\", \"properties\": { \"name\": \"urn:ogc:def:crs:EPSG::" + \
-                 epsg_code + "\" } },\n"
-        param += "\"features\": [\n"
-        param += "{ \"type\": \"Feature\", \"properties\": { \"prop0\": null }, \"geometry\":"
+        param += '"type": "FeatureCollection",\n'
+        param += '"crs": { "type": "name", "properties": { "name": "urn:ogc:def:crs:EPSG::' + epsg_code + '" } },\n'
+        param += '"features": [\n'
+        param += '{ "type": "Feature", "properties": { "prop0": null }, "geometry":'
 
-        with open(filename, 'w') as f:
+        with open(filename, "w") as f:
             f.write(param)
-            f.write(geojson + '}]}')
+            f.write(geojson + "}]}")
 
     def get_corners(self, mgrs_tile, out_wkt=None, out_epsg=None, out_proj4=None):
         """
@@ -153,8 +153,8 @@ class GridsConverter:
 
         if out_srs is not None:
             in_srs = osr.SpatialReference()
-            in_srs.ImportFromEPSG(int(tile['EPSG'][0]))
-            if hasattr(out_srs, 'SetAxisMappingStrategy'):
+            in_srs.ImportFromEPSG(int(tile["EPSG"][0]))
+            if hasattr(out_srs, "SetAxisMappingStrategy"):
                 out_srs.SetAxisMappingStrategy(osr.OAMS_TRADITIONAL_GIS_ORDER)
             t = osr.CoordinateTransformation(in_srs, out_srs)
             (ul_x, ul_y, z) = t.TransformPoint(x_min, y_max)

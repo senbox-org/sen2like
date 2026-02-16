@@ -1,8 +1,8 @@
 import argparse
 import datetime
 
-from osgeo import ogr
 import pystac
+from osgeo import ogr
 
 from sen2like.core.product_archive.product_archive import InputProductArchive
 
@@ -29,12 +29,11 @@ def compute_tile_extent(mgrs_tile):
 
 def products_from_roi(catalog, roi, start_date, end_date):
     tiles = InputProductArchive.roi_to_tiles(roi)
-    tile=None
+    tile = None
     extent = compute_tile_extent(tile)
     if extent is None:
         print(f"Cannot compute extent for tile {tile}")
         return
-
 
     return {tile: products_from_tile(catalog, tile, start_date, end_date) for tile in tiles}
 
@@ -43,7 +42,7 @@ def products_from_tile(catalog, tile, start_date, end_date):
     children = catalog.get_children()
     tile_child = [child for child in children if child.title == tile]
     if len(tile_child) != 1:
-        print('Cannot find one catalog for tile %s' % tile)
+        print("Cannot find one catalog for tile %s" % tile)
         return
     tile_catalog = tile_child[0]
 
@@ -71,19 +70,17 @@ def band_url_from_product(product, band):
     return product.get_assets().get(band).href
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     parser = argparse.ArgumentParser()
 
     parser.add_argument("--catalog", help="STAC catalog", dest="catalog", required=True)
-    parser.add_argument("--start-date", dest="start_date", help="Beginning of period (format YYYY-MM-DD)",
-                        default='')
-    parser.add_argument("--end-date", dest="end_date", help="End of period (format YYYY-MM-DD)",
-                        default='')
+    parser.add_argument("--start-date", dest="start_date", help="Beginning of period (format YYYY-MM-DD)", default="")
+    parser.add_argument("--end-date", dest="end_date", help="End of period (format YYYY-MM-DD)", default="")
 
-    parser.add_argument("--request", choices=['tile', 'roi'], required=True)
+    parser.add_argument("--request", choices=["tile", "roi"], required=True)
     parser.add_argument("request_content", help="The MGRS tile or roi depending on choice.")
 
-    parser.add_argument("--print", help="Display products", action='store_true')
+    parser.add_argument("--print", help="Display products", action="store_true")
 
     args = parser.parse_args()
 
@@ -95,7 +92,7 @@ if __name__ == '__main__':
     # start_date = start_date.strftime("%Y-%m-%dT%H:%M:%SZ")
     # end_date = end_date.strftime("%Y-%m-%dT23:59:59")
 
-    if args.request == 'tile':
+    if args.request == "tile":
         _products = {args.request_content: products_from_tile(_catalog, args.request_content, start_date, end_date)}
     else:
         _products = products_from_roi(_catalog, args.request_content, start_date, end_date)

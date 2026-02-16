@@ -222,7 +222,7 @@ class DemDownloader:
             LOGGER.debug(latitudes)
 
             # For now assume we never have this case.
-            # to fix it, retrieve code history to see how it was made, 
+            # to fix it, retrieve code history to see how it was made,
             # but it was not working well
             self.cross_dateline = False
             lon_min = int(lon_min)
@@ -233,13 +233,9 @@ class DemDownloader:
                 longitudes = range(lon_min, lon_max)
             LOGGER.debug(longitudes)
 
-            latitudes = [
-                f"N{latitude}" if (0 < latitude <= 90) else f"S{abs(latitude-1)}"
-                for latitude in latitudes
-            ]
+            latitudes = [f"N{latitude}" if (0 < latitude <= 90) else f"S{abs(latitude-1)}" for latitude in latitudes]
             longitudes = [
-                f"E{longitude:03}" if (0 < longitude <= 180) else f"W{abs(longitude-1):03}"
-                for longitude in longitudes
+                f"E{longitude:03}" if (0 < longitude <= 180) else f"W{abs(longitude-1):03}" for longitude in longitudes
             ]
             LOGGER.debug(latitudes)
             LOGGER.debug(longitudes)
@@ -279,9 +275,7 @@ class DemDownloader:
 
         if locations is not None:
             for latitude, longitude in locations:
-                dem_url = url.format(
-                    dem_dataset_name=self.config.dem_dataset_name, dem_product_name=dem_product_name
-                )
+                dem_url = url.format(dem_dataset_name=self.config.dem_dataset_name, dem_product_name=dem_product_name)
                 # format `{dem_product_name}` put in dem_url by previous instruction
                 dem_url = dem_url.format(arcsec=arcsec, latitude=latitude, longitude=longitude)
 
@@ -350,9 +344,7 @@ class DemDownloader:
             if self.cross_dateline:
                 gdal.SetConfigOption("CENTER_LONG", "180")
 
-            options = gdal.WarpOptions(
-                dstNodata=no_data, outputType=gdal.GDT_Int16, dstSRS="EPSG:4326"
-            )
+            options = gdal.WarpOptions(dstNodata=no_data, outputType=gdal.GDT_Int16, dstSRS="EPSG:4326")
 
             dataset = gdal.Warp(dem_mosaic_file, dem_files, options=options)
 

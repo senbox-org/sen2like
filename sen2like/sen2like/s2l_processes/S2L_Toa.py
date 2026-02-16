@@ -40,6 +40,6 @@ class S2L_Toa(S2L_Process):
         array_out = convert_to_reflectance_from_reflectance_cal_product(product.mtl, array_in, band)
         image = image.duplicate(self.output_file(product, band), array=array_out)
         if self.generate_intermediate_products:
-            image.write(creation_options=['COMPRESS=LZW'])
+            image.write(creation_options=["COMPRESS=LZW"])
 
         return image

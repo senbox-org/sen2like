@@ -26,6 +26,9 @@ from typing import NamedTuple
 
 import numpy as np
 import pandas as pd
+
+# internal packages
+from core.image_file import S2L_ImageFile
 from numpy.typing import NDArray
 from osgeo import gdal, osr
 from shapely.geometry.base import BaseGeometry
@@ -35,9 +38,6 @@ from skimage.transform import SimilarityTransform, estimate_transform
 from skimage.transform import resize as skit_resize
 from skimage.transform import warp as skit_warp
 
-# internal packages
-from core.image_file import S2L_ImageFile
-
 from . import grids
 
 log = logging.getLogger("Sen2Like")
@@ -46,14 +46,17 @@ log = logging.getLogger("Sen2Like")
 @dataclass
 class Box:
     """Simple Box class"""
+
     x_min: float
     y_min: float
     x_max: float
     y_max: float
 
+
 @dataclass
 class ReprojectResult:
     """Reprojection result class"""
+
     out_file_path: str
     """reprojected image file path"""
     dataset: gdal.Dataset
@@ -63,6 +66,7 @@ class ReprojectResult:
 @dataclass
 class MGRSGeoInfo:
     """MGRS tile geo info"""
+
     epsg: str
     """tile epsg"""
     geometry: BaseGeometry
@@ -75,6 +79,7 @@ class _CorrectionConfig(NamedTuple):
     For a translation method, x_off, y_off, x_size and y_size MUST be setted
     For a polynomial method, klt_dir must be set
     """
+
     method: str
     x_off: float
     y_off: float
@@ -84,11 +89,7 @@ class _CorrectionConfig(NamedTuple):
 
 
 # skimage / gdal resampling method mapping
-order_to_gdal_resampling = {
-    0: 'near',
-    1: 'bilinear',
-    3: 'cubic'
-}
+order_to_gdal_resampling = {0: "near", 1: "bilinear", 3: "cubic"}
 
 
 def resample(image: S2L_ImageFile, res: int, filepath_out: str) -> S2L_ImageFile:
@@ -123,13 +124,22 @@ def resample(image: S2L_ImageFile, res: int, filepath_out: str) -> S2L_ImageFile
     else:
         size_up = full_res.shape[0] * input_res / res
         # order 3 is for cubic spline:
-        data = (skit_resize(full_res.astype(np.uint16), ([size_up, size_up]), order=3) * 65535.).round().astype(
-            np.uint16)
+        data = (
+            (skit_resize(full_res.astype(np.uint16), ([size_up, size_up]), order=3) * 65535.0).round().astype(np.uint16)
+        )
 
     return image.duplicate(filepath_out, array=data, res=res)
 
 
-def _reproject(filepath: str, dir_out: str, ds_src: gdal.Dataset, x_res: int, y_res: int, target_srs: osr.SpatialReference, order: int) -> ReprojectResult:
+def _reproject(
+    filepath: str,
+    dir_out: str,
+    ds_src: gdal.Dataset,
+    x_res: int,
+    y_res: int,
+    target_srs: osr.SpatialReference,
+    order: int,
+) -> ReprojectResult:
     """Reproject given dataset in the target srs in the given resolution
 
     Args:
@@ -150,24 +160,24 @@ def _reproject(filepath: str, dir_out: str, ds_src: gdal.Dataset, x_res: int, y_
 
     #
     splitted_filename = os.path.splitext(os.path.basename(filepath))
-    reprojected_filepath = os.path.join(
-        dir_out,
-        f"{splitted_filename[0]}_REPROJ{splitted_filename[1]}"
-    )
+    reprojected_filepath = os.path.join(dir_out, f"{splitted_filename[0]}_REPROJ{splitted_filename[1]}")
 
     log.info("Reproject %s to %s", filepath, reprojected_filepath)
 
     options = gdal.WarpOptions(
         dstSRS=target_srs,
-        targetAlignedPixels=False, cropToCutline=False, xRes=x_res, yRes=y_res, dstNodata=0,
+        targetAlignedPixels=False,
+        cropToCutline=False,
+        xRes=x_res,
+        yRes=y_res,
+        dstNodata=0,
         resampleAlg=order_to_gdal_resampling.get(order),
-        warpOptions=['NUM_THREADS=ALL_CPUS'], multithread=True)
+        warpOptions=["NUM_THREADS=ALL_CPUS"],
+        multithread=True,
+    )
 
     try:
-        reproj_ds = gdal.Warp(
-            reprojected_filepath,
-            ds_src,
-            options=options)
+        reproj_ds = gdal.Warp(reprojected_filepath, ds_src, options=options)
 
         return ReprojectResult(reprojected_filepath, reproj_ds)
 
@@ -195,7 +205,7 @@ def get_mgrs_geo_info(tile_code: str) -> MGRSGeoInfo:
     converter.close()
     log.debug(roi)
 
-    return MGRSGeoInfo(roi['EPSG'][0], loads(roi['UTM_WKT'][0]))
+    return MGRSGeoInfo(roi["EPSG"][0], loads(roi["UTM_WKT"][0]))
 
 
 def _do_correction(array: NDArray, order: int, config: _CorrectionConfig):
@@ -217,11 +227,7 @@ def _do_correction(array: NDArray, order: int, config: _CorrectionConfig):
         # translate and reframe (order= 0:nearest, 1: linear, 3:cubic)
         transform = SimilarityTransform(translation=(config.x_off, config.y_off))
         return skit_warp(
-            array,
-            inverse_map=transform,
-            output_shape=(config.y_size, config.x_size),
-            order=order,
-            preserve_range=True
+            array, inverse_map=transform, output_shape=(config.y_size, config.x_size), order=order, preserve_range=True
         )
 
     if config.method == "polynomial":
@@ -229,12 +235,7 @@ def _do_correction(array: NDArray, order: int, config: _CorrectionConfig):
         # klt_dir should be working dir
         data_frame = pd.read_csv(os.path.join(config.klt_dir, "KLT.csv"), sep=";")
 
-        dst = np.array(
-            [
-                (data_frame.x0 + data_frame.dx).to_numpy(),
-                (data_frame.y0 + data_frame.dy).to_numpy()
-            ]
-        ).T
+        dst = np.array([(data_frame.x0 + data_frame.dx).to_numpy(), (data_frame.y0 + data_frame.dy).to_numpy()]).T
 
         src = np.array([data_frame.x0.to_numpy(), data_frame.y0.to_numpy()]).T
         transform = estimate_transform(config.method, src, dst)
@@ -244,14 +245,7 @@ def _do_correction(array: NDArray, order: int, config: _CorrectionConfig):
 
 
 def reframe(
-    image: S2L_ImageFile,
-    tile_code: str,
-    filepath_out,
-    dx=0.,
-    dy=0.,
-    order=3,
-    dtype=None,
-    method="translation"
+    image: S2L_ImageFile, tile_code: str, filepath_out, dx=0.0, dy=0.0, order=3, dtype=None, method="translation"
 ) -> S2L_ImageFile:
     """Reframe SINGLE band image in MGRS tile
 
@@ -263,7 +257,7 @@ def reframe(
         dy (float, optional): y correction to apply during reframing. Defaults to 0..
         order (int, optional): type of resampling (see skimage warp). Defaults to 3.
         dtype (numpy dtype, optional): output image dtype name. Defaults to None (use input image dtype).
-        method (str, optional): geometry correction strategy to apply. 
+        method (str, optional): geometry correction strategy to apply.
             Expect 'polynomial' or 'translation". Defaults to 'translation'.
             If polynomial, KLT.csv file should be located in dirname of filepath_out
 
@@ -274,8 +268,9 @@ def reframe(
     mgrs_geo_info = get_mgrs_geo_info(tile_code)
     tile_geom = mgrs_geo_info.geometry
 
-    box = Box(x_min=tile_geom.bounds[0], y_min=tile_geom.bounds[1],
-              x_max=tile_geom.bounds[2], y_max=tile_geom.bounds[3])
+    box = Box(
+        x_min=tile_geom.bounds[0], y_min=tile_geom.bounds[1], x_max=tile_geom.bounds[2], y_max=tile_geom.bounds[3]
+    )
 
     # UTM South vs. UTM North ?
     utm_offset = 0
@@ -284,7 +279,7 @@ def reframe(
     target_srs.ImportFromEPSG(target_epsg)
     image_srs = osr.SpatialReference(wkt=image.projection)
     if not target_srs.IsSame(image_srs):
-        if image_srs.GetUTMZone() == - target_srs.GetUTMZone():
+        if image_srs.GetUTMZone() == -target_srs.GetUTMZone():
             # UTM South vs. UTM North case
             utm_offset = 10000000
         else:
@@ -297,12 +292,7 @@ def reframe(
             x_res = geo[1]
             y_res = geo[5]
 
-            result = _reproject(
-                image.filepath,
-                os.path.dirname(filepath_out),
-                ds_src,
-                x_res, y_res, target_srs, order
-            )
+            result = _reproject(image.filepath, os.path.dirname(filepath_out), ds_src, x_res, y_res, target_srs, order)
             image = S2L_ImageFile(result.out_file_path)
 
     # compute offsets (grid origin + dx/dy)
@@ -330,14 +320,7 @@ def reframe(
     if xOff == 0 and yOff == 0 and image.xSize == xSize and image.ySize == ySize:
         new_array = array
     else:
-        correction_config = _CorrectionConfig(
-            method,
-            xOff,
-            yOff,
-            xSize,
-            ySize,
-            os.path.dirname(filepath_out)
-        )
+        correction_config = _CorrectionConfig(method, xOff, yOff, xSize, ySize, os.path.dirname(filepath_out))
         new_array = _do_correction(array, order, correction_config)
 
     # As we played with 0 and NaN, restore zeros for floating array
@@ -346,11 +329,11 @@ def reframe(
         new_array[np.isnan(new_array)] = 0.0
 
     # set into new S2L_ImageFile
-    _origin=(box.x_min, box.y_max)
+    _origin = (box.x_min, box.y_max)
     return image.duplicate(filepath_out, array=new_array.astype(_dtype), origin=_origin, output_EPSG=target_epsg)
 
 
-def reframe_multiband(filepath_in: str, tile_code: str, filepath_out: str, dx=0., dy=0., order=3):
+def reframe_multiband(filepath_in: str, tile_code: str, filepath_out: str, dx=0.0, dy=0.0, order=3):
     """Reframe multi band image in MGRS tile
 
     Args:
@@ -368,8 +351,9 @@ def reframe_multiband(filepath_in: str, tile_code: str, filepath_out: str, dx=0.
     mgrs_geo_info = get_mgrs_geo_info(tile_code)
     tile_geom = mgrs_geo_info.geometry
 
-    box = Box(x_min=tile_geom.bounds[0], y_min=tile_geom.bounds[1],
-              x_max=tile_geom.bounds[2], y_max=tile_geom.bounds[3])
+    box = Box(
+        x_min=tile_geom.bounds[0], y_min=tile_geom.bounds[1], x_max=tile_geom.bounds[2], y_max=tile_geom.bounds[3]
+    )
 
     # open input
     ds_src = gdal.Open(filepath_in)
@@ -387,18 +371,13 @@ def reframe_multiband(filepath_in: str, tile_code: str, filepath_out: str, dx=0.
     target_srs.ImportFromEPSG(target_epsg)
     image_srs = osr.SpatialReference(wkt=projection)
     if not target_srs.IsSame(image_srs):
-        if image_srs.GetUTMZone() == - target_srs.GetUTMZone():
+        if image_srs.GetUTMZone() == -target_srs.GetUTMZone():
             # UTM South vs. UTM North case
             utm_offset = 10000000
         else:
             image_epsg = image_srs.GetAuthorityCode(None)
             log.info("Image epsg and target epsg differ: %s vs %s.", image_epsg, target_epsg)
-            result = _reproject(
-                filepath_in,
-                os.path.dirname(filepath_in),
-                ds_src,
-                xRes, yRes, target_srs, order
-            )
+            result = _reproject(filepath_in, os.path.dirname(filepath_in), ds_src, xRes, yRes, target_srs, order)
             ds_src = result.dataset
 
     # compute offsets
@@ -409,9 +388,8 @@ def reframe_multiband(filepath_in: str, tile_code: str, filepath_out: str, dx=0.
     ySize = int(ceil((box.y_max - box.y_min) / -yRes))
 
     # write with gdal
-    driver = gdal.GetDriverByName('GTiff')
-    ds_dst = driver.Create(filepath_out, xsize=xSize, ysize=ySize,
-                            bands=ds_src.RasterCount, eType=gdal.GDT_Int16)
+    driver = gdal.GetDriverByName("GTiff")
+    ds_dst = driver.Create(filepath_out, xsize=xSize, ysize=ySize, bands=ds_src.RasterCount, eType=gdal.GDT_Int16)
     ds_dst.SetProjection(target_srs.ExportToWkt())
     geotranform = (box.x_min, xRes, 0, box.y_max, 0, yRes)
     log.debug(geotranform)
