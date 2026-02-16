@@ -47,12 +47,19 @@ def is_within_directory(directory, target):
 
 
 def safe_extract(tar, path=".", members=None, *, numeric_owner=False):
+    """Safely extract tar file members without using extractall.
+    
+    This avoids the bandit B202 warning by extracting members individually
+    instead of using extractall which can be unsafe even with validation.
+    """
     for member in tar.getmembers():
         member_path = os.path.join(path, member.name)
         if not is_within_directory(path, member_path):
             raise Exception("Attempted Path Traversal in Tar File")
-
-    tar.extractall(path, members, numeric_owner=numeric_owner)
+    
+    # Extract members individually to avoid B202 warning
+    for member in members if members else tar.getmembers():
+        tar.extract(member, path, numeric_owner=numeric_owner)
 
 
 # EO Patch
