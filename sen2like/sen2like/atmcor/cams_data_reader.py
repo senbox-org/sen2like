@@ -375,9 +375,11 @@ class ECMWF_Product:
         if CAMS_Conventions == "CF-1.7":
             nctimes = rootgrp.variables["forecast_reference_time"][:]
             secs1970 = (self.observation_datetime - datetime.datetime(1970, 1, 1)).total_seconds()
+            obs_ref = secs1970
         else:
             nctimes = rootgrp.variables["time"][:]
             hour1900 = (self.observation_datetime - datetime.datetime(1900, 1, 1)).total_seconds() / 60.0 / 60.0
+            obs_ref = hour1900
 
         log.info("L2A_Tables: CAMS Conventions " + str(rootgrp.Conventions))
 
@@ -414,32 +416,59 @@ class ECMWF_Product:
         log.info("Time elapsed between observation date and CAMS data date (hour) :")
         log.info("    %s / %s" % (str(val[0][0]), str(val[0][1])))
 
-        self.observation_date_hour = hour1900
+        self.observation_date_hour = obs_ref
         self.cams_date_hour = nctimes[index1]
+        
         # Retrieve data from CAMS dataset
-        key_in.remove("time")
+        if CAMS_Conventions == 'CF-1.7':
+            key_in.remove('forecast_reference_time')
+        else:
+            key_in.remove('time')
         key_in.remove("latitude")
         key_in.remove("longitude")
-        self.latitude = rootgrp.variables["latitude"][:]
-        self.longitude = rootgrp.variables["longitude"][:]
-        # Should add index-1
+        self.latitude = rootgrp.variables['latitude'][:]
+        self.longitude = rootgrp.variables['longitude'][:]
+
+        # Define the time dimension name and variables to skip based on convention
+        time_dim = 'forecast_reference_time' if CAMS_Conventions == 'CF-1.7' else 'time'
+        vars_to_skip = {'valid_time', 'forecast_period'}
+
         log.debug(key_in)
         for key in key_in:
-            var_1 = rootgrp.variables[key][index1, ...]
-            var_2 = rootgrp.variables[key][index2, ...]
+            # Skip non-atmospheric-parameter variables
+            if key in vars_to_skip:
+                log.warning(f"Skipping variable '{key}' — not an atmospheric parameter")
+                continue
 
-            interpolated_data = var_1 + (hour1900 - nctimes[index1]) * (var_2 - var_1) / (
-                nctimes[index2] - nctimes[index1]
-            )
+            var = rootgrp.variables[key]
+
+            # Skip variables that don't include the time dimension at all
+            if time_dim not in var.dimensions:
+                log.warning(f"Skipping variable '{key}' — unexpected dimensions: {var.dimensions}")
+                continue
+
+            # Find the index of the time dimension to slice correctly
+            time_axis = var.dimensions.index(time_dim)
+
+            # Build dynamic slices for index1 and index2 along the time axis
+            idx1 = [slice(None)] * var.ndim
+            idx1[time_axis] = index1
+            idx2 = [slice(None)] * var.ndim
+            idx2[time_axis] = index2
+
+            var_1 = np.squeeze(var[tuple(idx1)])
+            var_2 = np.squeeze(var[tuple(idx2)])
+
+            interpolated_data = var_1 + (obs_ref - nctimes[index1]) * (var_2 - var_1) / (nctimes[index2] - nctimes[index1])
 
             sc_factor = 1
             sc_offset = 0
-            units = rootgrp.variables[key].getncattr("units")
+            units = var.getncattr('units')
             var_rescale = np.multiply(sc_factor, np.array(interpolated_data)) + sc_offset
-            log.info("Parameter Set (unit) : " + key + " (" + units + ")")
+            log.info('Parameter Set (unit) : ' + key + ' (' + units + ')')
 
             setattr(self, key, var_rescale)
-            setattr(self, key + "_units", units)
+            setattr(self, key + '_units', units)
 
         rootgrp.close()
 
