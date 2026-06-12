@@ -115,13 +115,17 @@ class Sentinel2Product(S2L_Product):
 
         return glob.glob(os.path.join(band_path, f"*_{band}{self.mtl.file_extension}"))
 
+    # New SMAC coefficient files: one file per platform, all bands as columns.
+    # band selection is done by column in smac.coeff(), so band is unused here.
+    _SMAC_COEF_FILES = {
+        "S2A": "Coef_S2A_CONTINENTAL.dat",
+        "S2B": "Coef_S2B_CONTINENTAL.dat",
+        "S2C": "Coef_S2C_CONTINENTAL.dat",
+    }
+
     def get_smac_filename(self, band):
-        # for S2C and S2D, select S2A cof for now
-        sensor = self.sensor_name
-        if sensor not in ["S2A", "S2B"]:
-            sensor = "S2A"
-        # select S2A or S2B coef
-        return "Coef_{}_CONT_{}.dat".format(self.sensor_name, band.replace("0", "").replace("8A", "8a"))
+        # S2D (and any future platform without dedicated coef) falls back to S2A
+        return self._SMAC_COEF_FILES.get(self.sensor_name, self._SMAC_COEF_FILES["S2A"])
 
     def _set_psd(self) -> str:
         min_supported = min(_PSD_LOOKUP_TABLE.keys())
@@ -194,5 +198,5 @@ class PrismaProduct(Sentinel2Product):
         return os.path.basename(product_name).startswith("S2P")
 
     def get_smac_filename(self, band):
-        # select S2A
-        return "Coef_{}_CONT_{}.dat".format("S2A", band.replace("0", "").replace("8A", "8a"))
+        # Prisma: use S2A coefficients
+        return self._SMAC_COEF_FILES["S2A"]

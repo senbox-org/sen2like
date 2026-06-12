@@ -118,7 +118,7 @@ class S2L_Atmcor(S2L_Process):
             log.error("No smac coefficients for %s", band)
             return array_in
 
-        smac_coefs = smac.coeff(coef_file)
+        smac_coefs = smac.coeff(coef_file, band)
 
         # Run SMAC for r_toa ranging from 0.0 to 1.0
         for i in range(101):
