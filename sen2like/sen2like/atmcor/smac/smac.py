@@ -31,10 +31,41 @@ def PdeZ(Z):
 # =============================================================================================
 
 
+# Column index of each Sentinel-2 band in the "new version" SMAC coefficient
+# files (one file per platform, bands as columns).
+_S2_BAND_COLUMN = {
+    "B01": 0, "B02": 1, "B03": 2, "B04": 3, "B05": 4, "B06": 5, "B07": 6,
+    "B08": 7, "B8A": 8, "B09": 9, "B10": 10, "B11": 11, "B12": 12,
+}
+
+# Attribute read from each data row of the new-format files, in file order.
+# None marks a row that the legacy parser did not use (the 2nd value of the
+# old "taur" line). 'sr' is set equal to 'taur', as in the legacy parser.
+_NEW_FORMAT_ROWS = [
+    "ah2o", "nh2o", "ao3", "no3", "ao2", "no2", "po2",
+    "aco2", "nco2", "pco2", "ach4", "nch4", "pch4",
+    "ano2", "nno2", "pno2", "aco", "nco", "pco",
+    "a0s", "a1s", "a2s", "a3s", "a0T", "a1T", "a2T", "a3T",
+    "taur", None,
+    "a0taup", "a1taup", "wo", "gc",
+    "a0P", "a1P", "a2P", "a3P", "a4P",
+    "Rest1", "Rest2", "Rest3", "Rest4",
+    "Resr1", "Resr2", "Resr3",
+    "Resa1", "Resa2", "Resa3", "Resa4",
+]
+
+
 class coeff:
-    def __init__(self, smac_filename):
+    def __init__(self, smac_filename, band=None):
         with open(smac_filename) as f:
             lines = f.readlines()
+
+        # New-version files have a comment header line and store the bands as
+        # columns. Detect them and read the right column for the given band.
+        if lines and lines[0].lstrip().startswith("#"):
+            self._read_new_format(lines, band)
+            return
+
         # H20
         temp = lines[0].strip().split()
         self.ah2o = float(temp[0])
@@ -113,12 +144,31 @@ class coeff:
         self.Resa3 = float(temp[0])
         self.Resa4 = float(temp[1])
 
+    def _read_new_format(self, lines, band):
+        """Read a "new version" SMAC coefficient file (one file per platform,
+        bands as columns). The band column is selected from band."""
+        if band not in _S2_BAND_COLUMN:
+            raise ValueError(f"Unknown band {band!r} for new-format SMAC coefficients")
+        col = _S2_BAND_COLUMN[band]
+        # Skip the comment header, keep non-empty data rows
+        rows = [line.split() for line in lines[1:] if line.strip()]
+        if len(rows) < len(_NEW_FORMAT_ROWS):
+            raise ValueError(
+                f"Unexpected SMAC coefficient file: got {len(rows)} data rows, "
+                f"expected at least {len(_NEW_FORMAT_ROWS)}"
+            )
+        for index, attr in enumerate(_NEW_FORMAT_ROWS):
+            if attr is not None:
+                setattr(self, attr, float(rows[index][col]))
+        # legacy parser kept sr == taur; sr is unused downstream
+        self.sr = self.taur
+
 
 # ======================================================================
 def smac_inv(r_toa, tetas, phis, tetav, phiv, pressure, taup550, uo3, uh2o, coef):
     """
     r_surf=smac_inv( r_toa, tetas, phis, tetav, phiv,pressure,taup550, uo3, uh2o, coef)
-    Corrections atmosphériques
+    Corrections atmosphï¿½riques
     """
     ah2o = coef.ah2o
     nh2o = coef.nh2o
@@ -287,7 +337,7 @@ def smac_inv(r_toa, tetas, phis, tetav, phiv, pressure, taup550, uo3, uh2o, coef
 def smac_dir(r_surf, tetas, phis, tetav, phiv, pressure, taup550, uo3, uh2o, coef):
     """
     r_toa=smac_dir ( r_surf, tetas, phis, tetav, phiv,pressure,taup550, uo3, uh2o, coef)
-    Application des effets atmosphériques
+    Application des effets atmosphï¿½riques
     """
 
     ah2o = coef.ah2o
