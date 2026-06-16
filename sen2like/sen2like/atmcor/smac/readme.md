@@ -5,3 +5,15 @@ SMAC
 
 This code provides the SMAC atmospheric correction model in Python language. 
 A short documentation is provided [in the Wiki](http://tully.ups-tlse.fr/olivier/smac-python/wikis/home)
+
+Terms of Use
+----
+Any communication in which SMAC is used (including scientific articles, technical reports, websites, and GitHub repositories) must:
+
+Cite the following publication:
+
+Rahman, H., & Dedieu, G. "SMAC: a simplified method for the atmospheric correction of satellite measurements in the solar spectrum." REMOTE SENSING, 15(1), 123-143, 1994.
+
+Acknowledge the CNES for the computation of the SMAC coefficients of the sensors used.
+
+
