@@ -28,7 +28,7 @@ Sen2like software supports the PRISMA L1 products through the usage of a pre-pro
 
 The __processing workflow__ is based on following algorithms:
 *	Geometric Corrections including registration to common reference & the stitching [4],
-*	Atmospheric Corrections by using SMAC [5] relying on auxiliary meteorological data,  
+*	Atmospheric Corrections by using SMAC [5] relying on auxiliary meteorological data with the following [Terms of Use](sen2like/sen2like/atmcor/smac) ,  
 or "Sen2Cor3" [11] as a first processing step
 *	Application of Spectral Band Adjustment Factor (SBAF) [2],
 *	Transformation to Nadir BRDF-normalized Reflectance (NBAR) [6],[7],
