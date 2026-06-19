@@ -114,3 +114,28 @@ class TestSmacCoefficientLoading(TestCase):
             self.assertTrue(coef_file.endswith("_1.dat"))
             coef = smac.coeff(coef_file)
             self._assert_loads_all_attrs(coef)
+
+    def test_l9_new_format_loads_all_reflective_bands(self):
+        """Landsat-9 uses the dedicated new-format file for every reflective band."""
+        product = _DummyLandsat8Product(mission="LANDSAT_9")
+        for band in ("B01", "B02", "B03", "B04", "B05", "B06", "B07"):
+            coef_file = get_smac_coefficients(product, band)
+            self.assertIsNotNone(coef_file, f"L9/{band}: no coefficient file found")
+            self.assertTrue(coef_file.endswith("Coef_LANDSAT9_CONTINENTAL.dat"))
+            self.assertNotIn("LANDSAT8", coef_file)
+            coef = smac.coeff(coef_file, band)
+            self._assert_loads_all_attrs(coef)
+
+    def test_l9_band_column_selection(self):
+        """The correct band column is read (locked to supplied L9 RED/SWIR1 values).
+
+        Guards specifically against reusing the Sentinel-2 column map, which would
+        read CIRRUS (column 5) for B06 instead of SWIR1 (column 6).
+        """
+        product = _DummyLandsat8Product(mission="LANDSAT_9")
+        coef_red = smac.coeff(get_smac_coefficients(product, "B04"), "B04")
+        self.assertAlmostEqual(coef_red.ah2o, -0.004026309, places=6)
+
+        coef_swir1 = smac.coeff(get_smac_coefficients(product, "B06"), "B06")
+        self.assertAlmostEqual(coef_swir1.ah2o, -0.0006886239, places=6)
+        self.assertNotEqual(coef_red.ah2o, coef_swir1.ah2o)

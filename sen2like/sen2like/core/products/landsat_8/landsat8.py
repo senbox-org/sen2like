@@ -80,10 +80,12 @@ class Landsat8Product(S2L_Product):
         return files
 
     def get_smac_filename(self, band):
-        name = self.mtl.mission.replace("_", "")  # LANDSAT8
-        # Temporal fix for LANDSAT9: Use Landsat8 coefficients
+        name = self.mtl.mission.replace("_", "")  # e.g. LANDSAT8 / LANDSAT9
+        # Landsat 9 has dedicated new-format coefficients (one file per platform,
+        # bands as columns); the band column is selected later in smac.coeff().
         if "LANDSAT9" in name:
-            name = name.replace("LANDSAT9", "LANDSAT8")
+            return "Coef_LANDSAT9_CONTINENTAL.dat"
+        # Landsat 8 still uses the legacy per-band coefficient files.
         return "Coef_{}_{}_1.dat".format(name, self.wavelength.get(band))
 
     @classmethod

@@ -38,6 +38,21 @@ _S2_BAND_COLUMN = {
     "B08": 7, "B8A": 8, "B09": 9, "B10": 10, "B11": 11, "B12": 12,
 }
 
+# Column index of each Landsat 8/9 band in the "new version" SMAC coefficient
+# files. Band order in the file is
+# COASTALAEROSOL, BLUE, GREEN, RED, NIR, CIRRUS, SWIR1, SWIR2, PAN.
+# Note this differs from the Sentinel-2 layout: CIRRUS (B09) sits at column 5,
+# so B06/B07/B08 are NOT where _S2_BAND_COLUMN would place them.
+_LANDSAT_BAND_COLUMN = {
+    "B01": 0, "B02": 1, "B03": 2, "B04": 3, "B05": 4,
+    "B09": 5,  # CIRRUS (not atmospherically corrected, mapped for completeness)
+    "B06": 6, "B07": 7, "B08": 8,
+}
+
+# Number of data columns -> band column map, used to tell the per-platform
+# new-format files apart (Sentinel-2 has 13 bands, Landsat 8/9 has 9).
+_BAND_COLUMN_BY_NCOLS = {13: _S2_BAND_COLUMN, 9: _LANDSAT_BAND_COLUMN}
+
 # Attribute read from each data row of the new-format files, in file order.
 # None marks a row that the legacy parser did not use (the 2nd value of the
 # old "taur" line). 'sr' is set equal to 'taur', as in the legacy parser.
@@ -147,11 +162,18 @@ class coeff:
     def _read_new_format(self, lines, band):
         """Read a "new version" SMAC coefficient file (one file per platform,
         bands as columns). The band column is selected from band."""
-        if band not in _S2_BAND_COLUMN:
+        # Skip all comment lines (files may carry several "#" header lines, e.g.
+        # a generator line plus a "Band order = ..." line), keep data rows.
+        rows = [line.split() for line in lines if line.strip() and not line.lstrip().startswith("#")]
+        # Select the band->column map from the number of columns: Sentinel-2
+        # files have 13 bands, Landsat 8/9 files have 9.
+        ncols = len(rows[0]) if rows else 0
+        column_map = _BAND_COLUMN_BY_NCOLS.get(ncols)
+        if column_map is None:
+            raise ValueError(f"Unexpected SMAC coefficient file: {ncols} band columns")
+        if band not in column_map:
             raise ValueError(f"Unknown band {band!r} for new-format SMAC coefficients")
-        col = _S2_BAND_COLUMN[band]
-        # Skip the comment header, keep non-empty data rows
-        rows = [line.split() for line in lines[1:] if line.strip()]
+        col = column_map[band]
         if len(rows) < len(_NEW_FORMAT_ROWS):
             raise ValueError(
                 f"Unexpected SMAC coefficient file: got {len(rows)} data rows, "
