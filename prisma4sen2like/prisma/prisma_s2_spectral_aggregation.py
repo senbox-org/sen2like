@@ -69,7 +69,7 @@ class SpectralAggregation:
         if os.path.exists(s2p_aggregation_coefficients_file):
             logger.info("Read all aggregation coefficients from numpy saved file")
 
-            npz_file = np.load(s2p_aggregation_coefficients_file, allow_pickle=True)
+            npz_file = np.load(s2p_aggregation_coefficients_file, allow_pickle=False)
 
             self._p_prisma_vnir = npz_file["p_prisma_vnir"]
             self._p_prisma_swir = npz_file["p_prisma_swir"]
